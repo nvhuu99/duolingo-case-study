@@ -1,11 +1,9 @@
 const { watch, series } = require('gulp');
 const { exec, spawn } = require('child_process');
 
-const buildDir = 'src/server';
-
 function goBuild(cb) {
   console.log("Building server...");
-  exec(`cd ${buildDir} && go build -gcflags "all=-N -l" -o ../../bin/server .`, (err) => {
+  exec(`cd "$APP_SRC" && go build -gcflags "all=-N -l" -o "$APP_DIR/bin/server" ./migrate.go`, (err) => {
     cb();
   });
 }
