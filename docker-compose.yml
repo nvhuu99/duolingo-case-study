@@ -1,0 +1,48 @@
+version: "3.9"
+
+x-server-context: &server-context
+  build:
+    context: .
+    dockerfile: ./dockerfile
+    args:
+      APP_DIR: /var/duolingo
+      APP_SRC: /var/duolingo/src
+
+x-server-volume: &server-volume
+  ./:/var/duolingo/
+
+services:
+  campaign-db:
+    image: mongo:8.0.4
+    container_name: campaign-db
+    command: ["--wiredTigerCacheSizeGB", "1.5"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root@1234
+    ports:
+      - 27077:27017
+    networks:
+      - campaign-storage
+    volumes:
+      - campaign-db:/data/db
+
+  superbowl-api:
+    <<: *server-context
+    container_name: superbowl-api
+    depends_on:
+      - campaign-db
+    environment:
+      SERVICE_SRC: /var/duolingo/src/superbowl-api
+    ports:
+      - 4001:4000
+    networks:
+      - campaign-storage
+    volumes:
+      - *server-volume
+
+networks:
+  campaign-storage:
+    driver: bridge
+
+volumes:
+  campaign-db:
