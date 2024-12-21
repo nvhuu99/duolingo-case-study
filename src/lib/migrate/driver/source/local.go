@@ -1,112 +1,81 @@
-// Implement the Source interface, this package is response for reading the database
+// Implement the Source interface, this package is responsible for reading the database
 // migration files and creating Migration objects. Before any read operation is requested
 // the migrations files content will be buffered and wait for read requests.
 //
 // Example usage:
 //
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	// set up
-// 	src := local.New(ctx, cancel, "database/migrations")
-// 		.SetBufferSize(128 * 1024)
-// 		.SetOperationTimeOut(30 * time.Second)
-// 		.SetMigrateType(local.MigrateTypeUp)
-// 	err := src.Open()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	// some error need to be catched (when buffering)
-// 	go func() {
-// 		<-ctx.Done()
-// 		if src.HasError() {
-// 			err := src.Error()
-// 		}
-// 	}()
-// 	// load all migrations
-// 	for src.HasNext() {
-// 		m, err := src.Next()
-// 		if err != nil {
-// 			cancel()
-// 			panic(err.Error())
-// 		}
-// 		// use the migrations ...
-// 	}
+//	ctx, cancel := context.WithCancel(context.Background())
+//	// set up
+//	src := local.New(ctx, cancel, "database/migrations")
+//		.SetBufferSize(128 * 1024)
+//		.SetMigrateType(local.MigrateTypeUp)
+//	err := src.Open(migrate.NilVersion)
+//	if err != nil {
+//		panic(err)
+//	}
+//	// some error need to be catched (when buffering)
+//	go func() {
+//		<-ctx.Done()
+//		if src.HasError() {
+//			err := src.Error()
+//		}
+//	}()
+//	// load all migrations
+//	for src.HasNext() {
+//		m, err := src.Next()
+//		if err != nil {
+//			cancel()
+//			panic(err.Error())
+//		}
+//		// use the migrations ...
+//	}
 package local
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
-	"time"
 
 	migrate "duolingo/lib/migrate"
 )
 
 const (
-	readWait             = 5 * time.Second
-	defaultTimeOut = 30 * time.Second
 	defaultMaxBufferSize = 64 * 1024
 	estimatedFileSize    = 2 * 1024
 )
 
+type SourceStatus string
+
 const (
-	NilVersion          string        = "-1"
-	MigrateUp           MigrateType   = "up"
-	MigrateRollback     MigrateType   = "rollback"
-	MigrateStatusOpened MigrateStatus = "opened"
-	MigrateStatusClosed MigrateStatus = "closed"
+	StatusOpened SourceStatus = "opened"
+	StatusClosed SourceStatus = "closed"
 )
-
-var (
-	ErrEmptyMigration = "nothing to migrate"
-	ErrNextMigration  = "can not load next migration for current version"
-	ErrFileNameFormat = func(name string) string {
-		return fmt.Sprintf(
-			"migration file format error. Example of a valid name 00001_create_user_table.json\nfilename:%v",
-			name,
-		)
-	}
-	ErrOperationTimeOut = func(op string) string {
-		return fmt.Sprintf(
-			"operation did not complete before timeout\noperation:%v",
-			op,
-		)
-	}
-
-)
-
-type MigrateType string
-
-type MigrateStatus string
 
 type LocalFile struct {
-	uri             string
-	ver             string
-	orderedVersions []string
-	files           map[string]string
-	migrateTye      MigrateType
-	verIdx          int
-	err             error
+	uri             string				// The migration files directory location  
+	orderedVersions []string			// Versions extracted from the migration files
+	files           map[string]string   // The migration file paths mapped by versions
+	migrateTye      migrate.MigrateType // The migration direction (up or rollback)
+	verIdx          int                 // The index to iterate over the migrations
+	err             error               // Buffer error that can be retrieve with Error()
 
-	ctx             context.Context
-	ctxCancel       context.CancelFunc
-	mu              sync.Mutex
-	status          MigrateStatus
-	migrationBuffer chan migrate.Migration
-	maxBufferSize   int64
-	buffered        int64
-	timeOut			time.Duration
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	mu        sync.Mutex
+
+	migrationBuffer chan migrate.Migration		
+	maxBufferSize   int64						// If reach max size, cease buffering and wait
+	buffered        int64						// The current buffer size
+	status          SourceStatus				// Stop buffering when status is closed
 }
 
-// All files inside the directory in the provided uri must be in the correct format
-func New(ctx context.Context, cancel context.CancelFunc, uri string, ver string) *LocalFile {
+func New(ctx context.Context, cancel context.CancelFunc, uri string) *LocalFile {
 	src := LocalFile{}
 	src.uri = uri
-	src.ver = ver
-	src.migrateTye = MigrateUp
+	src.migrateTye = migrate.MigrateUp
 	src.ctx = ctx
 	src.ctxCancel = cancel
 	// the estimated for the number of migration file that will be buffered
@@ -114,7 +83,6 @@ func New(ctx context.Context, cancel context.CancelFunc, uri string, ver string)
 	src.migrationBuffer = make(chan migrate.Migration, estFileNum)
 	src.maxBufferSize = defaultMaxBufferSize
 	src.buffered = 0
-	src.timeOut = defaultTimeOut
 	return &src
 }
 
@@ -130,104 +98,78 @@ func (src *LocalFile) SetBufferSize(size int64) *LocalFile {
 	return src
 }
 
+// Set migration direction (up or rollback).
 // You must called this function before calling Open() or the buffer will behave uncorrectly.
-func (src *LocalFile) SetMigrateType(direction MigrateType) *LocalFile {
+func (src *LocalFile) SetMigrateType(direction migrate.MigrateType) *LocalFile {
 	if len(src.orderedVersions) == 0 {
 		src.migrateTye = direction
 	}
 	return src
 }
 
-// You must called this function before calling Open() or the buffer will behave uncorrectly.
-func (src *LocalFile) SetOperationTimeOut(duration time.Duration) *LocalFile {
-	src.timeOut = duration
-	return src
-}
-
-// Read all migration files in the location according to the uri. Then start a goroutine to buffer the migration files
-func (src *LocalFile) Open() error {
-	done := make(chan any)
-	src.startTimeOut("Open()", done)
+// Read all migration files in the location according to the uri. 
+// Then start a goroutine to buffer the migration files
+//
+// Parameters:
+//   - ver: The current database version retrieved from the Database driver
+func (src *LocalFile) Open(ver string) error {
 	// try to open uri
 	dirEntry, err := os.ReadDir(src.uri)
 	if err != nil {
 		return err
 	}
-	if len(dirEntry) == 0 {
-		return errors.New(ErrEmptyMigration)
-	}
 	// list all files, store versions in ascending order
 	src.orderedVersions = make([]string, len(dirEntry))
 	src.files = make(map[string]string, len(dirEntry))
 	for i, entry := range dirEntry {
-		re, _ := regexp.Compile(`([^_]+)_(.*)(\.[a-z]+$)`)
+		re, _ := regexp.Compile(`([0-9]+)_(.*)(\.[a-z]+$)`)
 		parts := re.FindStringSubmatch(entry.Name())
 		if len(parts) < 4 {
-			return errors.New(ErrFileNameFormat(entry.Name()))
+			return errors.New(migrate.ErrFileNameFormat(entry.Name()))
 		}
 		src.orderedVersions[i] = parts[1]
 		src.files[parts[1]] = entry.Name()
-		if src.ver != NilVersion && parts[1] == src.ver {
-			src.verIdx = i
-		}
+	}
+	// set version index
+	src.setVersionIndex(ver)
+	if (src.migrateTye == migrate.MigrateUp && src.verIdx == len(src.orderedVersions)) ||
+		(src.migrateTye == migrate.MigrateRollback && src.verIdx < 0) {
+		return errors.New(migrate.ErrEmptyMigration)
 	}
 	// start buffering
 	go src.buffer()
 	// set status and finish
-	src.status = MigrateStatusOpened
-	done <- struct{}{}
+	src.status = StatusOpened
 
 	return nil
 }
 
-func (src *LocalFile) startTimeOut(name string, done chan any) {
-	var check bool
-	var shouldSetErr bool
-	var mu sync.Mutex 
-	// extend timeout slightly to ensure "done" is processed first
-	timeOut, cancel := context.WithTimeout(src.ctx, src.timeOut + time.Second)
-	go func() {
-		defer cancel() 
-		defer close(done)
-		for {
-			select {
-			case <-done:
-				mu.Lock()
-				check = true
-				mu.Unlock()
-				return
-			case <-src.ctx.Done():
-				src.Close()
-				return
-			case <-timeOut.Done():
-				mu.Lock()
-				if !check {
-					shouldSetErr = true
-				}
-				mu.Unlock()
-				if shouldSetErr {
-					src.setErr(errors.New(ErrOperationTimeOut(name)))
-					src.terminate()
-				}
-				return
+func (src *LocalFile) setVersionIndex(version string) {
+	for idx, ver := range src.orderedVersions {
+		if version == ver {
+			if src.migrateTye == migrate.MigrateUp {
+				src.verIdx = idx + 1
+			} else {
+				src.verIdx = idx - 1
 			}
+			return
 		}
-	}()
+	}
 }
 
 func (src *LocalFile) buffer() {
-	// wrap the block for easy mutex control
-	buffering := func() {
+	idx := src.verIdx
+	// buffer one migration file per call
+	// return false when all files have been buffered
+	buffering := func() bool {
 		src.mu.Lock()
 		defer func() {
 			src.mu.Unlock()
-			// handle panic while loading the migrations
 			if r := recover(); r != nil {
 				src.setErr(r.(error))
-				src.terminate()
+				src.Close()
 			}
 		}()
-		idx := src.verIdx
 		v := src.orderedVersions[idx]
 		f := src.files[v]
 		path := filepath.Join(src.uri, f)
@@ -237,49 +179,50 @@ func (src *LocalFile) buffer() {
 			panic(err)
 		}
 		if src.buffered+info.Size() > src.maxBufferSize {
-			return
+			return true
 		}
 		// read the file and create a Migration
 		body, err := os.ReadFile(path)
 		if err != nil {
 			panic(err)
 		}
-		migr := createMigration(f)
-		migr.Body = body
+		migr := createMigration(f, body)
 		// push migration to the buffer
 		src.migrationBuffer <- *migr
-		// keep tracking on the buffer size and buffer index
-		if src.migrateTye == MigrateUp {
-			src.verIdx++
-		} else {
-			src.verIdx--
-		}
 		src.buffered += info.Size()
+		// track index
+		if src.migrateTye == migrate.MigrateUp {
+			idx++
+		} else {
+			idx--
+		}
+		if idx < 0 || idx == len(src.orderedVersions) {
+			return false
+		}
+		
+		return true
 	}
 	// start buffering
 	for {
 		select {
 		case <-src.ctx.Done():
+			src.Close()
 			return
 		default:
-			if !src.HasNext() {
+			if ! buffering() {
 				return
 			}
-			done := make(chan any)
-			src.startTimeOut("internal: buffer()", done)
-			buffering()
-			done <- struct{}{}
 		}
 	}
 }
 
-// Init the Migration object by extracting version, and name from the file
-func createMigration(filename string) *migrate.Migration {
+func createMigration(filename string, body []byte) *migrate.Migration {
 	re, _ := regexp.Compile(`([^_]+)_(.*)(\.[a-z]+$)`)
 	parts := re.FindStringSubmatch(filename)
 	migr := migrate.Migration{
 		Version: parts[1],
 		Name:    parts[2],
+		Body: 	 body,
 	}
 	return &migr
 }
@@ -306,13 +249,13 @@ func (src *LocalFile) Count() int {
 func (src *LocalFile) HasNext() bool {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if len(src.orderedVersions) == 0 || src.status == MigrateStatusClosed || src.err != nil {
+	if len(src.orderedVersions) == 0 || src.status == StatusClosed || src.err != nil {
 		return false
 	}
-	lastVer := len(src.orderedVersions) - 1
-	if src.verIdx < lastVer {
+	if src.verIdx < len(src.orderedVersions) {
 		return true
 	}
+
 	return false
 }
 
@@ -320,10 +263,10 @@ func (src *LocalFile) HasNext() bool {
 func (src *LocalFile) HasPrev() bool {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if len(src.orderedVersions) == 0 || src.status == MigrateStatusClosed || src.err != nil {
+	if len(src.orderedVersions) == 0 || src.status == StatusClosed || src.err != nil {
 		return false
 	}
-	if src.verIdx > 0 {
+	if src.verIdx >= 0 {
 		return true
 	}
 	return false
@@ -332,37 +275,44 @@ func (src *LocalFile) HasPrev() bool {
 // Return a Migration to migrate up the database
 func (src *LocalFile) Next() (*migrate.Migration, error) {
 	if !src.HasNext() {
-		return nil, errors.New(ErrNextMigration)
+		return nil, errors.New(migrate.ErrNextMigration)
 	}
-	migrate := <-src.migrationBuffer
-	src.mu.Lock()
-	src.buffered -= int64(len(migrate.Body))
-	src.mu.Unlock()
-	go src.buffer()
 
-	return &migrate, nil
+	migr := <-src.migrationBuffer
+
+	src.mu.Lock()
+	defer src.mu.Unlock()
+
+	src.buffered -= int64(len(migr.Body))
+	src.verIdx++
+
+	return &migr, nil
 }
 
 // Return a Migration to rollback the database
-// TODO
 func (src *LocalFile) Prev() (*migrate.Migration, error) {
-	return nil, nil
+	if !src.HasPrev() {
+		return nil, errors.New(migrate.ErrPreviousMigration)
+	}
+
+	migr := <-src.migrationBuffer
+
+	src.mu.Lock()
+	defer src.mu.Unlock()
+
+	src.buffered -= int64(len(migr.Body))
+	src.verIdx--
+
+	return &migr, nil
 }
 
 func (src *LocalFile) Close() {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if src.status != MigrateStatusClosed {
-		src.status = MigrateStatusClosed
+	if src.status != StatusClosed {
+		src.status = StatusClosed
 		close(src.migrationBuffer)
 	}
-}
-
-// Call context cancel when a unhandled error occurs and needs to be handled
-// by the parent goroutine. The error is expected to occur when trying to buffer.
-func (src *LocalFile) terminate() {
-	src.ctxCancel()
-	src.Close()
 }
 
 // Determine if there any unhanled error
@@ -375,7 +325,6 @@ func (src *LocalFile) Error() error {
 	return src.err
 }
 
-// Set unhandled error
 func (src *LocalFile) setErr(e error) {
 	src.mu.Lock()
 	defer src.mu.Unlock()
