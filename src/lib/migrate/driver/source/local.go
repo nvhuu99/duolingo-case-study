@@ -34,6 +34,7 @@ package local
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,6 +53,18 @@ type SourceStatus string
 const (
 	StatusOpened SourceStatus = "opened"
 	StatusClosed SourceStatus = "closed"
+)
+
+var (
+	ErrEmptyMigration    = "LocalFile: nothing to migrate"
+	ErrNextMigration     = "LocalFile: can not load next migration for current version. You should call HasNext() before invoke Next()"
+	ErrPreviousMigration = "LocalFile: can not load previous migration for current version. You should call HasPrev() before invoke Prev()"
+	ErrFileNameFormat    = func(name string) string {
+		return fmt.Sprintf(
+			"LocalFile: migration file format error. Filename: %v. Example of a valid name 00001_create_user_table.json",
+			name,
+		)
+	}
 )
 
 type LocalFile struct {
@@ -125,7 +138,7 @@ func (src *LocalFile) Open(ver string) error {
 		re, _ := regexp.Compile(`([0-9]+)_(.*)(\.[a-z]+$)`)
 		parts := re.FindStringSubmatch(entry.Name())
 		if len(parts) < 4 {
-			return errors.New(migrate.ErrFileNameFormat(entry.Name()))
+			return errors.New(ErrFileNameFormat(entry.Name()))
 		}
 		src.orderedVersions[i] = parts[1]
 		src.files[parts[1]] = entry.Name()
@@ -134,7 +147,7 @@ func (src *LocalFile) Open(ver string) error {
 	src.setVersionIndex(ver)
 	if (src.migrateTye == migrate.MigrateUp && src.verIdx == len(src.orderedVersions)) ||
 		(src.migrateTye == migrate.MigrateRollback && src.verIdx < 0) {
-		return errors.New(migrate.ErrEmptyMigration)
+		return errors.New(ErrEmptyMigration)
 	}
 	// start buffering
 	go src.buffer()
@@ -221,7 +234,7 @@ func createMigration(filename string, body []byte) *migrate.Migration {
 	parts := re.FindStringSubmatch(filename)
 	migr := migrate.Migration{
 		Version: parts[1],
-		Name:    parts[2],
+		Name:    filename,
 		Body: 	 body,
 	}
 	return &migr
@@ -275,7 +288,7 @@ func (src *LocalFile) HasPrev() bool {
 // Return a Migration to migrate up the database
 func (src *LocalFile) Next() (*migrate.Migration, error) {
 	if !src.HasNext() {
-		return nil, errors.New(migrate.ErrNextMigration)
+		return nil, errors.New(ErrNextMigration)
 	}
 
 	migr := <-src.migrationBuffer
@@ -292,7 +305,7 @@ func (src *LocalFile) Next() (*migrate.Migration, error) {
 // Return a Migration to rollback the database
 func (src *LocalFile) Prev() (*migrate.Migration, error) {
 	if !src.HasPrev() {
-		return nil, errors.New(migrate.ErrPreviousMigration)
+		return nil, errors.New(ErrPreviousMigration)
 	}
 
 	migr := <-src.migrationBuffer
