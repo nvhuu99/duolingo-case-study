@@ -9,7 +9,6 @@ const (
 	MigrateUp       MigrateType = "up"
 	MigrateRollback MigrateType = "rollback"
 
-	MigrateRunning  MigrateStatus = "running"
 	MigrateFinished MigrateStatus = "finished"
 	MigrateFailed   MigrateStatus = "failed"
 )
