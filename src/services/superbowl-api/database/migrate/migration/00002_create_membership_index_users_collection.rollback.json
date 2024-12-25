@@ -1,0 +1,4 @@
+{
+    "dropIndexes": "users",
+    "index": "membership_index"
+}
