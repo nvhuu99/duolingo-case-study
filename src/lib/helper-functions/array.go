@@ -5,3 +5,13 @@ func ReverseSlice[T any](arr []T) {
 		arr[i], arr[j] = arr[j], arr[i]
 	}
 }
+
+func InArray[T comparable](value T, arr []T) bool {
+	for _, arrItem := range arr {
+		if value == arrItem {
+			return true
+		}
+	}
+
+	return false
+}
