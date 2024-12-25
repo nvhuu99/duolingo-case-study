@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrMigrationFailure = "Migrate: failed"
-	UpToDateMessage = "Migrate: already up to date"
-	ErrRollbackBatchEmpty = "Migrate: nothing to rollback"
-	CompleteMessage = "Migrate: completed"
-	StartMigrationMessage = "Migrate: running"
+	errMigrationFailure = "Migrate: failed"
+	upToDateMessage = "Migrate: already up to date"
+	errRollbackBatchEmpty = "Migrate: nothing to rollback"
+	completeMessage = "Migrate: completed"
+	startMigrationMessage = "Migrate: running"
 )
 
 type Migrate struct {
@@ -54,11 +54,11 @@ func (migr *Migrate) Start() {
 	defer func() {
 		if migr.err != nil {
 			migr.cancel()
-			log.Println(ErrMigrationFailure)
+			log.Println(errMigrationFailure)
 			log.Println(migr.err.Error())
 		} else {
 			migr.src.Close()
-			log.Println(CompleteMessage)
+			log.Println(completeMessage)
 		}
 	}()
 
@@ -80,13 +80,13 @@ func (migr *Migrate) Start() {
 	if migr.migrType == MigrateRollback {
 		batch = migr.makeBatchRollBack(lastBatch)
 		if len(batch) == 0 {
-			migr.err = errors.New(ErrRollbackBatchEmpty)
+			migr.err = errors.New(errRollbackBatchEmpty)
 			return
 		}
 	} else {
 		batch = migr.makeBatchMigrateUp(lastBatch)
 		if len(batch) == 0 {
-			log.Println(UpToDateMessage)
+			log.Println(upToDateMessage)
 			return
 		}
 	}
@@ -94,7 +94,7 @@ func (migr *Migrate) Start() {
 	migr.src.Open(batch)
 
 	// run migration
-	log.Println(StartMigrationMessage)
+	log.Println(startMigrationMessage)
 	for {
 		select {
 		case <-migr.ctx.Done():

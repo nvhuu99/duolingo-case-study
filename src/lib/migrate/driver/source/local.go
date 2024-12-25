@@ -16,73 +16,82 @@ import (
 )
 
 const (
-	defaultMaxBufferSize = 64 * 1024
-	estimatedFileSize    = 2 * 1024
+	defaultMaxBufferSize = 64 * 1024 // Default buffer size for migration files (64 KB).
+	estimatedFileSize    = 2 * 1024  // Estimated average size of a migration file (2 KB).
 )
 
-type SourceStatus string
+type sourceStatus string
 
 const (
-	StatusOpened SourceStatus = "opened"
-	StatusClosed SourceStatus = "closed"
+	statusOpened sourceStatus = "opened" // Source is actively buffering migration files.
+	statusClosed sourceStatus = "closed" // Source has been closed; buffering has stopped.
 )
 
 var (
-	ErrNextMigration = "LocalFile: can not load next migration. You should call HasNext() before invoke Next()"
-	ErrFileNameFormat    = func(name string) string {
+	errNextMigration  = "LocalFile: Cannot load the next migration. Ensure HasNext() is called before invoking Next()."
+	errFileNameFormat = func(name string) string {
 		return fmt.Sprintf(
-			"LocalFile: migration file format error. Filename: %v. Example of a valid name 00001_create_user_table.json",
+			"LocalFile: Invalid migration file name format. Filename: %v. Expected format: 00001_create_user_table.json.",
 			name,
 		)
 	}
 )
 
+// LocalFile implements the Source interface, managing database migration files from a local directory.
+// Files are pre-buffered for efficient processing based on a configurable buffer size.
 type LocalFile struct {
-	uri     string       // The migration files directory location
-	err     error        // Buffer error that can be retrieve with Error()
-	status  SourceStatus // Stop buffering when status is closed
-	files   []string     // All migration file names
-	batch	[]string	 
-	fileIdx int          // Index for files iteration
+	uri            string       // Directory location for migration files.
+	err            error        // Tracks the most recent error.
+	status         sourceStatus // Tracks the current status of the source (opened/closed).
+	files          []string     // List of all migration file names in the directory.
+	batch          []string     // Current batch of migration files to process.
+	fileIdx        int          // Index for iterating through the batch.
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	mu        sync.Mutex
+	ctx            context.Context       // Context for managing goroutine lifecycle.
+	ctxCancel      context.CancelFunc    // Function to cancel the context.
+	mu             sync.Mutex            // Mutex for safe concurrent access.
 
-	migrationBuffer chan migrate.Migration
-	maxBufferSize   int64 // If reach max size, cease buffering and wait
-	buffered        int64 // The current buffer size
+	migrationBuffer chan migrate.Migration // Channel for buffered Migration objects.
+	maxBufferSize   int64                  // Maximum size of the buffer.
+	buffered        int64                  // Current size of the buffered data.
 }
 
-func New(ctx context.Context, cancel context.CancelFunc, uri string) (*LocalFile, error) {
+
+// New creates and initializes a new LocalFile instance.
+func New(ctx context.Context, cancel context.CancelFunc) *LocalFile {
 	src := LocalFile{}
-	src.uri = uri
 	src.ctx = ctx
 	src.ctxCancel = cancel
-	// the estimated for the number of migration file that will be buffered
+
+	// Estimate the initial buffer capacity based on default buffer size and file size.
 	estFileNum := defaultMaxBufferSize / estimatedFileSize
 	src.migrationBuffer = make(chan migrate.Migration, estFileNum)
 	src.maxBufferSize = defaultMaxBufferSize
 	src.buffered = 0
-	// try to open uri
+
+	return &src
+}
+
+// UseUri sets the URI (directory path) for migration files and lists all available files.
+func (src *LocalFile) UseUri(uri string) error {
+	src.uri = uri
 	dirEntry, err := os.ReadDir(src.uri)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// list all files
+
 	src.files = make([]string, len(dirEntry))
 	for i, entry := range dirEntry {
 		src.files[i] = entry.Name()
 	}
 
-	return &src, nil
+	return nil
 }
 
-// Migration files will be pre-loaded based on the buffer size, the default is 64KB which
-// is roughly enough for 30 migration files in 2KB. You must called this function before
-// calling Open() or it will not change the buffer size.
+// SetBufferSize adjusts the buffer size for preloading migration files.
+// This must be called before Open() to take effect.
 func (src *LocalFile) SetBufferSize(size int64) *LocalFile {
-	if src.status != StatusOpened {
+	if src.status != statusOpened {
 		src.maxBufferSize = size
 		estFileNum := size / estimatedFileSize
 		src.migrationBuffer = make(chan migrate.Migration, estFileNum)
@@ -90,76 +99,74 @@ func (src *LocalFile) SetBufferSize(size int64) *LocalFile {
 	return src
 }
 
-// Start a goroutine to buffer the migration files
-//
-// Parameters:
-//   - batch: list of migration file names to read
+// Open starts buffering migration files from the given batch in a separate goroutine.
+// A batch is a ordered list of files to be buffered
 func (src *LocalFile) Open(batch []string) error {
 	src.batch = batch
 	go src.buffer()
-	src.status = StatusOpened
-
+	src.status = statusOpened
 	return nil
 }
 
+// List returns the names of all available migration files.
 func (src *LocalFile) List() []string {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-
 	return src.files
 }
 
+// HasNext checks if there are more migration files to process in the batch.
 func (src *LocalFile) HasNext() bool {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if len(src.batch) == 0 || src.status == StatusClosed || src.err != nil {
+
+	if len(src.batch) == 0 || src.status == statusClosed || src.err != nil {
 		return false
 	}
-	if src.fileIdx < len(src.batch) {
-		return true
-	}
-
-	return false
+	return src.fileIdx < len(src.batch)
 }
 
+// Next retrieves the next migration file from the buffer
 func (src *LocalFile) Next() (*migrate.Migration, error) {
 	if !src.HasNext() {
-		return nil, errors.New(ErrNextMigration)
+		return nil, errors.New(errNextMigration)
 	}
 
 	migr := <-src.migrationBuffer
-
 	src.mu.Lock()
 	defer src.mu.Unlock()
 
 	src.buffered -= int64(len(migr.Body))
 	src.fileIdx++
-
+	
 	return &migr, nil
 }
 
+// Close stops the buffering operation and closes the migration buffer.
 func (src *LocalFile) Close() {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if src.status != StatusClosed {
-		src.status = StatusClosed
+	if src.status != statusClosed {
+		src.status = statusClosed
 		close(src.migrationBuffer)
 	}
 }
 
-// Determine if there any unhanled error
+// HasError checks if there is an unhandled error in the source.
 func (src *LocalFile) HasError() bool {
 	return src.err != nil
 }
 
-// Return the unhandled error
+// Error returns the most recent unhandled error.
 func (src *LocalFile) Error() error {
 	return src.err
 }
 
+// buffer is a goroutine function for preloading migration files into the buffer.
 func (src *LocalFile) buffer() {
 	idx := 0
-	// buffer one migration file per call
+
+	// buffering loads one file per call, handling errors and context cancellation
 	// return false when all files have been buffered
 	buffering := func() bool {
 		src.mu.Lock()
@@ -194,7 +201,6 @@ func (src *LocalFile) buffer() {
 		// push migration to the buffer
 		src.migrationBuffer <- *migr
 		src.buffered += info.Size()
-		// track index
 		idx++
 		
 		return idx != len(src.batch)
@@ -218,7 +224,7 @@ func createMigration(fileName string, body []byte) (*migrate.Migration, error) {
 	parts := re.FindStringSubmatch(fileName)
 
 	if len(parts) < 4 {
-		return nil, errors.New(ErrFileNameFormat(fileName))
+		return nil, errors.New(errFileNameFormat(fileName))
 	}
 
 	migr := migrate.Migration{

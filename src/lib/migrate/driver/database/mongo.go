@@ -8,6 +8,7 @@ import (
 	"log"
 	"strconv"
 	"time"
+	"net/url"
 
 	"go.mongodb.org/mongo-driver/bson"
 	mongoDb "go.mongodb.org/mongo-driver/mongo"
@@ -20,35 +21,54 @@ const (
 )
 
 var (
-	ErrPrepareDatabse     = "Mongo: failed to create \"migrations\" table"
-	ErrInvalidJsonCommand = "Mongo: failed to parse json command"
+	errInvalidJsonCommand = "Mongo: failed to parse json command"
 )
 
 type Mongo struct {
 	ctx      context.Context
-	conStr   string
+	uri   string
 	database string
 	batchNumber int
 	timeOut time.Duration
 }
 
-func New(ctx context.Context, conStr string, database string) *Mongo {
+func New(ctx context.Context) *Mongo {
 	driver := Mongo{}
 	driver.ctx = ctx
 	driver.timeOut = defaultTimeOut
-	driver.conStr = conStr
-	driver.database = database
 
 	return &driver
 }
 
-func (driver *Mongo) SetOperationTimeOut(duration time.Duration) *Mongo {
+func (driver *Mongo) SetConnectionString(uri string) migrate.Database {
+	driver.uri = uri
+	return driver
+}
+
+func (driver *Mongo) SetDatabase(database string) migrate.Database {
+	driver.database = database
+	return driver
+}
+
+func (driver *Mongo) SetConnection(host string, port string, usr string, pwd string) migrate.Database {
+	driver.uri = fmt.Sprintf(
+		"mongodb://%v:%v@%v:%v/", 
+		url.QueryEscape(usr), 
+		url.QueryEscape(pwd),
+		host,
+		port, 
+	)
+	return driver
+}
+
+func (driver *Mongo) SetOperationTimeOut(duration time.Duration) migrate.Database {
 	driver.timeOut = duration
 	return driver
 }
 
+// PrepareDatabase initializes the "migrations" collection and retrieves the last batch number
 func (driver *Mongo) PrepareDatabase() error {
-	// create migrations collection with strict schema validation
+	// Check if the "migrations" collection exists
 	listResult, err := driver.executeCommand(`{
 		"listCollections": 1,
 		"filter": { "name": "migrations" },
@@ -57,6 +77,7 @@ func (driver *Mongo) PrepareDatabase() error {
 	if err != nil {
 		return err
 	}
+	// Create the "migrations" collection if it doesn't exist
 	if len(listResult) == 0 {
 		createSchema := `{
 			"create": "migrations",
@@ -86,7 +107,7 @@ func (driver *Mongo) PrepareDatabase() error {
 
 		log.Println("Mongo: \"migrations\" collection created")
 	}
-	// get last batch number
+	// Retrieve the last batch number from the "migrations" collection
 	var lastBatchNum int
 	client, err := driver.connect()
 	defer client.Disconnect(driver.ctx)
@@ -114,7 +135,8 @@ func (driver *Mongo) PrepareDatabase() error {
 		result.Decode(&migr)
 		lastBatchNum, _ = strconv.Atoi(migr["batchNumber"].(string))
 	}
-	// set next batch number
+
+	// Set the next batch number.
 	driver.batchNumber = lastBatchNum + 1
 
 	return nil
@@ -124,6 +146,7 @@ func (driver *Mongo) BatchNumber() int {
 	return driver.batchNumber
 }
 
+// Retrieves the last batch of migrations from the "migrations" collection.
 func (driver *Mongo) LastBatch() ([]migrate.Migration, error) {
 	client, err := driver.connect()
 	if err != nil {
@@ -210,6 +233,7 @@ func (driver *Mongo) DeleteMigrationRecord(migr *migrate.Migration) error {
 	return nil
 }
 
+// Runs a JSON-formatted MongoDB command.
 func (driver *Mongo) executeCommand(jsonCmd string) (bson.A, error) {
 	client, err := driver.connect()
 	if err != nil {
@@ -220,7 +244,7 @@ func (driver *Mongo) executeCommand(jsonCmd string) (bson.A, error) {
 	var cmd bson.D
 	err = bson.UnmarshalExtJSON([]byte(jsonCmd), true, &cmd)
 	if err != nil {
-		return nil, errors.New(ErrInvalidJsonCommand)
+		return nil, errors.New(errInvalidJsonCommand)
 	}
 	// execute
 	var result bson.M
@@ -242,7 +266,7 @@ func (driver *Mongo) connect() (*mongoDb.Client, error) {
 	opts := options.Client()
 	opts.SetConnectTimeout(connectionTimeOut)
 	opts.SetSocketTimeout(driver.timeOut)
-	opts.ApplyURI(driver.conStr)
+	opts.ApplyURI(driver.uri)
 
 	client, err := mongoDb.Connect(driver.ctx, opts)
 
