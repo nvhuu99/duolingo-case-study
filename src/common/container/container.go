@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"duolingo/lib/config"
 	"duolingo/lib/migrate"
 	mongo "duolingo/lib/migrate/driver/database"
 	local "duolingo/lib/migrate/driver/source"
@@ -10,6 +11,7 @@ import (
 var (
 	sourceContainer = make(map[string]migrate.Source)
 	databaseContainer = make(map[string]migrate.Database)
+	readerContainer = make(map[string]config.ConfigReader)
 )
 
 func MakeSource(name string, ctx context.Context, cancel context.CancelFunc) migrate.Source {
@@ -34,4 +36,16 @@ func MakeDatabasae(name string, ctx context.Context, cancel context.CancelFunc) 
 		}
 	}
 	return databaseContainer[name]
+}
+
+func MakeConfigReader(name string, rootDir string) config.ConfigReader {
+	if _, exists := readerContainer[name]; !exists {
+		switch name {
+		case "json":
+			readerContainer[name] = config.NewJsonReader(rootDir)
+		default:
+			return nil
+		}
+	}
+	return readerContainer[name]
 }

@@ -1,27 +1,34 @@
 package main
 
 import (
+	"duolingo/common"
+	"duolingo/services/superbowl-api/bootstrap"
 	"flag"
 	"log"
 	"os/exec"
-	"duolingo/services/superbowl-api/common"
 )
 
 func main() {
-	flag.Parse()
+	bootstrap.Run()
+
+	config := common.Config
 	file := common.Dir("..","..", "command", "migrate", "migrate.go")
+	
+	flag.Parse()
+	
 	cmd := exec.Command(
 		"go", "run", file, 
-		"--db", common.Config().Get("database.driver", ""),
-		"--db-name", common.Config().Get("database.name", ""),
-		"--host", common.Config().Get("database.host", ""),
-		"--port", common.Config().Get("database.port", ""),
-		"--user", common.Config().Get("database.user", ""),
-		"--pwd", common.Config().Get("database.password", ""),
-		"--src", common.Config().Get("database.migration.source", ""),
-		"--src-uri", common.Config().Get("database.migration.uri", ""),
+		"--db", config.Get("database.driver", ""),
+		"--db-name", config.Get("database.name", ""),
+		"--host", config.Get("database.host", ""),
+		"--port", config.Get("database.port", ""),
+		"--user", config.Get("database.user", ""),
+		"--pwd", config.Get("database.password", ""),
+		"--src", config.Get("database.migration.source", ""),
+		"--src-uri", config.Get("database.migration.uri", ""),
 		flag.Arg(0),
-	)  
+	)
+	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Println(err)

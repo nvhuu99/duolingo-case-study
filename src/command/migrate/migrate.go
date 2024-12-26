@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
+	"duolingo/common/container"
 	"duolingo/lib/helper-functions"
 	"duolingo/lib/migrate"
-	"duolingo/lib/migrate/container"
 )
 
 const (
