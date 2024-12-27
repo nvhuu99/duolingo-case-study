@@ -25,20 +25,36 @@ services:
       - campaign-storage
     volumes:
       - campaign-db:/data/db
+  
+  message-queue:
+    image: rabbitmq:3-management
+    container_name: message-queue
+    hostname: message-queue # Explicitly set the hostname
+    ports:
+      - "5673:5672"  # RabbitMQ messaging port
+      - "15673:15672" # RabbitMQ management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: root@1234
+    volumes:
+      - message-queue-data:/var/lib/rabbitmq
 
-  superbowl-api:
+  message-api:
     <<: *server-context
-    container_name: superbowl-api
+    container_name: message-api
     depends_on:
       - campaign-db
+      - message-queue
+      # - noti-queue
     environment:
-      SERVICE_SRC: /var/duolingo/src/superbowl-api
+      SERVICE_SRC: /var/duolingo/src/message-api
     ports:
-      - 4001:4000
+      - 8001:8000 # api port
+      - 4001:4000 # dlv debugger port
     networks:
       - campaign-storage
     volumes:
-      - *server-volume
+      - *server-volume 
 
 networks:
   campaign-storage:
@@ -46,3 +62,5 @@ networks:
 
 volumes:
   campaign-db:
+  message-queue-data:
+  # noti-queue-data:
