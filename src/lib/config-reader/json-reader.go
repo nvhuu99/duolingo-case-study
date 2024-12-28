@@ -50,8 +50,8 @@ func (reader *JsonReader) Get(path string, val string) string {
 // If the path does not exist or the value is not an integer, it returns the provided default value.
 func (reader *JsonReader) GetInt(path string, val int) int {
 	if readResult, err := reader.read(path); err == nil {
-		if converted, ok := readResult.(int); ok {
-			return converted
+		if converted, ok := readResult.(float64); ok {
+			return int(converted)
 		}
 	}
 	return val
