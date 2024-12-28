@@ -1,31 +1,43 @@
 package common
 
 import (
+	"context"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"duolingo/common/container"
-	"duolingo/lib/config"
+	sv "duolingo/lib/service-container"
+	"duolingo/lib/config-reader"
 )
 
 var (
-	serviceRootDir string // Root directory of the service.
-
-	Config config.ConfigReader
+	serviceRootDir string
+	serviceContext context.Context
+	serviceContextCancel context.CancelFunc
 )
 
-func setServiceRoot() {
-	_, filename, _, ok := runtime.Caller(2)
-	if ok {
-		serviceBootstrapDir := filepath.Dir(filename)
-		serviceRootDir = filepath.Dir(serviceBootstrapDir)
-	}
+func SetupService() {
+	// Set service root
+	_, filename, _, _ := runtime.Caller(2)
+	serviceBootstrapDir := filepath.Dir(filename)
+	serviceRootDir = filepath.Dir(serviceBootstrapDir)
+	
+	// Set service context
+	serviceContext, serviceContextCancel = context.WithCancel(context.Background())
+	
+	// Services binding
+	sv.Container().BindSingleton("config", func() any {
+		return config.NewJsonReader(Dir("config"))
+	})
 }
 
-func SetupService() {
-	setServiceRoot()
-	Config = container.MakeConfigReader("json", Dir("config"))
+func ConfigReader() config.ConfigReader {
+	conf, _ := sv.Resolve("config").(config.ConfigReader)
+	return conf
+}
+
+func ServiceContext() (context.Context, context.CancelFunc) {
+	return serviceContext, serviceContextCancel
 }
 
 // Dir constructs an absolute path by appending the provided parts to the service's root directory.
