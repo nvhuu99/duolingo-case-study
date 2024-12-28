@@ -31,8 +31,8 @@ services:
     container_name: message-queue
     hostname: message-queue # Explicitly set the hostname
     ports:
-      - "5673:5672"  # RabbitMQ messaging port
-      - "15673:15672" # RabbitMQ management UI port
+      - "5672:5672"  # RabbitMQ messaging port
+      - "15672:15672" # RabbitMQ management UI port
     environment:
       RABBITMQ_DEFAULT_USER: root
       RABBITMQ_DEFAULT_PASS: root@1234
