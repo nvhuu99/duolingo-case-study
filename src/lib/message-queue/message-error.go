@@ -1,4 +1,4 @@
-package topicQueue
+package messagequeue
 
 import "fmt"
 
