@@ -24,14 +24,16 @@ func Container() *ServiceContainer {
 	return svContainer
 }
 
-func (container *ServiceContainer) Bind(name string, closure func() any) {
+func Bind(name string, closure func() any) {
+	container := Container()
 	container.bindings[name] = binding{
 		singleton: false,
 		closure: closure,
 	}
 }
 
-func (container *ServiceContainer) BindSingleton(name string, closure func() any) {
+func BindSingleton(name string, closure func() any) {
+	container := Container()
 	container.bindings[name] = binding{
 		singleton: true,
 		closure: closure,

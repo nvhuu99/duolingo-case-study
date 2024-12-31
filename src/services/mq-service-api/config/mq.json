@@ -1,0 +1,16 @@
+{
+    "superbowl": {
+        "driver": "rabbitmq",
+        "topic": "superbowl",
+        "method": "queueFanout",
+        "numOfQueue": 3,
+        "queueConsumerLimit": 1
+    },
+    "userNoti": {
+        "driver": "rabbitmq",
+        "topic": "userNoti",
+        "method": "queueDispatch",
+        "numOfQueue": 3,
+        "queueConsumerLimit": 1
+    }
+}

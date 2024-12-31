@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"strings"
 
-	sv "duolingo/lib/service-container"
+	"duolingo/lib/service-container"
 	"duolingo/lib/config-reader"
 )
 
@@ -26,14 +26,13 @@ func SetupService() {
 	serviceContext, serviceContextCancel = context.WithCancel(context.Background())
 	
 	// Services binding
-	sv.Container().BindSingleton("config", func() any {
+	container.BindSingleton("config", func() any {
 		return config.NewJsonReader(Dir("config"))
 	})
-}
-
-func ConfigReader() config.ConfigReader {
-	conf, _ := sv.Resolve("config").(config.ConfigReader)
-	return conf
+	
+	container.BindSingleton("config.infra", func() any {
+		return config.NewJsonReader(Dir("..", "..", "infra", "config"))
+	})
 }
 
 func ServiceContext() (context.Context, context.CancelFunc) {
