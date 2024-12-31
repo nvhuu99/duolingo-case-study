@@ -1,9 +1,0 @@
-{
-    "createIndexes": "users",
-    "indexes": [
-        {
-            "key": { "membership": 1 },
-            "name": "membership_index"
-        } 
-    ]
-}

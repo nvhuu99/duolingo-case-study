@@ -1,0 +1,34 @@
+{
+    "create": "campaign_users",
+    "validator": {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": [
+                "campaign",
+                "lastname",
+                "firstname",
+                "device_token"
+            ],
+            "properties": {
+                "campaign": {
+                    "bsonType": "string",
+                    "maxLength": 100
+                },
+                "lastname": {
+                    "bsonType": "string",
+                    "maxLength": 100
+                },
+                "firstname": {
+                    "bsonType": "string",
+                    "maxLength": 100
+                },
+                "device_token": {
+                    "bsonType": "string",
+                    "maxLength": 255
+                }
+            }
+        }
+    },
+    "validationAction": "error",
+    "validationLevel": "strict"
+}

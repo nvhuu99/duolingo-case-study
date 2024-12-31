@@ -1,0 +1,26 @@
+{
+	"campaign": {
+		"driver": "mongo",
+		"name": "campaign",
+		"host": "localhost",
+		"port": "27077",
+		"user": "root",
+		"password": "root@1234",
+		"migration": {
+			"source": "local",
+			"uri": "../../infra/database/campaign-db/migration"
+		}
+	},
+	"duolingo": {
+		"driver": "mysql",
+		"name": "duolingo",
+		"host": "localhost",
+		"port": "3366",
+		"user": "root",
+		"password": "root@1234",
+		"migration": {
+			"source": "local",
+			"uri": "../../infra/database/duolingo-db/migration"
+		}
+	}
+}

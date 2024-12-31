@@ -4,18 +4,38 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
 
-	"duolingo/common/container"
 	"duolingo/lib/helper-functions"
 	"duolingo/lib/migrate"
+	mongo "duolingo/lib/migrate/driver/database"
+	local "duolingo/lib/migrate/driver/source"
+	container "duolingo/lib/service-container"
 )
 
 const (
 	usage = `Usage: go run migrate.go <up|rollback> --db="<mongo|mysql>" --db-name="" --host="" --port="" --user="" --pwd="" --src="" --src-uri=""`
 )
 
+var (
+	ctx context.Context
+	cancel context.CancelFunc
+)
+
+func bind() {
+	container.Bind("source.local", func() any {
+		return local.New(ctx, cancel)
+	})
+
+	container.Bind("driver.mongo", func() any {
+		return mongo.New(ctx)
+	})
+}
+
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	bind()
+
 	var migrType migrate.MigrateType
 
 	// Define flags for database connection configuration
@@ -35,22 +55,19 @@ func main() {
 
 	// Check if all required flags are provided, exit if missing
 	if *database == "" || *dbName == "" || *host == "" || *port == "" || *usr == "" || *pwd == "" || *src == "" || *srcURI == "" {
-		log.Fatalln("Error: Missing required flags.\n" + usage)
-		os.Exit(1)
+		log.Panic("Error: Missing required flags.\n" + usage)
 	}
 
 	// Validate the database type
 	allowedDatabases := []string{"mongo", "mysql"}
 	if !helper.InArray(*database, allowedDatabases) {
-		log.Fatalln("Error: Unsupported database type. Only 'mongo' or 'mysql' are supported.")
-		os.Exit(1)
+		log.Panic("Error: Unsupported database type. Only 'mongo' or 'mysql' are supported.")
 	}
 
 	// Validate the migration source
 	allowedSources := []string{"local"}
 	if !helper.InArray(*src, allowedSources) {
-		log.Fatalln("Error: Unsupported migration source. Only 'local' is supported.")
-		os.Exit(1)
+		log.Panic("Error: Unsupported migration source. Only 'local' is supported.")
 	}
 
 	// Determine migration type (up or rollback)
@@ -60,23 +77,17 @@ func main() {
 	case "rollback":
 		migrType = migrate.MigrateRollback
 	default:
-		log.Fatalln("Error: Invalid migration type. Only 'up' or 'rollback' are allowed.")
-		os.Exit(1)
+		log.Panic("Error: Invalid migration type. Only 'up' or 'rollback' are allowed.")
 	}
 
-	// Set up the migration context with cancellation
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// Set up the migration source
-	source := container.MakeSource(*src, ctx, cancel)
+	source := container.Resolve("source." + *src).(migrate.Source)
 	if err := source.UseUri(*srcURI); err != nil {
-		log.Fatalln("Error: Failed to use source URI:", err)
-		os.Exit(1)
+		log.Panic("Error: Failed to use source URI:", err)
 	}
 
 	// Set up the database driver
-	driver := container.MakeDatabasae(*database, ctx, cancel)
+	driver := container.Resolve("driver." + *database).(migrate.Database)
 	driver.SetDatabase(*dbName)
 	driver.SetConnection(*host, *port, *usr, *pwd)
 

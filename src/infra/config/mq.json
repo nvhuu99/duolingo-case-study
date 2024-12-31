@@ -1,0 +1,6 @@
+{
+    "host": "localhost",
+    "port": "5672",
+    "user": "root",
+    "pwd": "root@1234"
+}
