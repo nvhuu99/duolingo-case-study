@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     birthdate DATE NOT NULL,
     device_token VARCHAR(255) NOT NULL,
     native_language VARCHAR(20) NOT NULL,
-    membership_id TINYINT NOT NULL
+    membership_id TINYINT NOT NULL,
+    
     CONSTRAINT fk_membership FOREIGN KEY (membership_id) REFERENCES memberships(id)
 );

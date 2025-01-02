@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS memberships (
     id TINYINT AUTO_INCREMENT PRIMARY KEY,
-    key VARCHAR(50) NOT NULL,
+    membership_key VARCHAR(50) NOT NULL,
     label VARCHAR(100) NOT NULL
 );

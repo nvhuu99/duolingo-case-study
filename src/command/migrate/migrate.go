@@ -7,8 +7,9 @@ import (
 
 	"duolingo/lib/helper-functions"
 	"duolingo/lib/migrate"
-	mongo "duolingo/lib/migrate/driver/database"
-	local "duolingo/lib/migrate/driver/source"
+	"duolingo/lib/migrate/driver/database/mongo"
+	"duolingo/lib/migrate/driver/database/mysql"
+	"duolingo/lib/migrate/driver/source/local"
 	container "duolingo/lib/service-container"
 )
 
@@ -17,7 +18,7 @@ const (
 )
 
 var (
-	ctx context.Context
+	ctx    context.Context
 	cancel context.CancelFunc
 )
 
@@ -29,14 +30,16 @@ func bind() {
 	container.Bind("driver.mongo", func() any {
 		return mongo.New(ctx)
 	})
+
+	container.Bind("driver.mysql", func() any {
+		return mysql.New(ctx)
+	})
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	bind()
-
-	var migrType migrate.MigrateType
 
 	// Define flags for database connection configuration
 	database := flag.String("db", "", "Database driver (e.g., 'mongo' for MongoDB, 'mysql' for MySQL)")
@@ -47,7 +50,7 @@ func main() {
 	pwd := flag.String("pwd", "", "Password for authenticating with the database")
 
 	// Flags for migration source configuration
-	src := flag.String("src", "", "Migration source driver (e.g., 'local' for LocalFile)")
+	src := flag.String("src", "local", "Migration source driver (e.g., 'local' for LocalFile)")
 	srcURI := flag.String("src-uri", "", "URI or path to the location of migration files")
 
 	// Parse flags from the command-line
@@ -55,36 +58,45 @@ func main() {
 
 	// Check if all required flags are provided, exit if missing
 	if *database == "" || *dbName == "" || *host == "" || *port == "" || *usr == "" || *pwd == "" || *src == "" || *srcURI == "" {
-		log.Panic("Error: Missing required flags.\n" + usage)
+		log.Fatal("Error: Missing required flags.\n" + usage)
 	}
 
 	// Validate the database type
 	allowedDatabases := []string{"mongo", "mysql"}
 	if !helper.InArray(*database, allowedDatabases) {
-		log.Panic("Error: Unsupported database type. Only 'mongo' or 'mysql' are supported.")
+		log.Fatal("Error: Unsupported database type. Only 'mongo' or 'mysql' are supported.")
 	}
 
 	// Validate the migration source
 	allowedSources := []string{"local"}
 	if !helper.InArray(*src, allowedSources) {
-		log.Panic("Error: Unsupported migration source. Only 'local' is supported.")
+		log.Fatal("Error: Unsupported migration source. Only 'local' is supported.")
 	}
 
+
 	// Determine migration type (up or rollback)
-	switch flag.Arg(0) {
+	var migrType migrate.MigrateType
+	flg := flag.Arg(0)
+	switch flg {
 	case "up":
 		migrType = migrate.MigrateUp
 	case "rollback":
 		migrType = migrate.MigrateRollback
 	default:
-		log.Panic("Error: Invalid migration type. Only 'up' or 'rollback' are allowed.")
+		log.Fatal("Error: Invalid migration type. Only 'up' or 'rollback' are allowed.")
 	}
 
 	// Set up the migration source
 	source := container.Resolve("source." + *src).(migrate.Source)
 	if err := source.UseUri(*srcURI); err != nil {
-		log.Panic("Error: Failed to use source URI:", err)
+		log.Fatal("Error: Failed to use source URI:", err)
 	}
+	go func() {
+		<-ctx.Done()
+		if source.HasError() {
+			log.Fatal(source.Error())
+		}
+	}()
 
 	// Set up the database driver
 	driver := container.Resolve("driver." + *database).(migrate.Database)
