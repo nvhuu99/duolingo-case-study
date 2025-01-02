@@ -25,6 +25,16 @@ services:
       - campaign-storage
     volumes:
       - campaign-db:/data/db
+
+  duolingo-db:
+    image: mysql:8.0
+    ports:
+      - 3360:3306
+    environment:
+      MYSQL_DATABASE: duolingo
+      MYSQL_ROOT_PASSWORD: root@1234
+    volumes:
+      - duolingo-db:/var/lib/mysql
   
   message-queue:
     image: rabbitmq:3-management
@@ -62,5 +72,6 @@ networks:
 
 volumes:
   campaign-db:
+  duolingo-db:
   message-queue-data:
   # noti-queue-data:
