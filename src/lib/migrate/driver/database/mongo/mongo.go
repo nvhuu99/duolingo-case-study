@@ -40,17 +40,15 @@ func New(ctx context.Context) *Mongo {
 	return &driver
 }
 
-func (driver *Mongo) SetConnectionString(uri string) migrate.Database {
-	driver.uri = uri
-	return driver
-}
-
-func (driver *Mongo) SetDatabase(database string) migrate.Database {
+func (driver *Mongo) SetDatabase(database string) {
 	driver.database = database
-	return driver
 }
 
-func (driver *Mongo) SetConnection(host string, port string, usr string, pwd string) migrate.Database {
+func (driver *Mongo) GetFileExt() string {
+	return ".json"
+}
+
+func (driver *Mongo) SetConnection(host string, port string, usr string, pwd string) {
 	driver.uri = fmt.Sprintf(
 		"mongodb://%v:%v@%v:%v/", 
 		url.QueryEscape(usr), 
@@ -58,12 +56,10 @@ func (driver *Mongo) SetConnection(host string, port string, usr string, pwd str
 		host,
 		port, 
 	)
-	return driver
 }
 
-func (driver *Mongo) SetOperationTimeOut(duration time.Duration) migrate.Database {
+func (driver *Mongo) SetOperationTimeOut(duration time.Duration) {
 	driver.timeOut = duration
-	return driver
 }
 
 // PrepareDatabase initializes the "migrations" collection and retrieves the last batch number

@@ -149,6 +149,7 @@ func (src *LocalFile) Close() {
 	if src.status != statusClosed {
 		src.status = statusClosed
 		close(src.migrationBuffer)
+		src.ctxCancel()
 	}
 }
 

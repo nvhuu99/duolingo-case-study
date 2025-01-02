@@ -1,9 +1,9 @@
 package migrate
 
 type Database interface {
-	SetConnectionString(uri string) Database
-	SetDatabase(database string) Database
-	SetConnection(host string, port string, usr string, pwd string) Database
+	SetConnection(host string, port string, usr string, pwd string)
+	SetDatabase(database string)
+	GetFileExt() string
 	PrepareDatabase() error
 	BatchNumber() int
 	LastBatch() ([]Migration, error)

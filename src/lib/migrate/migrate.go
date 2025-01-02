@@ -113,7 +113,7 @@ func (migr *Migrate) Start() {
 func (migr *Migrate) makeBatchRollBack(lastBatch []Migration) []string {
 	batch := make([]string, len(lastBatch))
 	for i, m := range lastBatch {
-		batch[i] = m.Name + ".rollback.json"
+		batch[i] = m.Name + ".rollback" + migr.driver.GetFileExt()
 	}
 	helper.ReverseSlice(batch)
 
@@ -137,7 +137,7 @@ func (migr *Migrate) makeBatchMigrateUp(lastBatch []Migration) []string {
 		if strings.Contains(filename, ".rollback.") {
 			continue
 		} 
-		batch = append(batch, parts[1] + ".json")
+		batch = append(batch, parts[1] + migr.driver.GetFileExt())
 	}
 	helper.ReverseSlice(batch)
 
