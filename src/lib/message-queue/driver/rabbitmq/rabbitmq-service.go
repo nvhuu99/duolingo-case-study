@@ -40,7 +40,7 @@ type RabbitMQService struct {
 	mu  sync.Mutex
 }
 
-func NewMQService(ctx context.Context) mqp.MessageQueueService {
+func NewMQService(ctx context.Context) *RabbitMQService {
 	mq := RabbitMQService{}
 	mq.ctx = ctx
 	mq.topic = mqp.TopicInfo{}
@@ -146,22 +146,23 @@ func (mq *RabbitMQService) Shutdown() {
 	mq.deleteExchange()
 }
 
-func (mq *RabbitMQService) RegisterConsumer(consumer string) error {
+func (mq *RabbitMQService) RegisterConsumer(consumer string) (*mqp.QueueInfo, error) {
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
 
 	if mq.status != statusPublished {
-		return errors.New(errTopicClosed)
+		return nil, errors.New(errTopicClosed)
 	}
 	
 	for queue, consumers := range mq.consumers {
 		if len(consumers) < mq.numConsumerPerQueue {
 			mq.consumers[queue] = append(mq.consumers[queue], consumer)
-			return nil
+			info, _ := mq.GetQueueInfo(queue)
+			return info, nil
 		}
 	}
 
-	return errors.New(errQueueConsumerFull)
+	return nil, errors.New(errQueueConsumerFull)
 }
 
 func (mq *RabbitMQService) GetTopicInfo() mqp.TopicInfo {
@@ -181,6 +182,8 @@ func (mq *RabbitMQService) GetQueueInfo(queue string) (*mqp.QueueInfo, error) {
 	info := mqp.QueueInfo {
 		ConnectionString: mq.topic.ConnectionString,
 		QueueName: queue,
+		ConsumerLimit: mq.numConsumerPerQueue,
+		TotalConsumer: len(mq.consumers[queue]),
 	}
 
 	return &info, nil

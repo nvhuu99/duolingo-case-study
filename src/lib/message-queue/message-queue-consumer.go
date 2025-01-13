@@ -1,6 +1,6 @@
 package messagequeue
 
 type MessageConsumer interface {
-	SetQueueInfo(queue QueueInfo)
+	SetQueueInfo(queue *QueueInfo)
 	Consume(hanlder func(string) bool) error
 }

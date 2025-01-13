@@ -7,8 +7,8 @@ import (
 type DistributeMethod string
 
 const (
-	QueueFanout   DistributeMethod = "queueFanout"   // a message will be
-	QueueDispatch DistributeMethod = "queueDispatch" // messages are dispatched to each queue evenly
+	QueueFanout   DistributeMethod = "queue_fanout"   // a message will be
+	QueueDispatch DistributeMethod = "queue_dispatch" // messages are dispatched to each queue evenly
 
 	errTopicEmpty    = "topic must be set before publishing messages"
 	errQueueEmpty    = "queues list is empty"
@@ -17,10 +17,10 @@ const (
 )
 
 type TopicInfo struct {
-	ConnectionString string
-	Name             string
-	Queues           []string
-	Method           DistributeMethod
+	ConnectionString string				`json:"connectionString"`
+	Name             string				`json:"name"`
+	Queues           []string			`json:"queues"`
+	Method           DistributeMethod	`json:"method"`
 
 	queueIndex int
 }

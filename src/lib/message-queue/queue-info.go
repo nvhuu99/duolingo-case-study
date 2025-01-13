@@ -1,6 +1,8 @@
 package messagequeue
 
 type QueueInfo struct {
-	ConnectionString string
-	QueueName string
+	ConnectionString string		`json:"connectionString"`
+	QueueName        string		`json:"queueName"`
+	ConsumerLimit    int		`json:"consumerLimit"`
+	TotalConsumer    int		`json:"totalConsumer"`
 }

@@ -12,7 +12,7 @@ type MessageQueueService interface {
 	Publish() error
 	Shutdown()
 
-	RegisterConsumer(consumer string) error
+	RegisterConsumer(consumer string) (*QueueInfo, error)
 	GetTopicInfo() TopicInfo
 	GetQueueInfo(queue string) (*QueueInfo, error)
 }

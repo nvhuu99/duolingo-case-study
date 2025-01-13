@@ -10,7 +10,7 @@ type MessageError struct {
 }
 
 func (e *MessageError) Error() string {
-	return fmt.Sprintf(`error sending message: error: "%s", topic: "%s", pattern: "%s", message: "%s"`,
+	return fmt.Sprintf(`message-queue-publisher: error: "%s" - topic: "%s" - pattern: "%s" - message: "%s"`,
 		e.ErrorMessage, e.Topic, e.Pattern, e.Message)
 }
 
