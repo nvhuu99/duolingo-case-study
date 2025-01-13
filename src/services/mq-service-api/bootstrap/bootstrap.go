@@ -5,37 +5,44 @@ import (
 	"duolingo/lib/config-reader"
 	mqp "duolingo/lib/message-queue"
 	rabbitmq "duolingo/lib/message-queue/driver/rabbitmq"
-	"duolingo/lib/service-container"
+	"log"
+)
+
+var (
+	container = common.Container()
+	conf, _ = container.Resolve("config").(config.ConfigReader)
+	infra, _ = container.Resolve("config.infra").(config.ConfigReader)
+	ctx, _ = common.ServiceContext()
 )
 
 func bind() {
-	ctx, _ := common.ServiceContext()
-	// Bind Superbowl MQ Topic using RabbitMQ driver
-	container.BindSingleton("topic.superbowl", func() any {
-		return mqp.MessageQueueService(rabbitmq.NewMQService(ctx))
-	})
+	topics := conf.GetArr("mq.topics", []string{})
+	for _, tp := range topics {
+		container.BindSingleton("topic." + tp, func() any {
+			return rabbitmq.NewMQService(ctx)
+		})
+	}
 }
 
 func boot() {
-	conf, _ := container.Resolve("config").(config.ConfigReader)
-	infra, _ := container.Resolve("config.infra").(config.ConfigReader)
-	
-	// Setup Superbowl MQ Topic
-	mq, _ := container.Resolve("topic.superbowl").(mqp.MessageQueueService)
-	mq.UseConnection(
-		infra.Get("mq.conn.host", ""),
-		infra.Get("mq.conn.port", ""),
-		infra.Get("mq.conn.user", ""),
-		infra.Get("mq.conn.pwd", ""),
-	)
-	mq.SetTopic(conf.Get("mq.superbowl.topic", ""))
-	mq.SetNumberOfQueue(conf.GetInt("mq.superbowl.numOfQueue", 1))
-	mq.SetQueueConsumerLimit(conf.GetInt("mq.superbowl.queueConsumerLimit", 1))
-	mq.SetDistributeMethod(mqp.DistributeMethod(conf.Get("mq.superbowl.method", "")))
-	err := mq.Publish()
-	if err != nil {
-		mq.Shutdown()
-		panic("failed to setup message queue topic 'campaign'")
+	topics := conf.GetArr("mq.topics", []string{})
+	for _, tp := range topics {
+		mq, _ := container.Resolve("topic." + tp).(mqp.MessageQueueService)
+		mq.UseConnection(
+			infra.Get("mq.host", ""),
+			infra.Get("mq.port", ""),
+			infra.Get("mq.user", ""),
+			infra.Get("mq.pwd", ""),
+		)
+		mq.SetTopic(conf.Get("mq." + tp + ".topic", ""))
+		mq.SetNumberOfQueue(conf.GetInt("mq." + tp + ".num_of_queue", 1))
+		mq.SetQueueConsumerLimit(conf.GetInt("mq." + tp + ".queue_consumer_limit", 1))
+		mq.SetDistributeMethod(mqp.DistributeMethod(conf.Get("mq." + tp + ".method", "")))
+		err := mq.Publish()
+		if err != nil {
+			mq.Shutdown()
+			log.Fatalf("failed to setup message queue topic '%v'\n%v", tp, err)
+		}
 	}
 }
 

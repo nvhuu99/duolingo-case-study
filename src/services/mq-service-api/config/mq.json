@@ -1,16 +1,20 @@
 {
-    "superbowl": {
+    "topics": [
+        "input_messages", 
+        "push_noti_messages"
+    ],
+    "input_messages": {
         "driver": "rabbitmq",
-        "topic": "superbowl",
-        "method": "queueFanout",
-        "numOfQueue": 3,
-        "queueConsumerLimit": 1
+        "topic": "input_messages",
+        "method": "queue_fanout",
+        "num_of_queue": 3,
+        "queue_consumer_limit": 100
     },
-    "userNoti": {
+    "push_noti_messages": {
         "driver": "rabbitmq",
-        "topic": "userNoti",
-        "method": "queueDispatch",
-        "numOfQueue": 3,
-        "queueConsumerLimit": 1
+        "topic": "push_noti_messages",
+        "method": "queue_dispatch",
+        "num_of_queue": 3,
+        "queue_consumer_limit": 100
     }
 }

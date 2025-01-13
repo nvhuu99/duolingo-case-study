@@ -10,7 +10,8 @@ import (
 	"duolingo/lib/migrate/driver/database/mongo"
 	"duolingo/lib/migrate/driver/database/mysql"
 	"duolingo/lib/migrate/driver/source/local"
-	container "duolingo/lib/service-container"
+	sv "duolingo/lib/service-container"
+
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 var (
 	ctx    context.Context
 	cancel context.CancelFunc
+	container = sv.NewContainer()
 )
 
 func bind() {
@@ -72,7 +74,6 @@ func main() {
 	if !helper.InArray(*src, allowedSources) {
 		log.Fatal("Error: Unsupported migration source. Only 'local' is supported.")
 	}
-
 
 	// Determine migration type (up or rollback)
 	var migrType migrate.MigrateType

@@ -7,7 +7,9 @@
                 "campaign",
                 "lastname",
                 "firstname",
-                "device_token"
+                "device_token",
+                "native_language",
+                "membership"
             ],
             "properties": {
                 "campaign": {
@@ -25,6 +27,14 @@
                 "device_token": {
                     "bsonType": "string",
                     "maxLength": 255
+                },
+                "native_language": {
+                    "bsonType": "string",
+                    "maxLength": 10
+                },
+                "membership": {
+                    "bsonType": "string",
+                    "maxLength": 50
                 }
             }
         }
