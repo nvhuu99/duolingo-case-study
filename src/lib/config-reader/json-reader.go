@@ -112,7 +112,11 @@ func (reader *JsonReader) read(path string) (any, error) {
 		if _, exists := iterator[parts[i]]; !exists {
 			return nil, fmt.Errorf("config: \"%v\" not exists in %v", path, name+".json")
 		}
-		iterator = iterator[parts[i]].(map[string]interface{})
+		next, ok := iterator[parts[i]].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("config: \"%v\" not exists in %v", path, name+".json")
+		}
+		iterator = next
 	}
 
 	// Retrieve the final key in the path.
