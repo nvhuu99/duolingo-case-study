@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"strings"
 
-	"duolingo/lib/service-container"
+	sv "duolingo/lib/service-container"
 	"duolingo/lib/config-reader"
 )
 
@@ -14,9 +14,18 @@ var (
 	serviceRootDir string
 	serviceContext context.Context
 	serviceContextCancel context.CancelFunc
+	serviceContainer *sv.ServiceContainer
 )
 
+func Container() *sv.ServiceContainer {
+	if serviceContainer == nil {
+		serviceContainer = sv.NewContainer()
+	}
+	return serviceContainer
+}
+
 func SetupService() {
+	container := Container()
 	// Set service root
 	_, filename, _, _ := runtime.Caller(2)
 	serviceBootstrapDir := filepath.Dir(filename)
