@@ -16,13 +16,13 @@ const (
 )
 
 type RabbitMQConsumer struct {
-	queue mqp.QueueInfo
+	queue *mqp.QueueInfo
 
 	ctx     context.Context
 	timeOut time.Duration
 }
 
-func NewConsumer(ctx context.Context) mqp.MessageConsumer {
+func NewConsumer(ctx context.Context) *RabbitMQConsumer {
 	mq := RabbitMQConsumer{}
 	mq.ctx = ctx
 	mq.timeOut = defaultReadTimeout
@@ -36,7 +36,7 @@ func (mq *RabbitMQConsumer) SetReadTimeOut(timeOut time.Duration) {
 }
 
 // Sets the queue name to consume messages from.
-func (mq *RabbitMQConsumer) SetQueueInfo(queue mqp.QueueInfo) {
+func (mq *RabbitMQConsumer) SetQueueInfo(queue *mqp.QueueInfo) {
 	mq.queue = queue
 }
 
@@ -72,13 +72,16 @@ func (mq *RabbitMQConsumer) Consume(handler func(string) bool) error {
 		defer conn.Close()
 		defer ch.Close()
 		for d := range msgs {
-			// If the handler takes too long, ACK is not sent, and the message is requeued
-			done := helper.OperationDeadline(mq.ctx, mq.timeOut, nil, func() { d.Ack(false) })
+			done := helper.OperationDeadline(mq.ctx, mq.timeOut, nil, nil)
 			check := handler(string(d.Body))
 			done <- true
-			// If the handler returns false, stop consuming further messages
+			// If the handler returns false, 
+			// stop consuming further messages, ACK is not sent, imm requeue the msg
 			if !check {
+				d.Reject(true)
 				break
+			} else {
+				d.Ack(false)
 			}
 		}
 	}()
