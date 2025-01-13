@@ -22,7 +22,7 @@ services:
     ports:
       - 27077:27017
     networks:
-      - campaign-storage
+      - duolingo
     volumes:
       - campaign-db:/data/db
 
@@ -35,6 +35,18 @@ services:
       MYSQL_ROOT_PASSWORD: root@1234
     volumes:
       - duolingo-db:/var/lib/mysql
+    networks:
+      - duolingo
+
+  redis:
+    image: redis:7.4.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - duolingo
   
   message-queue:
     image: rabbitmq:3-management
@@ -48,6 +60,8 @@ services:
       RABBITMQ_DEFAULT_PASS: root@1234
     volumes:
       - message-queue-data:/var/lib/rabbitmq
+    networks:
+      - duolingo
 
   message-api:
     <<: *server-context
@@ -62,16 +76,17 @@ services:
       - 8001:8000 # api port
       - 4001:4000 # dlv debugger port
     networks:
-      - campaign-storage
+      - duolingo
     volumes:
       - *server-volume 
 
 networks:
-  campaign-storage:
+  duolingo:
     driver: bridge
 
 volumes:
   campaign-db:
   duolingo-db:
+  redis-data:
   message-queue-data:
   # noti-queue-data:
