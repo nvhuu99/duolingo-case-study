@@ -2,7 +2,6 @@ package rabbitmq
 
 import (
 	"context"
-	"duolingo/lib/helper-functions"
 	mqp "duolingo/lib/message-queue"
 	"errors"
 	"time"
@@ -71,17 +70,21 @@ func (mq *RabbitMQConsumer) Consume(handler func(string) bool) error {
 	go func() {
 		defer conn.Close()
 		defer ch.Close()
-		for d := range msgs {
-			done := helper.OperationDeadline(mq.ctx, mq.timeOut, nil, nil)
-			check := handler(string(d.Body))
-			done <- true
-			// If the handler returns false, 
-			// stop consuming further messages, ACK is not sent, imm requeue the msg
-			if !check {
+
+		consuming := func(d amqp.Delivery) {
+			if !handler(string(d.Body)) {
 				d.Reject(true)
-				break
 			} else {
 				d.Ack(false)
+			}
+		}
+
+		for {
+			select {
+			case <-mq.ctx.Done():
+				return
+			case d := <- msgs:
+				consuming(d)
 			}
 		}
 	}()
