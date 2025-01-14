@@ -15,7 +15,6 @@ import (
 var (
 	container = common.Container()
 	ctx, _ = common.ServiceContext()
-	conf, _ = container.Resolve("config").(config.ConfigReader)
 )
 
 func bind() {
@@ -36,8 +35,9 @@ func Run() {
 }
 
 func getMQInfo(name string) *mqp.TopicInfo {
+	conf, _ := container.Resolve("config").(config.ConfigReader)
 	addr := conf.Get("services.mq_service_api", "")
-	url := fmt.Sprintf("%v/topic/%v/info", addr, name)
+	url := fmt.Sprintf("%v/topic/%v", addr, name)
 	resp, httpErr := http.Get(url)
 
 	var response struct {
