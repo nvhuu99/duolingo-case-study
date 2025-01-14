@@ -76,8 +76,9 @@ func (request *Request) Has(key string) bool {
 func (request *Request) parseBody() {
 	request.body, _ = io.ReadAll(request.req.Body)
 	request.req.Body.Close()
-	err := json.Unmarshal(request.Body(), &request.inputs)
+	err := json.Unmarshal(request.body, &request.inputs)
 	if err != nil {
 		request.inputs = make(map[string]any)
 	}
+	request.parsed = true
 }

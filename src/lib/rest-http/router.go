@@ -11,6 +11,16 @@ type Router struct {
 	routeMap *RouteMap
 }
 
+func NewRouter() *Router {
+	router := Router{
+		routeMap: &RouteMap{
+			childs: make(map[string]*RouteMap),
+		},
+	}
+
+	return &router
+}
+
 func (router *Router) Func() func (http.ResponseWriter, *http.Request) {
 	routerFunc := func (res http.ResponseWriter, req *http.Request) {
 		request := Request { req: req }
@@ -63,7 +73,8 @@ func parsePath(path string, pattern string) map[string]string {
 	for i := range patterns {
 		if strings.HasPrefix(patterns[i], "{") && 
 			strings.HasSuffix(patterns[i], "}") {
-			pathValue[patterns[i]] = paths[i]
+			key := strings.Trim(patterns[i], "{}")
+			pathValue[key] = paths[i]
 		}
 	}
 
@@ -76,7 +87,7 @@ func (router *Router) add(method string, pattern string, handler *Handler) error
 	if err != nil {
 		return err
 	} 
-	parts = append(parts, method)
+	parts = append([]string {method}, parts...)
 	// build route map
 	node := router.routeMap 
 	for _, part := range parts {
@@ -94,6 +105,7 @@ func (router *Router) add(method string, pattern string, handler *Handler) error
 		
 		if _, ok := node.childs[pathVal]; !ok {
 			node.childs[pathVal] = &RouteMap{
+				name: pathVal,
 				childs: make(map[string]*RouteMap),
 			}
 		}
@@ -111,31 +123,35 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, erro
 	if err != nil {
 		return nil, err
 	}
-	parts = append(parts, method)
 
-	childs := router.routeMap.childs
-	for _, part := range parts {
+	routes, ok := router.routeMap.childs[method]
+	if !ok {
+		return nil, errors.New("route does not exist")
+	}
+	matches := routes.childs
+
+	// childs := router.routeMap.childs
+	for i, part := range parts {
 		// loop through childs, take all whose value is * or match the current route part
-		tmp := map[string]*RouteMap{}
-		for value, ch := range childs {
-			if value == "*" || value == part {
-				tmp[value] = ch
+		tmp := make(map[string]*RouteMap)
+		for _, m := range matches {
+			if m.name == "*" || m.name == part {
+				if i == len(parts) - 1 {
+					return m, nil
+				}
+				for _, ch := range m.childs {
+					tmp[m.name + ch.name] = ch
+				}
 			}
 		}
 		// if we cannot find a child, return nil
-		if len(tmp) == 0 {
-			return nil, errors.New("route does not exist")
+		if len(tmp) == 0 && i != len(parts) - 1 {
+			break
 		}
+
 		// proceed the next part
-		childs = tmp
+		matches = tmp
 	}
 
-	// return the first match route and match method
-	var result *RouteMap
-	for key := range childs {
-		result = childs[key]
-		break
-	}
-
-	return result, nil
+	return nil, errors.New("route does not exist")
 }
