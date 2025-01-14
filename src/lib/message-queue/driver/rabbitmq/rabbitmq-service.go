@@ -220,6 +220,11 @@ func (mq *RabbitMQService) createExchange() error {
 		false,             // no-wait
 		nil,               // arguments
 	)
+
+	if err == nil {
+		log.Printf("topic %v created\n", mq.topic.Name)
+	}
+
 	return err
 }
 
@@ -244,6 +249,8 @@ func (mq *RabbitMQService) createQueues() error {
 		if err != nil {
 			return err
 		}
+
+		log.Printf("queue %v created\n", mq.topic.Queues[i])
 	}
 
 	return nil

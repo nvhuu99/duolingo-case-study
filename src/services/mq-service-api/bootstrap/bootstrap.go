@@ -1,18 +1,20 @@
 package bootstrap
 
 import (
+	"context"
 	"duolingo/common"
 	"duolingo/lib/config-reader"
 	mqp "duolingo/lib/message-queue"
 	rabbitmq "duolingo/lib/message-queue/driver/rabbitmq"
+	sv "duolingo/lib/service-container"
 	"log"
 )
 
 var (
-	container = common.Container()
-	conf, _ = container.Resolve("config").(config.ConfigReader)
-	infra, _ = container.Resolve("config.infra").(config.ConfigReader)
-	ctx, _ = common.ServiceContext()
+	ctx context.Context 
+	container *sv.ServiceContainer
+	conf config.ConfigReader
+	infra config.ConfigReader
 )
 
 func bind() {
@@ -48,6 +50,12 @@ func boot() {
 
 func Run() {
 	common.SetupService()
+	ctx, _ = common.ServiceContext()
+	container = common.Container()
+	conf, _ = container.Resolve("config").(config.ConfigReader)
+	infra, _ = container.Resolve("config.infra").(config.ConfigReader)
+	
 	bind()
+
 	boot()
 }
