@@ -5,11 +5,7 @@
 		"host": "localhost",
 		"port": "27077",
 		"user": "root",
-		"password": "root@1234",
-		"migration": {
-			"source": "local",
-			"uri": "migration"
-		}
+		"password": "root@1234"
 	},
 	"duolingo": {
 		"driver": "mysql",
@@ -17,10 +13,6 @@
 		"host": "localhost",
 		"port": "3360",
 		"user": "root",
-		"password": "root@1234",
-		"migration": {
-			"source": "local",
-			"uri": "migration"
-		}
+		"password": "root@1234"
 	}
 }
