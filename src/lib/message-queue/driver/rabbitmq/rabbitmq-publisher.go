@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	mqp "duolingo/lib/message-queue"
+	"errors"
 	"sync"
 	"time"
 
@@ -10,22 +11,60 @@ import (
 )
 
 var (
-	defaultWriteTimeOut = 5 * time.Second
+	defaultWriteTimeOut = 500 * time.Second
+
+	errPublisherNotOpened = "publisher must be opened before publishing"
 )
+
 type RabbitMQPublisher struct {
 	topic 		  *mqp.TopicInfo
 	deliveryTag   uint64
 	ctx   		  context.Context
 	mu			  sync.Mutex
 	timeOut		  time.Duration
+
+	conn    *amqp.Connection
+	ch      *amqp.Channel
+	confirm chan amqp.Confirmation
 }
 
 func NewPublisher(ctx context.Context) *RabbitMQPublisher {
 	publisher := RabbitMQPublisher{}
 	publisher.ctx = ctx
-	publisher.deliveryTag = 1
 	publisher.timeOut = defaultWriteTimeOut
 	return &publisher
+}
+
+func (publisher *RabbitMQPublisher) Connect() error {
+	conn, err := amqp.Dial(publisher.topic.ConnectionString)
+	if err != nil {
+		return err
+	}
+	ch, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	if err := ch.Confirm(false); err != nil {
+		ch.Close()
+		return err
+	}
+	
+	publisher.conn = conn
+	publisher.ch = ch
+	publisher.confirm = ch.NotifyPublish(make(chan amqp.Confirmation, 1))
+	publisher.deliveryTag = 1
+
+	return nil
+}
+
+func (publisher *RabbitMQPublisher) Disconnect() {
+	if publisher.ch != nil {
+		publisher.ch.Close()
+	}
+	if publisher.conn != nil {
+		publisher.conn.Close()
+	}
 }
 
 // Sets the queue name to consume messages from.
@@ -34,14 +73,9 @@ func (publisher *RabbitMQPublisher) SetTopicInfo(topic *mqp.TopicInfo) {
 }
 
 func (publisher *RabbitMQPublisher) Publish(message string) error {
-	conn, ch, err := publisher.connect()
-	if err != nil {
-		return err
+	if publisher.conn == nil || publisher.ch == nil {
+		return errors.New(errPublisherNotOpened)
 	}
-	confirms := ch.NotifyPublish(make(chan amqp.Confirmation, 1))
-	defer conn.Close()
-	defer ch.Close()
-	defer close(confirms)
 
 	publisher.mu.Lock()
 	topic := publisher.topic.Name
@@ -51,7 +85,7 @@ func (publisher *RabbitMQPublisher) Publish(message string) error {
 		return err
 	}
 
-	err = ch.PublishWithContext(publisher.ctx,
+	err = publisher.ch.PublishWithContext(publisher.ctx,
 		topic,
 		routingKey,
 		true,  // mandatory (message must be routed to at least one queue)
@@ -67,7 +101,7 @@ func (publisher *RabbitMQPublisher) Publish(message string) error {
 	}
 
 	select {
-	case confirm := <-confirms:
+	case confirm := <-publisher.confirm:
 		if confirm.Ack && confirm.DeliveryTag == publisher.deliveryTag {
 			publisher.mu.Lock()
 			publisher.deliveryTag++
@@ -80,19 +114,3 @@ func (publisher *RabbitMQPublisher) Publish(message string) error {
 	}
 }
 
-func (publisher *RabbitMQPublisher) connect() (*amqp.Connection, *amqp.Channel, error) {
-	conn, err := amqp.Dial(publisher.topic.ConnectionString)
-	if err != nil {
-		return nil, nil, err
-	}
-	ch, err := conn.Channel()
-	if err != nil {
-		conn.Close()
-		return nil, nil, err
-	}
-	if err := ch.Confirm(false); err != nil {
-		return nil, nil, err
-	}
-
-	return conn, ch, nil
-}
