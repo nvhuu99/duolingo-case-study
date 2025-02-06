@@ -31,33 +31,29 @@ func (container *ServiceContainer) Bind(name string, closure func() any) {
 }
 
 func (container *ServiceContainer) BindSingleton(name string, closure func() any) {
+	instance := closure()
 	container.mu.Lock()
-	defer container.mu.Unlock()
-
-	container.bindings[name] = binding{
-		singleton: true,
-		closure:   closure,
-	}
+	container.bindings[name] = binding{ singleton: true }
+	container.instances[name] = instance 
+	container.mu.Unlock()
 }
 
 func (container *ServiceContainer) Resolve(name string) any {
 	container.mu.Lock()
-	defer container.mu.Unlock()
-
 	binding, found := container.bindings[name]
+	container.mu.Unlock()
 	if !found {
 		return nil
 	}
-
-	var inst any
 	if !binding.singleton {
-		inst = binding.closure()
-	} else {
-		if _, found := container.instances[name]; !found {
-			container.instances[name] = binding.closure()
-		}
-		inst = container.instances[name]
+		return binding.closure()
 	}
-
-	return inst
+	container.mu.Lock()
+	instance, found := container.instances[name]
+	container.mu.Unlock()
+	if ! found {
+		return nil
+	} else {
+		return instance
+	}
 }
