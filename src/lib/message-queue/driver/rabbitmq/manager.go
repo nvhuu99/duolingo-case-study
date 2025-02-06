@@ -43,11 +43,12 @@ func NewRabbitMQManager(ctx context.Context, opts *mq.ManagerOptions) *RabbitMQM
 	m.opts = opts
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	m.clients = make(map[string]*clientInfo)
+	m.isReConnecting = true
 
 	return &m
 }
 
-func (m *RabbitMQManager) UseConnection(host string, port string, user string, password string) {
+func (m *RabbitMQManager) UseConnection(host, port, user, password string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -65,6 +66,10 @@ func (m *RabbitMQManager) UseConnection(host string, port string, user string, p
 
 func (m *RabbitMQManager) Connect() {
 	go m.handleReconnect()
+}
+
+func (m *RabbitMQManager) Disconnect() {
+	m.cancel()
 }
 
 func (m *RabbitMQManager) RegisterClient(client mq.Client) string {
@@ -137,12 +142,20 @@ func (m *RabbitMQManager) connect() (*amqp.Connection, *mq.Error) {
 			return nil, mq.NewError(mq.ConnectionTimeOut, err, "", "", "")
 		default:
 		}
-		conn, err = amqp.DialConfig(m.uri, amqp.Config{
-			Heartbeat: m.opts.HearBeat,
+
+		m.mu.RLock()
+		uri := m.uri
+		m.mu.RUnlock()
+
+		conn, err = amqp.DialConfig(uri, amqp.Config{
+			Heartbeat:	m.opts.HearBeat,
+			Dial:		amqp.DefaultDial(m.opts.ConnectionTimeOut),
 		})
+
 		if err == nil {
 			return conn, nil
 		}
+		
 		time.Sleep(m.opts.GraceTimeOut)
 	}
 }
@@ -247,6 +260,7 @@ func (m *RabbitMQManager) channel(id string) (*amqp.Channel, *mq.Error) {
 		m.mu.RLock()
 		isReConnecting := m.isReConnecting
 		m.mu.RUnlock()
+
 		if isReConnecting {
 			retries = 0
 			continue
