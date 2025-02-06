@@ -85,7 +85,7 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 			topic,
 			routingKey,
 			true,  // mandatory (message must be routed to at least one queue)
-			false, // immediate (queue message even when no consumers)
+			true, // immediate (queue message even when no consumers)
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				ContentType: "text/plain",
