@@ -101,16 +101,18 @@ func (m *RabbitMQManager) UnRegisterClient(id string) {
 
 func (m *RabbitMQManager) GetClientConnection(id string) (any, string) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	if _, exists := m.clients[id]; !exists {
+		m.mu.RUnlock()
 		return nil, ""
 	}
+	m.mu.RUnlock()
 
 	m.clients[id].mu.RLock()
-	defer m.clients[id].mu.RUnlock()
+	ch := m.clients[id].channel
+	chId := m.clients[id].channelId
+	m.clients[id].mu.RUnlock()
 
-	return m.clients[id].channel, m.clients[id].channelId 
+	return ch, chId  
 }
 
 func (m *RabbitMQManager) unRegister(id string) {
@@ -120,12 +122,14 @@ func (m *RabbitMQManager) unRegister(id string) {
 	if client, found := m.clients[id]; found {
 		delete(m.clients, id)
 
-		client.mu.RLock()
-		defer client.mu.RUnlock()
-		
+		client.mu.Lock()
 		if client.channel != nil {
 			client.channel.Close()
+			client.channel = nil
 		}
+		client.channelId = ""
+		client.mu.Unlock()
+		
 		client.cancel()
 	}
 }
@@ -161,7 +165,10 @@ func (m *RabbitMQManager) connect() (*amqp.Connection, *mq.Error) {
 }
 
 func (m *RabbitMQManager) handleReconnect() {
+	defer m.Disconnect()
+
 	var closedNotifications chan *amqp.Error
+	
 	// This func is called below to reconnect to the message queue server.
 	reConnect := func () bool {
 		// Maintain connection status
@@ -177,8 +184,13 @@ func (m *RabbitMQManager) handleReconnect() {
 		var err *mq.Error
 		firstTry := true
 		for {
+			select {
+			case <-m.ctx.Done():
+				return false
+			default:
+			}
 			// Failed to connect to the server.
-			if m.conn, err = m.connect(); err != nil {
+			if m.conn, err = m.connect(); m.conn == nil || err != nil {
 				// Inform the client of the issue.
 				if firstTry {
 					m.mu.RLock()
@@ -207,10 +219,7 @@ func (m *RabbitMQManager) handleReconnect() {
 		}
 	}
 	// First connection.
-	if ! reConnect() {
-		m.cancel()
-		return
-	}
+	reConnect()
 	// Maintain the connection.
 	for {
 		select {
@@ -227,7 +236,6 @@ func (m *RabbitMQManager) handleReconnect() {
 			// Incase of failure, the context is canceled.
 			// All clients will also be unregistered. 
 			if ! reConnect() {
-				m.cancel()
 				return
 			}
 		}
@@ -303,7 +311,7 @@ func (m *RabbitMQManager) handleClientChannel(id string) {
 			default:
 			}
 			// Failed to acquire the client channel.
-			if ch, err = m.channel(id); err != nil {
+			if ch, err = m.channel(id); ch == nil || err != nil {
 				// Inform the client of the issue.
 				if firstTry {
 					go client.client.OnConnectionFailure(err)
@@ -318,17 +326,16 @@ func (m *RabbitMQManager) handleClientChannel(id string) {
 			} 
 			// Client channel is ready.
 			client.mu.Lock()
-			defer client.mu.Unlock()
 			client.channel = ch
 			client.channelId = uuid.New().String()
+			client.mu.Unlock()
+
 			closedNotifications = ch.NotifyClose(make(chan *amqp.Error, 1))
 			return true
 		}
 	}
 	// First create the client channel.
-	if ! recreateChannel() {
-		return
-	}
+	recreateChannel()
 	// Maintain client channel.
 	for {
 		select {
@@ -345,7 +352,7 @@ func (m *RabbitMQManager) handleClientChannel(id string) {
 			client.mu.Lock()
 			client.channel = nil
 			client.channelId = ""
-			client.mu.Lock()
+			client.mu.Unlock()
 			// Gracefully wait for the connection status 
 			// to be set by the connection handler first.  
 			time.Sleep(50 * time.Millisecond) 

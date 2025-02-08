@@ -74,6 +74,16 @@ func (opt *PublisherOptions) WithTopic(topic string) *PublisherOptions {
 	return opt
 }
 
+func (opt *PublisherOptions) WithWriteTimeOut(duration time.Duration) *PublisherOptions {
+	opt.WriteTimeOut = duration
+	return opt
+}
+
+func (opt *PublisherOptions) WithGraceTimeOut(duration time.Duration) *PublisherOptions {
+	opt.GraceTimeOut = duration
+	return opt
+}
+
 func (opt *PublisherOptions) WithFanOutDispatch() *PublisherOptions {
 	opt.Dispatcher = &FanOut{}
 	return opt

@@ -22,6 +22,5 @@ var (
 )
 
 func TestMessageQueue(t *testing.T) {
-    suite.Run(t, &mq.RabbitMQManagerTestSuite{ Host: host, Port: port, User: user, Password: pwd })
-    suite.Run(t, &mq.RabbitMQTopologyTestSuite{ Host: host, Port: port, User: user, Password: pwd })
+    suite.Run(t, &mq.RabbitMQTestSuite{ Host: host, Port: port, User: user, Password: pwd })
 }

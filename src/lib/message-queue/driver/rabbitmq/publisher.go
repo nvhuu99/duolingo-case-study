@@ -79,13 +79,13 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 			publishErr = mq.NewError(mq.ConnectionFailure, nil, topic, "", routingKey)
 			continue
 		}
-		
+
 		err := ch.PublishWithContext(
 			client.ctx,
 			topic,
 			routingKey,
 			true,  // mandatory (message must be routed to at least one queue)
-			true, // immediate (queue message even when no consumers)
+			false, // immediate (queue message even when no consumers)
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				ContentType: "text/plain",
@@ -95,11 +95,12 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 				},
 			},
 		)
+
 		if err != nil {
 			publishErr = mq.NewError(mq.PublishFailure, err, topic, "", routingKey)
 			continue
 		}
-		
+
 		confirm := <-client.confirm
 
 		if !confirm.Ack {
@@ -128,13 +129,12 @@ func (client *RabbitMQPublisher) getChannel() *amqp.Channel {
 	if !ok || channel == nil {
 		return nil
 	}
-
 	if client.chanId != chId {
 		if err := channel.Confirm(false); err != nil {
 			return nil
 		}
 		client.chanId = chId
-		client.confirm = channel.NotifyPublish(make(chan amqp.Confirmation, 1))
+		client.confirm = channel.NotifyPublish(make(chan amqp.Confirmation, 10))
 		client.deliveryTag = 1
 	}
 
