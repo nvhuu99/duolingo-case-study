@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	mq "duolingo/lib/message-queue"
+	"sync"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,12 +13,14 @@ type RabbitMQTopology struct {
 	topics	map[string]*Topic
 	manager	mq.Manager
 	opts    *mq.TopologyOptions
+	id		string
 	
 	ctx		context.Context
 	cancel	context.CancelFunc
+	mu		sync.RWMutex
 
-	id		string
-	errChan chan *mq.Error
+	errChan		chan *mq.Error
+	isReady		bool
 }
 
 func NewRabbitMQTopology(ctx context.Context, opts *mq.TopologyOptions) *RabbitMQTopology {
@@ -28,6 +31,7 @@ func NewRabbitMQTopology(ctx context.Context, opts *mq.TopologyOptions) *RabbitM
 		opts = mq.DefaultTopologyOptions()
 	}
 	client.opts = opts
+	client.isReady = false
 
 	return &client
 }
@@ -40,10 +44,7 @@ func (client *RabbitMQTopology) OnClientFatalError(err *mq.Error) {
 }
 
 func (client *RabbitMQTopology) OnReConnected() {
-	err := client.Declare()
-	if err != nil {
-		client.terminate(err)
-	}
+	client.Declare()
 }
 
 func (client *RabbitMQTopology) UseManager(manager mq.Manager) {
@@ -67,7 +68,17 @@ func (client *RabbitMQTopology) NotifyError(ch chan *mq.Error) chan *mq.Error {
 	return ch
 }
 
+func (client *RabbitMQTopology) IsReady() bool {
+	client.mu.RLock()
+	defer client.mu.RUnlock()
+	return client.isReady
+}
+
 func (client *RabbitMQTopology) Declare() *mq.Error {
+	client.mu.Lock()
+	client.isReady = false
+	client.mu.Unlock()
+
 	var declareErr *mq.Error
 	var ch *amqp.Channel
 	var topics []string
@@ -122,6 +133,48 @@ func (client *RabbitMQTopology) Declare() *mq.Error {
 		}
 
 		break
+	}
+
+	client.mu.Lock()
+	client.isReady = true
+	client.mu.Unlock()
+
+	return nil
+}
+
+func (client *RabbitMQTopology) CleanUp() *mq.Error {
+	if ! client.IsReady() {
+		return nil
+	}
+
+	ch := client.getChannel()
+	if ch == nil {
+		return mq.NewError(mq.ConnectionFailure, nil, "", "", "") 
+	}
+
+	client.mu.Lock()
+	client.isReady = false
+	client.mu.Unlock()
+
+	topics := make(map[string]bool)
+	queues := make(map[string]bool)
+	for t, topic := range client.topics {
+		topics[t] = true
+		for q := range topic.queues {
+			queues[q] = true
+		}
+	}
+
+	for q := range queues {
+		if _, err := ch.QueueDelete(q, false, false, false); err != nil {
+			return mq.NewError(mq.TopologyFailure, err, "", q, "")
+		}
+	}
+
+	for t := range topics {
+		if err := ch.ExchangeDelete(t, false, false); err != nil {
+			return mq.NewError(mq.TopologyFailure, err, t, "", "")
+		}
 	}
 
 	return nil

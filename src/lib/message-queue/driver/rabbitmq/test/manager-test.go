@@ -11,15 +11,13 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const (
-    host                = "localhost"
-    port                = "5672"
-    user                = "root"
-    password            = "root@1234"
-)
-
 type RabbitMQManagerTestSuite struct {
     suite.Suite
+
+    Host		string
+	Port		string
+	User		string
+	Password	string
 
     manager *rabbitmq.RabbitMQManager
     clients []*ClientMock
@@ -59,7 +57,7 @@ func (s *RabbitMQManagerTestSuite) TestAutoReconnect() {
 
     // Then, switch to a valid connection, and wait for a heartbeat.
     // After this, the manager is expected to reset all clients connection automatically.
-    s.manager.UseConnection(host, port, user, password)
+    s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
     time.Sleep(s.opts.HearBeat + s.opts.GraceTimeOut * 2)
     for _, client := range s.clients {
         conn, _ := s.manager.GetClientConnection(client.Id)

@@ -17,7 +17,8 @@ const (
 	TopicDeclareFailure			= 509
 	QueueDeclareFailure			= 510
 	BindingDeclareFailure		= 511
-	ClientFatalError			= 512
+	TopologyFailure				= 512
+	ClientFatalError			= 513
 )
 
 var ErrMessages = map[int]string{
@@ -31,6 +32,7 @@ var ErrMessages = map[int]string{
 	TopicDeclareFailure:	"topic declare failure",
 	QueueDeclareFailure:	"queue declare failure",
 	BindingDeclareFailure:	"binding beclare failure",
+	TopologyFailure:		"topology operation failure",
 	ClientFatalError:		"client operations fatal error",
 }
 
