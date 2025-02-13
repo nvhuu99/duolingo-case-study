@@ -1,5 +1,5 @@
 package messagequeue
 
 type Consumer interface {
-	Consume(handler func(string) ConsumerAction)
+	Consume(done <-chan bool, handler func(string) ConsumerAction)
 }
