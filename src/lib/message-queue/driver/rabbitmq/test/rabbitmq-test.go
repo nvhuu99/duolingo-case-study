@@ -2,7 +2,7 @@ package test
 
 import (
 	"context"
-	"strconv"
+	// "strconv"
 	"time"
 
 	mq "duolingo/lib/message-queue"
@@ -12,111 +12,282 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+var (
+	graceTimeOut   = 200 * time.Millisecond
+	connTimeOut    = 1 * time.Second
+	declareTimeOut = 1 * time.Second
+	writeTimeOut   = 1 * time.Second
+	heartBeat      = 1 * time.Second
+)
+
 type RabbitMQTestSuite struct {
-    suite.Suite
+	suite.Suite
 
-	Host		string
-	Port		string
-	User		string
-	Password	string
+	Host     string
+	Port     string
+	User     string
+	Password string
 
-    name        string
-    manager		*rabbitmq.RabbitMQManager
-    topology	*rabbitmq.RabbitMQTopology
-    publisher   *rabbitmq.RabbitMQPublisher
-    managerOpts	*mq.ManagerOptions
-	tpOpts		*mq.TopologyOptions
-    pubOpts     *mq.PublisherOptions
+	name string
+
+	manager   *rabbitmq.RabbitMQManager
+	topology  *rabbitmq.RabbitMQTopology
+	publisher *rabbitmq.RabbitMQPublisher
+	consumer  *rabbitmq.RabbitMQConsumer
 }
 
 func (s *RabbitMQTestSuite) SetupTest() {
-    s.name = "rabbitmq_test_" + strconv.Itoa(int(time.Now().UnixMilli())) 
+	s.name = "rabbitmq_driver_test_" // + strconv.Itoa(int(time.Now().UnixMilli()))
+	s.manager = rabbitmq.NewRabbitMQManager(context.Background())
+	s.topology = rabbitmq.NewRabbitMQTopology("topology", context.Background())
+	s.publisher = rabbitmq.NewPublisher("publisher", context.Background())
+	s.consumer = rabbitmq.NewConsumer("consumer", context.Background())
 
-    s.managerOpts = mq.DefaultManagerOptions()
-    s.managerOpts.ConnectionTimeOut = 2 * time.Second
-    s.managerOpts.HearBeat = 1 * time.Second
-    s.manager = rabbitmq.NewRabbitMQManager(context.Background(), s.managerOpts)
+	s.manager.
+		WithOptions(nil).
+		WithGraceTimeOut(graceTimeOut).
+		WithConnectionTimeOut(connTimeOut).
+		WithHearBeat(heartBeat).
+		WithKeepAlive(true)
 
-    s.tpOpts = mq.DefaultTopologyOptions()
-    s.tpOpts.DeclareTimeOut = 2 * time.Second
-    s.topology = rabbitmq.NewRabbitMQTopology(context.Background(), s.tpOpts)
-    s.topology.UseManager(s.manager)
-    s.topology.Topic(s.name).Queue(s.name).Bind(s.name)
+	s.topology.
+		UseManager(s.manager)
+	s.topology.
+		WithOptions(nil).
+		WithGraceTimeOut(graceTimeOut).
+		WithDeclareTimeOut(declareTimeOut).
+		WithQueuesPurged(true)
+	s.topology.
+		Topic(s.name).Queue(s.name).Bind(s.name)
 
-    s.pubOpts = mq.DefaultPublisherOptions().
-        WithTopic(s.name).
-        WithDirectDispatch(s.name).
-        WithWriteTimeOut(2 * time.Second)
+	s.publisher.
+		UseManager(s.manager)
+	s.publisher.
+		WithOptions(nil).
+		WithGraceTimeOut(graceTimeOut).
+		WithWriteTimeOut(writeTimeOut).
+		WithTopic(s.name).
+		WithDirectDispatch(s.name)
 
-    s.publisher = rabbitmq.NewPublisher(context.Background(), s.pubOpts)
-    s.publisher.UseManager(s.manager)
+	s.consumer.
+		UseManager(s.manager)
+	s.consumer.
+		WithOptions(nil).
+		WithGraceTimeOut(graceTimeOut).
+		WithQueue(s.name)
 }
 
 func (s *RabbitMQTestSuite) TearDownTest() {
-    s.topology.CleanUp()
-    s.manager.Disconnect()
+	s.topology.CleanUp()
+	s.manager.Disconnect()
+}
+
+func (s *RabbitMQTestSuite) WaitForConnection(wait time.Duration, tick time.Duration) {
+	timeOut := time.After(wait)
+	for {
+		select {
+		case <-timeOut:
+			return
+		default:
+			if !s.manager.IsReady() {
+				time.Sleep(tick)
+				continue
+			}
+			if !s.topology.IsReady() {
+				time.Sleep(tick)
+				continue
+			}
+			return
+		}
+	}
 }
 
 func (s *RabbitMQTestSuite) TestManagerAutoReconnect() {
-    // Register multiple mock clients
-    var clients []*ClientMock
-    for i := 1; i <= 2; i++ {
-        client := &ClientMock{}
-        client.UseManager(s.manager)
-        clients = append(clients, client)
-    }
-    // Firstly, use an invalid connection. After the connection timeout,
-    // the connection must failed, and all clients should be informed of the connection failure. 
-    s.manager.UseConnection("", "", "", "")
-    s.manager.Connect()
-    time.Sleep(s.managerOpts.ConnectionTimeOut + s.managerOpts.GraceTimeOut * 2)
-    for _, client := range clients {
-        conn, _ := s.manager.GetClientConnection(client.Id)
-        s.Require().Nil(conn, "all client channel must be nil")
-        s.Require().True(client.ConnectionFailureTriggered, "manager should call all clients OnConnectionFailure()")
-    }
+	var clients [2]*ClientMock
+	for i := 0; i < 2; i++ {
+		client := new(ClientMock)
+		client.UseManager(s.manager)
+		clients[i] = client
+	}
 
-    // Then, switch to a valid connection, and wait for a heartbeat.
-    // After this, the manager is expected to reset all clients connection automatically.
-    s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
-    time.Sleep(s.managerOpts.HearBeat + s.managerOpts.GraceTimeOut * 2)
-    for _, client := range clients {
-        conn, _ := s.manager.GetClientConnection(client.Id)
-        channel, _ := conn.(*amqp.Channel)
-        s.Require().NotNil(conn, "all clients channel must be not nil")
-        s.Require().False(channel.IsClosed(), "all clients channel must be opened")
-        s.Require().True(client.ReConnectedTriggered, "manager should call all clients OnReConnected()")
-    }
+	s.manager.UseConnection("", "", "", "")
+	s.manager.Connect()
+	time.Sleep(connTimeOut + 2 * graceTimeOut)
+
+	for _, client := range clients {
+		conn, _ := s.manager.GetClientConnection(client.Id)
+		s.Require().Nil(conn, "all client channel must be nil")
+		s.Require().True(client.ConnectionFailureTriggered, "manager should call all clients OnConnectionFailure()")
+	}
+
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.WaitForConnection(10 * time.Second, graceTimeOut)
+	for _, client := range clients {
+		conn, _ := client.manager.GetClientConnection(client.Id)
+		channel, _ := conn.(*amqp.Channel)
+		s.Require().NotNil(conn, "all clients channel must be not nil")
+		s.Require().False(channel.IsClosed(), "all clients channel must be opened")
+		s.Require().True(client.ReConnectedTriggered, "manager should call all clients OnReConnected()")
+	}
 }
 
 func (s *RabbitMQTestSuite) TestTopologyAutoDeclare() {
-    s.manager.UseConnection("", "", "", "")
-    s.manager.Connect()
+	s.manager.UseConnection("", "", "", "")
+	s.manager.Connect()
+	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-    declareErr := s.topology.Declare()
-    s.Require().NotNil(declareErr, "topology declare must fail")
-    s.Require().False(s.topology.IsReady(), "topology must not be ready")
-    s.Assert().Equal(declareErr.Code, mq.DeclareTimeOutExceed, "declare err code should be DeclareTimeOutExceed")
+	declareErr := s.topology.Declare()
+	s.Require().NotNil(declareErr, "topology declare must fail")
+	s.Require().False(s.topology.IsReady(), "topology must not be ready")
+	s.Assert().Equal(declareErr.Code, mq.DeclareTimeOutExceed, "declare err code should be DeclareTimeOutExceed")
 
-    s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
-    time.Sleep(s.managerOpts.HearBeat + (s.managerOpts.GraceTimeOut * 2) + s.tpOpts.DeclareTimeOut)
-    s.Require().True(s.topology.IsReady(), "topology must be declared automatically and successfully")
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.WaitForConnection(10*time.Second, graceTimeOut)
+	s.Require().True(s.topology.IsReady(), "topology must be declared automatically and successfully")
 }
 
 func (s *RabbitMQTestSuite) TestPublisherAutoReconnect() {
-    s.manager.UseConnection("", "", "", "")
-    s.manager.Connect()
+	s.manager.UseConnection("", "", "", "")
+	s.manager.Connect()
+	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-    firstErr := s.publisher.Publish("first message")
-    s.Require().NotNil(firstErr, "first message must fail to be published")
-    s.Assert().Equal(firstErr.Code, mq.PublishTimeOutExceed, "pub err code should be PublishTimeOutExceed")
+	firstErr := s.publisher.Publish("first message")
+	s.Require().NotNil(firstErr, "first message must fail to be published")
+	s.Assert().Equal(firstErr.Code, mq.PublishTimeOutExceed, "pub err code should be PublishTimeOutExceed")
 
-    s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
-    time.Sleep(s.managerOpts.HearBeat + (s.managerOpts.GraceTimeOut * 2) + s.tpOpts.DeclareTimeOut)
-    
-    secErr := s.publisher.Publish("second message")
-    s.Require().Nil(secErr, "second message must be published successfully")
-    thirdErr := s.publisher.Publish("third message")
-    s.Require().Nil(thirdErr, "second message must be published successfully")
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.WaitForConnection(10*time.Second, graceTimeOut)
+
+	secErr := s.publisher.Publish("second message")
+	s.Require().Nil(secErr, "second message must be published successfully")
+	thirdErr := s.publisher.Publish("third message")
+	s.Require().Nil(thirdErr, "second message must be published successfully")
 }
 
+func (s *RabbitMQTestSuite) TestConsumerAutoReconnect() {
+	s.manager.UseConnection("", "", "", "")
+	s.manager.Connect()
+	time.Sleep(connTimeOut + graceTimeOut * 2)
+
+	go func() {
+		time.Sleep(time.Second)
+		s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+		s.WaitForConnection(10 * time.Second, graceTimeOut)
+		s.publisher.Publish("sample")
+	}()
+
+	done := make(chan bool, 1)
+	s.consumer.Consume(done, func(message string) mq.ConsumerAction {
+		defer func() {
+			done <- true
+		}()
+		s.Require().Equal(message, "sample", "consumer must receive the correct message")
+		return mq.ConsumerAccept
+	})
+}
+
+func (s *RabbitMQTestSuite) TestConsumerActionAccept() {
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.manager.Connect()
+	s.WaitForConnection(10*time.Second, graceTimeOut)
+	
+	messages := [2]string{"first", "second"}
+	for _, mssg := range messages {
+		s.publisher.Publish(mssg)
+	}
+
+	index := 0
+	done := make(chan bool, 1)
+	result := false
+	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+		defer func() {
+			if !result || index == len(messages) {
+				done <- true
+			}
+		}()
+		result = s.Assert().Equal(mssg, messages[index], "consumer must receive messages in the correct order")
+		result = true
+		index++
+		return mq.ConsumerAccept
+	})
+}
+
+func (s *RabbitMQTestSuite) TestConsumerActionRequeue() {
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.manager.Connect()
+	s.WaitForConnection(10*time.Second, graceTimeOut)
+	
+	s.publisher.Publish("sample")
+	
+	first := true
+	done := make(chan bool, 1)
+	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+		if first {
+			first = false
+			return mq.ConsumerRequeue
+		} else {
+			s.Assert().Equal(mssg, "sample", "consumer must receive the same message after it is requeued")
+			done <- true
+			return mq.ConsumerAccept
+		}
+	})
+}
+
+func (s *RabbitMQTestSuite) TestConsumerActionReject() {
+	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+	s.manager.Connect()
+	s.WaitForConnection(10*time.Second, graceTimeOut)
+
+	messages := [2]string{"first", "second"}
+	for _, mssg := range messages {
+		s.publisher.Publish(mssg)
+	}
+
+	index := 0
+	done := make(chan bool, 1)
+	result := false
+	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+		defer func() {
+			if !result || index == len(messages) {
+				done <- true
+			}
+		}()
+		result = s.Assert().Equal(mssg, messages[index], "consumer must receive messages in the correct order")
+		result = true
+		index++
+		return mq.ConsumerReject
+	})
+}
+
+func (s *RabbitMQTestSuite) TestConsumerConfirmationRecovery() {
+    s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+    s.manager.Connect()
+    s.WaitForConnection(10 * time.Second, graceTimeOut)
+    
+	s.publisher.Publish("first")
+
+    isFirst := true
+    done := make(chan bool, 1)
+    s.consumer.Consume(done, func (message string) mq.ConsumerAction {
+        if isFirst {
+            s.manager.UseConnection("", "", "", "")
+            time.Sleep(connTimeOut + graceTimeOut * 2)
+
+            go func() {
+                s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
+                s.WaitForConnection(10 * time.Second, graceTimeOut)
+
+                time.Sleep(graceTimeOut * 2)
+                s.publisher.Publish("second")
+            }()
+
+            isFirst = false
+
+            return mq.ConsumerAccept
+        } else {
+            s.Require().Equal(message, "second", "the first message should be automatically acknowleged, and the consumer should receive the second message")
+            done <- true
+            return mq.ConsumerAccept
+        }
+    })
+}

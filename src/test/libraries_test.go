@@ -15,12 +15,13 @@ var (
 	_, caller, _, _ = runtime.Caller(0)
 	dir = filepath.Dir(caller)
 	conf = config.NewJsonReader(filepath.Join(dir, "..", "infra", "config"))
-	host = conf.Get("mq.host", "")
-	port = conf.Get("mq.port", "")
-	user = conf.Get("mq.user", "")
-	pwd = conf.Get("mq.pwd", "")
 )
 
 func TestMessageQueue(t *testing.T) {
-    suite.Run(t, &mq.RabbitMQTestSuite{ Host: host, Port: port, User: user, Password: pwd })
+	suite.Run(t, &mq.RabbitMQTestSuite{ 
+		Host: conf.Get("mq.host", ""), 
+		Port: conf.Get("mq.port", ""), 
+		User: conf.Get("mq.user", ""), 
+		Password: conf.Get("mq.pwd", ""),
+	})
 }

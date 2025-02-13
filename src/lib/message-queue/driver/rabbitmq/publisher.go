@@ -14,6 +14,7 @@ type RabbitMQPublisher struct {
 	manager	mq.Manager
 
 	id			string
+	name		string
 	chanId		string
 	confirm		chan amqp.Confirmation
 	deliveryTag	uint64
@@ -23,15 +24,22 @@ type RabbitMQPublisher struct {
 	cancel	context.CancelFunc
 }
 
-func NewPublisher(ctx context.Context ,opts *mq.PublisherOptions) *RabbitMQPublisher {
+func NewPublisher(name string, ctx context.Context) *RabbitMQPublisher {
 	client := RabbitMQPublisher{}
 	client.ctx, client.cancel = context.WithCancel(ctx)
-	if opts == nil {
-		opts = mq.DefaultPublisherOptions()
-	}
-	client.opts = opts
+	client.opts = mq.DefaultPublisherOptions()
+	client.name = name
 	
 	return &client
+}
+
+func (client *RabbitMQPublisher) WithOptions(opts *mq.PublisherOptions) *mq.PublisherOptions {
+	if opts == nil {
+		client.opts = mq.DefaultPublisherOptions()
+	} else {
+		client.opts = opts
+	}
+	return client.opts
 }
 
 func (client *RabbitMQPublisher) OnReConnected() {
@@ -41,7 +49,7 @@ func (client *RabbitMQPublisher) OnConnectionFailure(err *mq.Error) {
 }
 
 func (client *RabbitMQPublisher) OnClientFatalError(err *mq.Error) {
-	client.terminate(err)
+	// client.terminate(err)
 }
 
 func (client *RabbitMQPublisher) NotifyError(ch chan *mq.Error) chan *mq.Error {
@@ -50,7 +58,7 @@ func (client *RabbitMQPublisher) NotifyError(ch chan *mq.Error) chan *mq.Error {
 }
 
 func (client *RabbitMQPublisher) UseManager(manager mq.Manager) {
-	client.id = manager.RegisterClient(client)
+	client.id = manager.RegisterClient(client.name, client)
 	client.manager = manager
 }
 

@@ -19,7 +19,7 @@ type ClientMock struct {
 }
 
 func (client *ClientMock) UseManager(manager mq.Manager) {
-	client.Id = manager.RegisterClient(client)
+	client.Id = manager.RegisterClient("client mock", client)
 	client.manager = manager
 }
 

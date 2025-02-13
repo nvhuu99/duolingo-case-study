@@ -19,6 +19,7 @@ const (
 	BindingDeclareFailure		= 511
 	TopologyFailure				= 512
 	ClientFatalError			= 513
+	ManagerConfigMissing		= 514
 )
 
 var ErrMessages = map[int]string{
@@ -34,6 +35,7 @@ var ErrMessages = map[int]string{
 	BindingDeclareFailure:	"binding beclare failure",
 	TopologyFailure:		"topology operation failure",
 	ClientFatalError:		"client operations fatal error",
+	ManagerConfigMissing:	"manager configuration missing",
 }
 
 type Error struct {
@@ -72,7 +74,7 @@ func (e *Error) Error() string {
 	}
 
 	if e.OriginalError != nil {
-		mssg += fmt.Sprintf("original error: %v", e.OriginalError.Error())
+		mssg += fmt.Sprintf("original error: %v", e.OriginalError)
 	}
 
 	return mssg

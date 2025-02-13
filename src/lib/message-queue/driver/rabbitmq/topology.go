@@ -14,6 +14,7 @@ type RabbitMQTopology struct {
 	manager	mq.Manager
 	opts    *mq.TopologyOptions
 	id		string
+	name	string
 	
 	ctx		context.Context
 	cancel	context.CancelFunc
@@ -23,24 +24,31 @@ type RabbitMQTopology struct {
 	isReady		bool
 }
 
-func NewRabbitMQTopology(ctx context.Context, opts *mq.TopologyOptions) *RabbitMQTopology {
+func NewRabbitMQTopology(name string, ctx context.Context) *RabbitMQTopology {
 	client := RabbitMQTopology{}
 	client.ctx, client.cancel = context.WithCancel(ctx)
 	client.topics = make(map[string]*Topic)
-	if opts == nil {
-		opts = mq.DefaultTopologyOptions()
-	}
-	client.opts = opts
+	client.opts = mq.DefaultTopologyOptions()
 	client.isReady = false
+	client.name = name
 
 	return &client
+}
+
+func (client *RabbitMQTopology) WithOptions(opts *mq.TopologyOptions) *mq.TopologyOptions {
+	if opts == nil {
+		client.opts = mq.DefaultTopologyOptions()
+	} else {
+		client.opts = opts
+	}
+	return client.opts
 }
 
 func (client *RabbitMQTopology) OnConnectionFailure(err *mq.Error) {
 }
 
 func (client *RabbitMQTopology) OnClientFatalError(err *mq.Error) {
-	client.terminate(err)
+	// client.terminate(err)
 }
 
 func (client *RabbitMQTopology) OnReConnected() {
@@ -48,7 +56,7 @@ func (client *RabbitMQTopology) OnReConnected() {
 }
 
 func (client *RabbitMQTopology) UseManager(manager mq.Manager) {
-	client.id = manager.RegisterClient(client)
+	client.id = manager.RegisterClient(client.name, client)
 	client.manager = manager
 }
 
@@ -119,16 +127,16 @@ func (client *RabbitMQTopology) Declare() *mq.Error {
 			declareErr = mq.NewError(mq.ConnectionFailure, nil, "", "", "")
 			continue
 		}
-		if declareErr = declareTopics(ch, topics); declareErr != nil {
+		if declareErr = client.declareTopics(ch, topics); declareErr != nil {
 			continue
 		}
-		if declareErr = declareQueues(ch, queues); declareErr != nil {
+		if declareErr = client.declareQueues(ch, queues); declareErr != nil {
 			continue
 		}
-		if declareErr = declareBindings(ch, bindings); declareErr != nil {
+		if declareErr = client.declareBindings(ch, bindings); declareErr != nil {
 			continue
 		}
-		if declareErr = declareQos(ch); declareErr != nil {
+		if declareErr = client.declareQos(ch); declareErr != nil {
 			continue
 		}
 
@@ -180,6 +188,74 @@ func (client *RabbitMQTopology) CleanUp() *mq.Error {
 	return nil
 }
 
+func (client *RabbitMQTopology) declareTopics(ch *amqp.Channel, topics []string) *mq.Error {
+	for i := 0; i < len(topics); i++ {
+		err := ch.ExchangeDeclare(
+			topics[i],
+			"direct",
+			true,              // durable
+			false,             // delete when unused
+			false,             // internal
+			false,             // no-wait
+			nil,               // arguments
+		)
+		if err != nil {
+			return mq.NewError(mq.TopicDeclareFailure, err, topics[i], "", "")
+		}
+	}
+
+	return nil
+}
+
+func (client *RabbitMQTopology) declareQueues(ch *amqp.Channel, queues map[string]bool) *mq.Error {
+	for q := range queues {
+		_, err := ch.QueueDeclare(
+			q,			// name
+			true,		// durable
+			false,		// delete when unused
+			false,		// exclusive
+			false,		// no-wait
+			nil,		// arguments
+		)
+		if err != nil {
+			return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
+		} 
+		if client.opts.QueuesPurged {
+			_, err = ch.QueuePurge(q, false)
+			if err != nil {
+				return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
+			} 
+		}
+	}
+
+	return nil
+}
+
+func (client *RabbitMQTopology) declareBindings(ch *amqp.Channel, bindings [][3]string) *mq.Error {
+	for i := 0; i < len(bindings); i++ {
+		binding := bindings[i]
+		err := ch.QueueBind(binding[0], binding[1], binding[2], false, nil)
+		if err != nil {
+			return mq.NewError(mq.BindingDeclareFailure, err, binding[2], binding[1], binding[0])
+		}
+	}
+
+	return nil
+}
+
+func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) *mq.Error {
+	err := ch.Qos(
+		1,     // Prefetch count: One message at a time
+		0,     // No size limit for message content
+		true,  // Apply all channels
+	)
+	if err != nil {
+		return mq.NewError(mq.DeclareFailure, err, "", "", "")
+	}
+
+	return nil
+}
+
 func (client *RabbitMQTopology) notifyErr(err *mq.Error) {
 	if client.errChan != nil {
 		client.errChan <- err
@@ -201,66 +277,3 @@ func (client *RabbitMQTopology) getChannel() *amqp.Channel {
 
 	return channel
 }
-
-func declareTopics(ch *amqp.Channel, topics []string) *mq.Error {
-	for i := 0; i < len(topics); i++ {
-		err := ch.ExchangeDeclare(
-			topics[i],
-			"direct",
-			true,              // durable
-			false,             // delete when unused
-			false,             // internal
-			false,             // no-wait
-			nil,               // arguments
-		)
-		if err != nil {
-			return mq.NewError(mq.TopicDeclareFailure, err, topics[i], "", "")
-		}
-	}
-
-	return nil
-}
-
-func declareQueues(ch *amqp.Channel, queues map[string]bool) *mq.Error {
-	for q := range queues {
-		_, err := ch.QueueDeclare(
-			q,			// name
-			true,		// durable
-			false,		// delete when unused
-			false,		// exclusive
-			false,		// no-wait
-			nil,		// arguments
-		)
-		if err != nil {
-			return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
-		}
-	}
-
-	return nil
-}
-
-func declareBindings(ch *amqp.Channel, bindings [][3]string) *mq.Error {
-	for i := 0; i < len(bindings); i++ {
-		binding := bindings[i]
-		err := ch.QueueBind(binding[0], binding[1], binding[2], false, nil)
-		if err != nil {
-			return mq.NewError(mq.BindingDeclareFailure, err, binding[2], binding[1], binding[0])
-		}
-	}
-
-	return nil
-}
-
-func declareQos(ch *amqp.Channel) *mq.Error {
-	err := ch.Qos(
-		1,     // Prefetch count: One message at a time
-		0,     // No size limit for message content
-		true,  // Apply all channels
-	)
-	if err != nil {
-		return mq.NewError(mq.DeclareFailure, err, "", "", "")
-	}
-
-	return nil
-}
-
