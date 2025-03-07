@@ -7,6 +7,7 @@ import (
 
 	"duolingo/lib/config-reader"
 	mq "duolingo/lib/message-queue/driver/rabbitmq/test"
+	wd "duolingo/lib/work-distributor/driver/redis/test"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -23,5 +24,12 @@ func TestMessageQueue(t *testing.T) {
 		Port: conf.Get("mq.port", ""), 
 		User: conf.Get("mq.user", ""), 
 		Password: conf.Get("mq.pwd", ""),
+	})
+}
+
+func TestWorkDistributor(t *testing.T) {
+	suite.Run(t, &wd.RedisDistributorTestSuite{ 
+		Host: conf.Get("redis.host", ""), 
+		Port: conf.Get("redis.port", ""), 
 	})
 }

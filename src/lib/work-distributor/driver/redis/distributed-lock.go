@@ -1,14 +1,15 @@
-package redismanager
+package redisdistributor
 
 import (
 	"context"
-	"errors"
+	"math/rand"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 func acquireLock(ctx context.Context, rdb *redis.Client, ttl time.Duration, val string, keys ...string) error {
+	var lockErr error
 	script := redis.NewScript(`
 		local keys = KEYS
 		local lock_value = ARGV[1]
@@ -26,17 +27,24 @@ func acquireLock(ctx context.Context, rdb *redis.Client, ttl time.Duration, val 
 
 		return 1 -- Lock succeeded
 	`)
-
-	const maxRetries = 1000
-	for i := 0; i < maxRetries; i++ {
-		result, err := script.Run(ctx, rdb, keys, val, ttl).Result()
-		if err == nil && result == int64(1) {
-			return nil
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return lockErr
+		case <-timeout:
+			return lockErr
+		default:
+			result, err := script.Run(ctx, rdb, keys, val, ttl.Milliseconds()).Result()
+			if err == nil && result == int64(1) {
+				return nil
+			}
+			minWait := 10
+			maxWait := 100
+			wait := rand.Intn(maxWait - minWait + 1) + minWait
+			time.Sleep(time.Duration(wait) * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
-
-	return errors.New("batch manager: reached maximum number of retries to acquire the lock")
 }
 
 func releaseLock(ctx context.Context, rdb *redis.Client, val string, keys ...string) {
@@ -52,4 +60,3 @@ func releaseLock(ctx context.Context, rdb *redis.Client, val string, keys ...str
 	`)
 	script.Run(ctx, rdb, keys, val)
 }
-

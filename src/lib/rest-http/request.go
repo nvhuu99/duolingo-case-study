@@ -8,11 +8,10 @@ import (
 )
 
 type Request struct {
-	req *http.Request
-	
-	parsed bool
-	body []byte
-	inputs map[string]any
+	req		*http.Request
+	parsed	bool
+	body	[]byte
+	inputs	map[string]any
 }
 
 func (request *Request) Header() http.Header {

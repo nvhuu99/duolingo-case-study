@@ -18,9 +18,9 @@ const (
 )
 
 type UserRepo struct {
-	uri string
-	database string
-	ctx context.Context
+	uri			string
+	database	string
+	ctx			context.Context
 }
 
 func NewUserRepo(ctx context.Context, database string) *UserRepo {
@@ -58,7 +58,7 @@ func (repo *UserRepo) CountUsers(campaign string) (int, error) {
 	return int(count), err
 }
 
-func (repo *UserRepo) CampaignUsersList(args *ListUserOptions) ([]*model.CampaignUser, error) {
+func (repo *UserRepo) UsersList(args *ListUserOptions) ([]*model.CampaignUser, error) {
 	client, err := repo.connect()
 	defer client.Disconnect(repo.ctx)
 	if err != nil {
@@ -106,6 +106,27 @@ func (repo *UserRepo) CampaignUsersList(args *ListUserOptions) ([]*model.Campaig
 	}
 
 	return users, nil
+}
+
+func (repo *UserRepo) InsertUsers(users []*model.CampaignUser) ([]any, error) {
+	client, err := repo.connect()
+	defer client.Disconnect(repo.ctx)
+	if err != nil {
+		return []any{}, err
+	}
+
+	bsonData := make([]interface{}, len(users)) // Use interface{} for MongoDB compatibility
+	for i, usr := range users {
+		bsonData[i] = usr // Directly assign the struct
+	}
+
+	collection := client.Database(repo.database).Collection("campaign_users")
+	result, err := collection.InsertMany(repo.ctx, bsonData)
+	if err != nil {
+		return []any{}, err
+	}
+
+	return result.InsertedIDs, nil
 }
 
 func (repo *UserRepo) connect() (*mongo.Client, error) {

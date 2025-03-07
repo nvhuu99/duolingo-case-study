@@ -8,7 +8,6 @@ const (
 	NilVersion      string      = "-1"
 	MigrateUp       MigrateType = "up"
 	MigrateRollback MigrateType = "rollback"
-
 	MigrateFinished MigrateStatus = "finished"
 	MigrateFailed   MigrateStatus = "failed"
 )

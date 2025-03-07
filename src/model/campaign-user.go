@@ -3,9 +3,9 @@ package model
 type Membership string
 
 const (
-	Premium Membership = "premium"
-	Subscriber Membership = "subscriber"
-	FreeTier Membership = "free_tier"
+	Premium		Membership = "premium"
+	Subscriber	Membership = "subscriber"
+	FreeTier	Membership = "free_tier"
 )
 
 type CampaignUser struct {

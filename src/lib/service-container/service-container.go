@@ -2,11 +2,6 @@ package container
 
 import "sync"
 
-type binding struct {
-	singleton bool
-	closure   func() any
-}
-
 type ServiceContainer struct {
 	bindings  map[string]binding
 	instances map[string]any
