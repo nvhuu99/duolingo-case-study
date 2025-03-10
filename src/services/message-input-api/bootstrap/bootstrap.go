@@ -1,64 +1,112 @@
 package bootstrap
 
 import (
+	"context"
 	"duolingo/common"
 	"duolingo/lib/config-reader"
-	mqp "duolingo/lib/message-queue"
+	mq "duolingo/lib/message-queue"
 	"duolingo/lib/message-queue/driver/rabbitmq"
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
+	sv "duolingo/lib/service-container"
+	"time"
 )
 
 var (
-	container = common.Container()
-	ctx, _ = common.ServiceContext()
+	container	*sv.ServiceContainer
+	ctx			context.Context
+	infra		config.ConfigReader
+
+	graceTimeOut   = 100 * time.Millisecond
+	connTimeOut    = 10 * time.Second
+	heartBeat      = 10 * time.Second
+	declareTimeOut = 10 * time.Second
+	writeTimeOut   = 5 * time.Second
 )
 
 func bind() {
-	info := getMQInfo("input_messages")
-	if info == nil {
-		panic("failed to get topic info from the message queue service api")
-	}
-	container.BindSingleton("publisher", func() any {
-		publisher := rabbitmq.NewPublisher(ctx)
-		publisher.SetTopicInfo(info)
+	container.BindSingleton("mq.err_chan", func() any {
+		return make(chan *mq.Error, 2)
+	})
+
+	container.BindSingleton("mq.manager", func() any {
+		manager := rabbitmq.NewRabbitMQManager(ctx)
+		manager.
+			WithOptions(nil).
+			WithGraceTimeOut(graceTimeOut).
+			WithConnectionTimeOut(connTimeOut).
+			WithHearBeat(heartBeat).
+			WithKeepAlive(true)
+		manager.
+			UseConnection(
+				infra.Get("mq.host", ""),
+				infra.Get("mq.port", ""),
+				infra.Get("mq.user", ""),
+				infra.Get("mq.pwd", ""),
+			)
+		manager.
+			Connect()
+
+		return manager
+	})
+
+	container.BindSingleton("mq.topology", func() any {
+		manager, _ := container.Resolve("mq.manager").(mq.Manager)
+		errChan, _ := container.Resolve("mq.err_chan").(chan *mq.Error)
+
+		topology := rabbitmq.
+			NewRabbitMQTopology("campaign_messages_topology", ctx)
+		topology.
+			UseManager(manager)
+		topology.
+			NotifyError(errChan)
+		topology.
+			WithOptions(nil).
+			WithGraceTimeOut(graceTimeOut).
+			WithDeclareTimeOut(declareTimeOut).
+			WithQueuesPurged(false)
+		topology.
+			Topic("campaign_messages").Queue("input_messages").Bind("input_messages")
+
+		return topology
+	})
+
+	container.BindSingleton("mq.publisher", func() any {
+		manager, _ := container.Resolve("mq.manager").(mq.Manager)
+		errChan, _ := container.Resolve("mq.err_chan").(chan *mq.Error)
+
+		publisher := rabbitmq.
+			NewPublisher("input_messages_publisher", ctx)
+		publisher.
+			UseManager(manager)
+		publisher.
+			NotifyError(errChan)
+		publisher.
+			WithOptions(nil).
+			WithGraceTimeOut(graceTimeOut).
+			WithWriteTimeOut(writeTimeOut).
+			WithTopic("campaign_messages").
+			WithDirectDispatch("input_messages")
+
 		return publisher
 	})
 }
 
-func Run() {
-	common.SetupService()
-	bind()
+func boot() {
+	// go func() {
+	// 	topology := container.Resolve("mq.topology").(mq.Topology)
+	// 	if err := topology.Declare(); err != nil {
+	// 		log.Println("failed to setup message queue topology")
+	// 		panic(err.Error())
+	// 	}
+	// }()
 }
 
-func getMQInfo(name string) *mqp.TopicInfo {
-	conf, _ := container.Resolve("config").(config.ConfigReader)
-	addr := conf.Get("services.mq_service_api", "")
-	url := fmt.Sprintf("%v/topic/%v", addr, name)
-	resp, httpErr := http.Get(url)
+func Run() {
+	common.SetupService()
 
-	var response struct {
-		Success bool          `json:"success"`
-		Data    mqp.TopicInfo `json:"data"`
-		Message string        `json:"message"`
-		Errors  any           `json:"errors"`
-	}
-	body, _ := io.ReadAll(resp.Body)
-	json.Unmarshal(body, &response)
-	resp.Body.Close()
-	
-	if httpErr != nil {
-		log.Println(httpErr.Error())
-		return nil
-	}
-	
-	if resp.StatusCode != http.StatusOK {
-		log.Println(response.Message, "\n", response.Errors)
-		return nil
-	}	
+	container = common.Container()
+	infra = container.Resolve("config.infra").(config.ConfigReader)
+	ctx, _ = common.ServiceContext()
 
-	return &response.Data
+	bind()
+	boot()
 }

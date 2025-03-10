@@ -1,21 +1,12 @@
 package test
 
 import (
-	"path/filepath"
-	"runtime"
 	"testing"
 
-	"duolingo/lib/config-reader"
 	mq "duolingo/lib/message-queue/driver/rabbitmq/test"
 	wd "duolingo/lib/work-distributor/driver/redis/test"
 
 	"github.com/stretchr/testify/suite"
-)
-
-var (
-	_, caller, _, _ = runtime.Caller(0)
-	dir = filepath.Dir(caller)
-	conf = config.NewJsonReader(filepath.Join(dir, "..", "infra", "config"))
 )
 
 func TestMessageQueue(t *testing.T) {

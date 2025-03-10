@@ -16,18 +16,12 @@ import (
 )
 
 var (
-	container *sv.ServiceContainer
-	conf config.ConfigReader
+	container	*sv.ServiceContainer
+	conf		config.ConfigReader
 )
 
 func input(request *rest.Request, response *rest.Response) {
 	campaign := request.Path("campaign").Str()
-	if campaign == "" {
-		response.InvalidRequest("", map[string]string {
-			"campaign": "campaign must not be empty",
-		})
-		return
-	}
 	content := request.Input("message").Str()
 	if content == "" {
 		response.InvalidRequest("", map[string]string {
@@ -36,7 +30,7 @@ func input(request *rest.Request, response *rest.Response) {
 		return
 	}
 
-	publisher := container.Resolve("publisher").(mq.MessagePublisher)
+	publisher := container.Resolve("mq.publisher").(mq.Publisher)
 
 	message := model.InputMessage{
 		Id: uuid.New().String(),
@@ -46,12 +40,9 @@ func input(request *rest.Request, response *rest.Response) {
 	}
 	jsonMsg, _ := json.Marshal(message)
 
-	publisher.Connect() 
-	defer publisher.Disconnect()
-	
 	err := publisher.Publish(string(jsonMsg))
 	if err != nil {
-		log.Println(err)
+		log.Println(err.Error())
 		response.ServerErr("Failed to publish to message queue")
 		return
 	}
@@ -63,10 +54,27 @@ func main() {
 	bootstrap.Run()
 
 	container = common.Container()
-	conf, _   = container.Resolve("config").(config.ConfigReader)
+	conf = container.Resolve("config").(config.ConfigReader)
+	addr := conf.Get("self.addr", "")
+	if addr == "" {
+		log.Fatal("message input api address is not provided")
+	}
 
+	go panicOnMessageQueueFailure()
+	
 	router := rest.NewRouter()
 	router.Post("/campaign/{campaign}/message", input)
+	
+	log.Println("serving message input api at: " + addr)
+	
 	http.HandleFunc("/", router.Func())
-	http.ListenAndServe(conf.Get("self.addr", ""), nil)
+	http.ListenAndServe(addr, nil)
+}
+
+func panicOnMessageQueueFailure() {
+	errChan := container.Resolve("mq.err_chan").(chan *mq.Error)
+	err := <-errChan
+	if err != nil {
+		panic(err)
+	}
 }

@@ -54,12 +54,12 @@ type Error struct {
 
 func (e *Error) Error() string {
 	mssg := fmt.Sprintf(
-		"file: \"%v\", line: %v, function: \"%v\"\ncode: %v, error message: \"%v\"\n",
+		"error code: %v, error message: \"%v\"\nfile: \"%v\", line: %v, function: \"%v\"\n",
+		e.Code,
+		e.Message,
 		e.File,
 		e.LineNumber,
 		e.FuncName,
-		e.Code,
-		e.Message,
 	)
 
 	if e.Topic != "" {
@@ -74,7 +74,11 @@ func (e *Error) Error() string {
 	}
 
 	if e.OriginalError != nil {
-		mssg += fmt.Sprintf("original error: %v", e.OriginalError)
+		if _, check := e.OriginalError.(*Error); check {
+			return mssg +  e.OriginalError.Error()
+		} else {
+			mssg += fmt.Sprintf("original error: %v", e.OriginalError)
+		}
 	}
 
 	return mssg
