@@ -2,8 +2,8 @@ package messagequeue
 
 type Client interface {
 	UseManager(manager Manager)
-	NotifyError(chan *Error) chan *Error
-	OnConnectionFailure(err *Error)
-	OnClientFatalError(err *Error)
+	NotifyError(chan error) chan error
+	OnConnectionFailure(err error)
+	OnClientFatalError(err error)
 	OnReConnected()
 }

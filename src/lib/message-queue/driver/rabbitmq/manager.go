@@ -12,22 +12,22 @@ import (
 )
 
 const (
-	statusReconnecting	= "status_reconnecting"
-	statusReady			= "status_ready"
+	statusReconnecting = "status_reconnecting"
+	statusReady        = "status_ready"
 )
 
 type RabbitMQManager struct {
-	uri		string
-	opts	*mq.ManagerOptions
-	conn	*amqp.Connection
-	clients	map[string]*clientInfo
+	uri     string
+	opts    *mq.ManagerOptions
+	conn    *amqp.Connection
+	clients map[string]*clientInfo
 
-	status	string
-	reset	chan bool
+	status string
+	reset  chan bool
 
-	ctx		context.Context
-	cancel	context.CancelFunc
-	mu		sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.RWMutex
 }
 
 func NewRabbitMQManager(ctx context.Context) *RabbitMQManager {
@@ -68,7 +68,7 @@ func (m *RabbitMQManager) UseConnection(host, port, user, password string) {
 	}
 }
 
-func (m *RabbitMQManager) Connect() *mq.Error {
+func (m *RabbitMQManager) Connect() error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -93,14 +93,14 @@ func (m *RabbitMQManager) Disconnect() {
 func (m *RabbitMQManager) IsReady() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	return m.status == statusReady && m.conn != nil
 }
 
 func (m *RabbitMQManager) IsReConnecting() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	return m.status == statusReconnecting && m.conn == nil
 }
 
@@ -126,7 +126,7 @@ func (m *RabbitMQManager) UnRegisterClient(id string) {
 
 func (m *RabbitMQManager) GetClientConnection(id string) (any, string) {
 	m.mu.RLock()
-	defer m.mu.RUnlock() 
+	defer m.mu.RUnlock()
 
 	if _, exists := m.clients[id]; !exists {
 		return nil, ""
@@ -149,7 +149,7 @@ func (m *RabbitMQManager) unRegister(id string) {
 	}
 }
 
-func (m *RabbitMQManager) connect() (*amqp.Connection, *mq.Error) {
+func (m *RabbitMQManager) connect() (*amqp.Connection, error) {
 	var conn *amqp.Connection
 	var err error
 	connectDeadline := time.After(m.opts.ConnectionTimeOut)
@@ -167,14 +167,14 @@ func (m *RabbitMQManager) connect() (*amqp.Connection, *mq.Error) {
 		m.mu.RUnlock()
 
 		conn, err = amqp.DialConfig(uri, amqp.Config{
-			Heartbeat:	m.opts.HearBeat,
-			Dial:		amqp.DefaultDial(m.opts.ConnectionTimeOut),
+			Heartbeat: m.opts.HearBeat,
+			Dial:      amqp.DefaultDial(m.opts.ConnectionTimeOut),
 		})
 
 		if err == nil {
 			return conn, nil
 		}
-		
+
 		time.Sleep(m.opts.GraceTimeOut)
 	}
 }
@@ -208,13 +208,13 @@ func (m *RabbitMQManager) handleReconnect() {
 
 	var closedNotifications chan *amqp.Error
 	var conn *amqp.Connection
-	
+
 	// This func is called below to reconnect to the message queue server.
-	reConnect := func () bool {
+	reConnect := func() bool {
 		m.onReConnecting()
 		defer m.onReConnected()
 
-		var err *mq.Error
+		var err error
 		firstTry := true
 		for {
 			select {
@@ -270,10 +270,10 @@ func (m *RabbitMQManager) handleReconnect() {
 			// Start reconnecting to the server,
 			// this operation might fail if a connection cannot be established
 			// before the "connection timeout".
-			// 
+			//
 			// Incase of failure, the context is canceled.
 			// All clients will also be unregistered.
-			if ! reConnect() {
+			if !reConnect() {
 				m.cancel()
 			}
 		}

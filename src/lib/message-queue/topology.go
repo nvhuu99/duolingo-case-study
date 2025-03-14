@@ -1,7 +1,7 @@
 package messagequeue
 
 type Topology interface {
-	Declare() *Error
-	CleanUp() *Error
+	Declare() error
+	CleanUp() error
 	IsReady() bool
 }

@@ -136,7 +136,7 @@ func (s *RabbitMQTestSuite) TestTopologyAutoDeclare() {
 	s.manager.Connect()
 	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-	declareErr := s.topology.Declare()
+	declareErr := s.topology.Declare().(*mq.Error)
 	s.Require().NotNil(declareErr, "topology declare must fail")
 	s.Require().False(s.topology.IsReady(), "topology must not be ready")
 	s.Assert().Equal(declareErr.Code, mq.DeclareTimeOutExceed, "declare err code should be DeclareTimeOutExceed")
@@ -151,7 +151,7 @@ func (s *RabbitMQTestSuite) TestPublisherAutoReconnect() {
 	s.manager.Connect()
 	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-	firstErr := s.publisher.Publish("first message")
+	firstErr := s.publisher.Publish("first message").(*mq.Error)
 	s.Require().NotNil(firstErr, "first message must fail to be published")
 	s.Assert().Equal(firstErr.Code, mq.PublishTimeOutExceed, "pub err code should be PublishTimeOutExceed")
 

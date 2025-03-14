@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	container	*sv.ServiceContainer
-	ctx			context.Context
-	infra		config.ConfigReader
+	container *sv.ServiceContainer
+	ctx       context.Context
+	infra     config.ConfigReader
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -24,7 +24,7 @@ var (
 
 func bind() {
 	container.BindSingleton("mq.err_chan", func() any {
-		return make(chan *mq.Error, 2)
+		return make(chan error, 2)
 	})
 
 	container.BindSingleton("mq.manager", func() any {
@@ -50,7 +50,7 @@ func bind() {
 
 	container.BindSingleton("mq.topology", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("mq.err_chan").(chan *mq.Error)
+		errChan, _ := container.Resolve("mq.err_chan").(chan error)
 
 		topology := rabbitmq.
 			NewRabbitMQTopology("campaign_messages_topology", ctx)
@@ -71,7 +71,7 @@ func bind() {
 
 	container.BindSingleton("mq.publisher", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("mq.err_chan").(chan *mq.Error)
+		errChan, _ := container.Resolve("mq.err_chan").(chan error)
 
 		publisher := rabbitmq.
 			NewPublisher("input_messages_publisher", ctx)
@@ -91,13 +91,6 @@ func bind() {
 }
 
 func boot() {
-	// go func() {
-	// 	topology := container.Resolve("mq.topology").(mq.Topology)
-	// 	if err := topology.Declare(); err != nil {
-	// 		log.Println("failed to setup message queue topology")
-	// 		panic(err.Error())
-	// 	}
-	// }()
 }
 
 func Run() {

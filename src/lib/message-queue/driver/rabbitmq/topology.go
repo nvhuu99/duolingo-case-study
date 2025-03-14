@@ -10,18 +10,18 @@ import (
 )
 
 type RabbitMQTopology struct {
-	topics	map[string]*Topic
-	manager	mq.Manager
+	topics  map[string]*Topic
+	manager mq.Manager
 	opts    *mq.TopologyOptions
-	id		string
-	name	string
-	
-	ctx		context.Context
-	cancel	context.CancelFunc
-	mu		sync.RWMutex
+	id      string
+	name    string
 
-	errChan		chan *mq.Error
-	isReady		bool
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.RWMutex
+
+	errChan chan error
+	isReady bool
 }
 
 func NewRabbitMQTopology(name string, ctx context.Context) *RabbitMQTopology {
@@ -44,10 +44,10 @@ func (client *RabbitMQTopology) WithOptions(opts *mq.TopologyOptions) *mq.Topolo
 	return client.opts
 }
 
-func (client *RabbitMQTopology) OnConnectionFailure(err *mq.Error) {
+func (client *RabbitMQTopology) OnConnectionFailure(err error) {
 }
 
-func (client *RabbitMQTopology) OnClientFatalError(err *mq.Error) {
+func (client *RabbitMQTopology) OnClientFatalError(err error) {
 	// client.terminate(err)
 }
 
@@ -62,16 +62,16 @@ func (client *RabbitMQTopology) UseManager(manager mq.Manager) {
 
 func (client *RabbitMQTopology) Topic(name string) *Topic {
 	if _, found := client.topics[name]; !found {
-		client.topics[name] = &Topic{ 
-			name: name,
-			queues: make(map[string]*Queue), 
+		client.topics[name] = &Topic{
+			name:   name,
+			queues: make(map[string]*Queue),
 		}
 	}
 
 	return client.topics[name]
 }
 
-func (client *RabbitMQTopology) NotifyError(ch chan *mq.Error) chan *mq.Error {
+func (client *RabbitMQTopology) NotifyError(ch chan error) chan error {
 	client.errChan = ch
 	return ch
 }
@@ -82,12 +82,12 @@ func (client *RabbitMQTopology) IsReady() bool {
 	return client.isReady
 }
 
-func (client *RabbitMQTopology) Declare() *mq.Error {
+func (client *RabbitMQTopology) Declare() error {
 	client.mu.Lock()
 	client.isReady = false
 	client.mu.Unlock()
 
-	var declareErr *mq.Error
+	var declareErr error
 	var ch *amqp.Channel
 	var topics []string
 	var queues map[string]bool = make(map[string]bool)
@@ -101,11 +101,11 @@ func (client *RabbitMQTopology) Declare() *mq.Error {
 			}
 			queues[q] = true
 			for p := range queue.bindings {
-				bindings = append(bindings, [3]string { q, p, t })
+				bindings = append(bindings, [3]string{q, p, t})
 			}
 		}
 	}
-	
+
 	declareDeadline := time.After(client.opts.DeclareTimeOut)
 	firstTry := true
 	for {
@@ -117,7 +117,7 @@ func (client *RabbitMQTopology) Declare() *mq.Error {
 		default:
 		}
 
-		if ! firstTry {
+		if !firstTry {
 			time.Sleep(client.opts.GraceTimeOut)
 		}
 		firstTry = false
@@ -150,14 +150,14 @@ func (client *RabbitMQTopology) Declare() *mq.Error {
 	return nil
 }
 
-func (client *RabbitMQTopology) CleanUp() *mq.Error {
-	if ! client.IsReady() {
+func (client *RabbitMQTopology) CleanUp() error {
+	if !client.IsReady() {
 		return nil
 	}
 
 	ch := client.getChannel()
 	if ch == nil {
-		return mq.NewError(mq.ConnectionFailure, nil, "", "", "") 
+		return mq.NewError(mq.ConnectionFailure, nil, "", "", "")
 	}
 
 	client.mu.Lock()
@@ -188,16 +188,16 @@ func (client *RabbitMQTopology) CleanUp() *mq.Error {
 	return nil
 }
 
-func (client *RabbitMQTopology) declareTopics(ch *amqp.Channel, topics []string) *mq.Error {
+func (client *RabbitMQTopology) declareTopics(ch *amqp.Channel, topics []string) error {
 	for i := 0; i < len(topics); i++ {
 		err := ch.ExchangeDeclare(
 			topics[i],
 			"direct",
-			true,              // durable
-			false,             // delete when unused
-			false,             // internal
-			false,             // no-wait
-			nil,               // arguments
+			true,  // durable
+			false, // delete when unused
+			false, // internal
+			false, // no-wait
+			nil,   // arguments
 		)
 		if err != nil {
 			return mq.NewError(mq.TopicDeclareFailure, err, topics[i], "", "")
@@ -207,31 +207,31 @@ func (client *RabbitMQTopology) declareTopics(ch *amqp.Channel, topics []string)
 	return nil
 }
 
-func (client *RabbitMQTopology) declareQueues(ch *amqp.Channel, queues map[string]bool) *mq.Error {
+func (client *RabbitMQTopology) declareQueues(ch *amqp.Channel, queues map[string]bool) error {
 	for q := range queues {
 		_, err := ch.QueueDeclare(
-			q,			// name
-			true,		// durable
-			false,		// delete when unused
-			false,		// exclusive
-			false,		// no-wait
-			nil,		// arguments
+			q,     // name
+			true,  // durable
+			false, // delete when unused
+			false, // exclusive
+			false, // no-wait
+			nil,   // arguments
 		)
 		if err != nil {
 			return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
-		} 
+		}
 		if client.opts.QueuesPurged {
 			_, err = ch.QueuePurge(q, false)
 			if err != nil {
 				return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
-			} 
+			}
 		}
 	}
 
 	return nil
 }
 
-func (client *RabbitMQTopology) declareBindings(ch *amqp.Channel, bindings [][3]string) *mq.Error {
+func (client *RabbitMQTopology) declareBindings(ch *amqp.Channel, bindings [][3]string) error {
 	for i := 0; i < len(bindings); i++ {
 		binding := bindings[i]
 		err := ch.QueueBind(binding[0], binding[1], binding[2], false, nil)
@@ -243,11 +243,11 @@ func (client *RabbitMQTopology) declareBindings(ch *amqp.Channel, bindings [][3]
 	return nil
 }
 
-func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) *mq.Error {
+func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) error {
 	err := ch.Qos(
-		1,     // Prefetch count: One message at a time
-		0,     // No size limit for message content
-		true,  // Apply all channels
+		1,    // Prefetch count: One message at a time
+		0,    // No size limit for message content
+		true, // Apply all channels
 	)
 	if err != nil {
 		return mq.NewError(mq.DeclareFailure, err, "", "", "")
@@ -256,13 +256,13 @@ func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) *mq.Error {
 	return nil
 }
 
-func (client *RabbitMQTopology) notifyErr(err *mq.Error) {
+func (client *RabbitMQTopology) notifyErr(err error) {
 	if client.errChan != nil {
 		client.errChan <- err
 	}
 }
 
-func (client *RabbitMQTopology) terminate(err *mq.Error) {
+func (client *RabbitMQTopology) terminate(err error) {
 	client.notifyErr(err)
 	client.cancel()
 	client.manager.UnRegisterClient(client.id)

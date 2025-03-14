@@ -57,7 +57,7 @@ func (c *clientInfo) handleClientChannel() {
 	defer c.manager.UnRegisterClient(c.id)
 	
 	var ch *amqp.Channel
-	var err *mq.Error
+	var err error
 	var closedNotifications chan *amqp.Error
 
 	// This func is called below to recreate the client channel.
@@ -120,7 +120,7 @@ func (c *clientInfo) handleClientChannel() {
 	}
 }
 
-func (c *clientInfo) makeChannel() (*amqp.Channel, *mq.Error) {
+func (c *clientInfo) makeChannel() (*amqp.Channel, error) {
 	var ch *amqp.Channel
 	var err error
 	retries := 0

@@ -17,7 +17,7 @@ type RabbitMQConsumer struct {
 
 	id      string
 	name    string
-	errChan chan *mq.Error
+	errChan chan error
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -43,14 +43,14 @@ func (client *RabbitMQConsumer) WithOptions(opts *mq.ConsumerOptions) *mq.Consum
 	return client.opts
 }
 
-func (client *RabbitMQConsumer) OnConnectionFailure(err *mq.Error) {
+func (client *RabbitMQConsumer) OnConnectionFailure(err error) {
 }
 
-func (client *RabbitMQConsumer) OnClientFatalError(err *mq.Error) {
+func (client *RabbitMQConsumer) OnClientFatalError(err error) {
 	// client.terminate(err)
 }
 
-func (client *RabbitMQConsumer) NotifyError(ch chan *mq.Error) chan *mq.Error {
+func (client *RabbitMQConsumer) NotifyError(ch chan error) chan error {
 	client.errChan = ch
 	return ch
 }
@@ -122,7 +122,7 @@ func (client *RabbitMQConsumer) Consume(done <-chan bool, handler func(string) m
 					confirmationFailures[id] = act
 					time.Sleep(client.opts.GraceTimeOut)
 					continue
-				}					
+				}
 			}
 		}
 	}()
@@ -192,13 +192,13 @@ func (client *RabbitMQConsumer) action(d amqp.Delivery, act mq.ConsumerAction) (
 	return err == nil, err
 }
 
-func (client *RabbitMQConsumer) sendErr(err *mq.Error) {
+func (client *RabbitMQConsumer) sendErr(err error) {
 	if client.errChan != nil {
 		client.errChan <- err
 	}
 }
 
-func (client *RabbitMQConsumer) terminate(err *mq.Error) {
+func (client *RabbitMQConsumer) terminate(err error) {
 	go client.manager.UnRegisterClient(client.id)
 	client.sendErr(err)
 	client.cancel()

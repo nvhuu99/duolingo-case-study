@@ -1,132 +1,185 @@
 package main
 
 import (
+	"context"
 	"duolingo/common"
-	bm "duolingo/lib/batch-manager"
-	"duolingo/lib/config-reader"
-	mqp "duolingo/lib/message-queue"
+	config "duolingo/lib/config-reader"
+	mq "duolingo/lib/message-queue"
+	sv "duolingo/lib/service-container"
+	wd "duolingo/lib/work-distributor"
 	"duolingo/model"
+	db "duolingo/repository/campaign-db"
 	"duolingo/services/noti-builder/bootstrap"
 	"encoding/json"
 	"log"
-	"strconv"
-	"time"
-	db "duolingo/repository/campaign-db"
+
+	"github.com/google/uuid"
 )
 
 var (
-	ctx, cancel = common.ServiceContext()
-	container = common.Container()
-	queue = container.Resolve("queue_info").(*mqp.QueueInfo)
-	consumer = container.Resolve("consumer.input_messages").(mqp.MessageConsumer)
-	ipPublisher = container.Resolve("publisher.input_messages").(mqp.MessagePublisher)
-	pnPublisher = container.Resolve("publisher.push_noti_messages").(mqp.MessagePublisher)
-	manager = container.Resolve("manager.noti_builder").(bm.BatchManager)
-	repo = container.Resolve("repo.campaign_user").(*db.UserRepo)
-	conf = container.Resolve("config").(config.ConfigReader)
+	ctx         context.Context
+	cancel      context.CancelFunc
+	container   *sv.ServiceContainer
+	conf		config.ConfigReader
+
+	repo        *db.UserRepo
+	distributor	wd.Distributor
+	
+	consumer			mq.Consumer
+	inputMssgPublisher	mq.Publisher
+	pushNotiPublisher	mq.Publisher
 )
 
 func main() {
 	bootstrap.Run()
 
-	consumer.Consume(func (jsonMsg string) bool {
-		var message model.InputMessage 
-		json.Unmarshal([]byte(jsonMsg), &message)
+	container			= common.Container()
+	ctx, cancel 		= common.ServiceContext()
+	conf				= container.Resolve("config").(config.ConfigReader)
+	repo				= container.Resolve("repo.campaign_user").(*db.UserRepo)
+	distributor			= container.Resolve("distributor").(wd.Distributor)
+	consumer			= container.Resolve("mq.consumer.input_messages").(mq.Consumer)
+	inputMssgPublisher	= container.Resolve("mq.publisher.input_messages").(mq.Publisher)
+	pushNotiPublisher	= container.Resolve("mq.publisher.push_noti_messages").(mq.Publisher)
 
+	go cancelOnServicesFatalFailures()
+
+	log.Println("Builder started")
+
+	consumer.Consume(make(chan bool, 1), func(jsonMsg string) mq.ConsumerAction {
+		var message model.InputMessage
+		json.Unmarshal([]byte(jsonMsg), &message)
+		// relay message
 		if !message.IsRelayed {
-			if !relay(message) {
-				cancel()
-				return false
+			return relay(message)
+		}
+		// build noti messages		
+		for {
+			finished, action := build(message)
+			if finished {
+				return action
 			}
 		}
-
-		if !build(message) {
-			cancel()
-			return false
-		}
-
-		return true
 	})
-
-	<-ctx.Done()
 }
 
-func relay(message model.InputMessage) bool {
-	if err := manager.NewBatch(message.Id); err != nil {
-		log.Println(err)
-		return false
+func relay(message model.InputMessage) mq.ConsumerAction {
+	// Register a new workload
+	count, err := repo.CountUsers("superbowl")
+	if err != nil {
+		return mq.ConsumerRequeue
 	}
-
-	batch := make([]string, queue.TotalConsumer)
-	for i := 0; i <= queue.TotalConsumer; i++ {
-		clone := message
-		clone.IsRelayed = true
-		serialized, _ := json.Marshal(clone)
+	err = distributor.RegisterWorkLoad(&wd.Workload{
+		Name: message.Id,
+		NumOfUnits: count,
+	})
+	if err != nil {
+		return mq.ConsumerRequeue
+	}
+	err = distributor.SwitchToWorkload(message.Id)
+	if err != nil {
+		return mq.ConsumerRequeue
+	}
+	// Build relay the message
+	numOfBuilders := conf.GetInt("self.num_of_builders", 1)
+	batch := make([]string, numOfBuilders)
+	for i := 0; i < numOfBuilders; i++ {
+		serialized, _ := json.Marshal(model.InputMessage {
+			Id: message.Id,
+			Content: message.Content,
+			Campaign: message.Campaign,
+			IsRelayed: true,
+		})
 		batch[i] = string(serialized)
 	}
-
-	for _, mssg := range batch {
-		if err := ipPublisher.Publish(mssg); err != nil {
-			log.Println(err.Error())
-			return false
+	// Start relaying
+	i := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return mq.ConsumerRequeue
+		default:
 		}
-		return true
+		if i == len(batch) {
+			return mq.ConsumerAccept
+		}
+		if err := inputMssgPublisher.Publish(batch[i]); err != nil {
+			return mq.ConsumerRequeue
+		}
+		i++
 	}
-
-	return true
 }
 
-func build(message model.InputMessage) bool {
-	batch, err := manager.Next(message.Id)
+func build(message model.InputMessage) (bool, mq.ConsumerAction) {
+	var err error
+	var assignment *wd.Assignment
+	var users []*model.CampaignUser
+
+	done := func() (bool, mq.ConsumerAction) {
+		if assignment != nil {
+			distributor.Commit(assignment.Id)
+			return false, mq.ConsumerAccept
+		}
+		return true, mq.ConsumerAccept
+	}
+
+	abort := func() (bool, mq.ConsumerAction) {
+		if assignment != nil {
+			distributor.RollBack(assignment.Id)
+		}
+		return false, mq.ConsumerRequeue
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return abort()
+		default:
+		}
+
+		assignment, err = distributor.Next()
+		if err != nil {
+			return abort()
+		}
+		if assignment == nil {
+			return done()
+		}
+
+		users, err = repo.UsersList(&db.ListUserOptions{
+			Campaign:   message.Campaign,
+			Skip:       assignment.Start - 1,
+			Limit:      assignment.End - assignment.Start + 1,
+			CursorMode: false,
+		})
+		if err != nil {
+			return abort()
+		}
+
+		i := 0
+		for {
+			if i == len(users) {
+				return done()
+			}
+			data := &model.PushNotiMessage{
+				Id:          uuid.New().String(),
+				Content:     message.Content,
+				DeviceToken: users[i].DeviceToken,
+			}
+			noti, _ := json.Marshal(data)
+			if err = pushNotiPublisher.Publish(string(noti)); err != nil {
+				return abort()
+			}
+			distributor.Progress(message.Id, assignment.Progress+1)
+			assignment.Progress++
+			i++
+		}
+	}
+}
+
+func cancelOnServicesFatalFailures() {
+	errChan := container.Resolve("err_chan").(chan error)
+	err := <-errChan
 	if err != nil {
-		return false
+		cancel()
 	}
-
-	go func() {
-		time.Sleep(5 * time.Second)
-		manager.RollBack(message.Id, batch.Id)
-	}()
-
-	var notiErr error
-	progress := batch.Start
-	
-	handler := func (user *model.CampaignUser) bool {
-		data := &model.PushNotiMessage{
-			Id: "noti." + strconv.FormatInt(time.Now().UnixMicro(), 10),
-			Content: message.Content,
-			DeviceToken: user.DeviceToken,
-		}
-		noti, _ := json.Marshal(data)
-
-		if err := pnPublisher.Publish(string(noti)); err != nil {
-			notiErr = err
-			return false
-		}
-
-		manager.Progress(message.Id, batch.Id, progress)
-		progress++
-
-		return true
-	}
-
-	if batch.HasFailed {
-		batch.Start = batch.Progress
-	}
-	repo.CampaignUsersList(&db.ListUserOptions{
-		Campaign: message.Campaign,
-		Skip: batch.Start - 1,
-		Limit: batch.End - batch.Start + 1,
-		CursorMode: true,
-		CursorFunc: handler,
-	})
-
-	if notiErr != nil {
-		log.Println(notiErr)
-		manager.RollBack(message.Id, batch.Id)
-		return false
-	}
-
-	manager.Commit(message.Id, batch.Id)
-
-	return true
 }

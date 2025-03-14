@@ -10,18 +10,18 @@ import (
 )
 
 type RabbitMQPublisher struct {
-	opts	*mq.PublisherOptions
-	manager	mq.Manager
+	opts    *mq.PublisherOptions
+	manager mq.Manager
 
-	id			string
-	name		string
-	chanId		string
-	confirm		chan amqp.Confirmation
-	deliveryTag	uint64
-	errChan		chan *mq.Error
+	id          string
+	name        string
+	chanId      string
+	confirm     chan amqp.Confirmation
+	deliveryTag uint64
+	errChan     chan error
 
-	ctx		context.Context
-	cancel	context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewPublisher(name string, ctx context.Context) *RabbitMQPublisher {
@@ -29,7 +29,7 @@ func NewPublisher(name string, ctx context.Context) *RabbitMQPublisher {
 	client.ctx, client.cancel = context.WithCancel(ctx)
 	client.opts = mq.DefaultPublisherOptions()
 	client.name = name
-	
+
 	return &client
 }
 
@@ -45,14 +45,14 @@ func (client *RabbitMQPublisher) WithOptions(opts *mq.PublisherOptions) *mq.Publ
 func (client *RabbitMQPublisher) OnReConnected() {
 }
 
-func (client *RabbitMQPublisher) OnConnectionFailure(err *mq.Error) {
+func (client *RabbitMQPublisher) OnConnectionFailure(err error) {
 }
 
-func (client *RabbitMQPublisher) OnClientFatalError(err *mq.Error) {
+func (client *RabbitMQPublisher) OnClientFatalError(err error) {
 	// client.terminate(err)
 }
 
-func (client *RabbitMQPublisher) NotifyError(ch chan *mq.Error) chan *mq.Error {
+func (client *RabbitMQPublisher) NotifyError(ch chan error) chan error {
 	client.errChan = ch
 	return ch
 }
@@ -62,8 +62,8 @@ func (client *RabbitMQPublisher) UseManager(manager mq.Manager) {
 	client.manager = manager
 }
 
-func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
-	var publishErr *mq.Error
+func (client *RabbitMQPublisher) Publish(mssg string) error {
+	var publishErr error
 	topic := client.opts.Topic
 	routingKey := client.opts.Dispatcher.Dispatch(mssg)
 	writeDeadline := time.After(client.opts.WriteTimeOut)
@@ -77,7 +77,7 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 		default:
 		}
 
-		if ! firstTry {
+		if !firstTry {
 			time.Sleep(client.opts.GraceTimeOut)
 		}
 		firstTry = false
@@ -96,8 +96,8 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 			false, // immediate (queue message even when no consumers)
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
-				ContentType: "text/plain",
-				Body: []byte(mssg),
+				ContentType:  "text/plain",
+				Body:         []byte(mssg),
 				Headers: amqp.Table{
 					"message_id": uuid.New().String(),
 				},
@@ -124,11 +124,11 @@ func (client *RabbitMQPublisher) Publish(mssg string) *mq.Error {
 		client.deliveryTag++
 
 		publishErr = nil
-		
+
 		break
 	}
 
-	return publishErr
+	return nil
 }
 
 func (client *RabbitMQPublisher) getChannel() *amqp.Channel {
@@ -149,13 +149,13 @@ func (client *RabbitMQPublisher) getChannel() *amqp.Channel {
 	return channel
 }
 
-func (client *RabbitMQPublisher) sendErr(err *mq.Error) {
+func (client *RabbitMQPublisher) sendErr(err error) {
 	if client.errChan != nil {
 		client.errChan <- err
 	}
 }
 
-func (client *RabbitMQPublisher) terminate(err *mq.Error) {
+func (client *RabbitMQPublisher) terminate(err error) {
 	go client.manager.UnRegisterClient(client.id)
 	client.sendErr(err)
 	client.cancel()

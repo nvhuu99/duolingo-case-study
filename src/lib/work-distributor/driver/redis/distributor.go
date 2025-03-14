@@ -23,16 +23,23 @@ type RedisDistributor struct {
 	ctx     context.Context
 }
 
-func NewRedisDistributor(ctx context.Context, name string, opts *wd.DistributorOptions) (*RedisDistributor, error) {
+func NewRedisDistributor(ctx context.Context, name string) (*RedisDistributor, error) {
 	d := RedisDistributor{}
 	d.name = name
 	d.ctx = ctx
+	d.opts = wd.DefaultDistributorOptions()
+
+	return &d, nil
+}
+
+func (m *RedisDistributor) WithOptions(opts *wd.DistributorOptions) *wd.DistributorOptions {
 	if opts == nil {
 		opts = wd.DefaultDistributorOptions()
 	}
-	d.opts = opts
-
-	return &d, nil
+	if m.opts != nil {
+		m.opts = opts
+	}
+	return m.opts
 }
 
 func (d *RedisDistributor) SetConnection(host string, port string) error {
@@ -98,6 +105,9 @@ func (d *RedisDistributor) WorkloadExists(workloadName string) (bool, error) {
 }
 
 func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
+	if workload.DistributionSize == 0 {
+		workload.DistributionSize = d.opts.DistributionSize
+	}
 	if ! workload.ValidAttributes() {
 		return wd.NewError(wd.WorkloadAttributesInvalid, nil, d.name, "", "")
 	}
@@ -343,7 +353,7 @@ func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, *wd.Error) {
 			Start:     s,
 			End:       e,
 			HasFailed: false,
-			Progress:  0,
+			Progress:  s - 1,
 		}
 		str, _ := json.Marshal(assignment)
 		err := d.rdb.HSet(d.ctx, d.key("assignments"), assignmentId, string(str)).Err()

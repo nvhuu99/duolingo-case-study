@@ -9,13 +9,13 @@ import (
 type ClientMock struct {
 	mock.Mock
 
-	Id							string
-	ConnectionFailureTriggered	bool
-	ReConnectedTriggered		bool
-	ClientFatalErrorTriggered	bool
-	
-	manager	mq.Manager
-	errChan	chan *mq.Error
+	Id                         string
+	ConnectionFailureTriggered bool
+	ReConnectedTriggered       bool
+	ClientFatalErrorTriggered  bool
+
+	manager mq.Manager
+	errChan chan error
 }
 
 func (client *ClientMock) UseManager(manager mq.Manager) {
@@ -23,16 +23,16 @@ func (client *ClientMock) UseManager(manager mq.Manager) {
 	client.manager = manager
 }
 
-func (client *ClientMock) NotifyError(ch chan *mq.Error) chan *mq.Error {
+func (client *ClientMock) NotifyError(ch chan error) chan error {
 	client.errChan = ch
 	return ch
 }
 
-func (client *ClientMock) OnConnectionFailure(err *mq.Error) {
+func (client *ClientMock) OnConnectionFailure(err error) {
 	client.ConnectionFailureTriggered = true
 }
 
-func (client *ClientMock) OnClientFatalError(err *mq.Error) {
+func (client *ClientMock) OnClientFatalError(err error) {
 	client.ClientFatalErrorTriggered = true
 }
 

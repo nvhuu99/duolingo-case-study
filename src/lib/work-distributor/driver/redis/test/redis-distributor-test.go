@@ -15,15 +15,15 @@ type RedisDistributorTestSuite struct {
 	Host	string
 	Port	string
 
-	distributor wd.Distributor
+	distributor *redis.RedisDistributor
 }
 
 func (s *RedisDistributorTestSuite) SetupTest() {
-	s.distributor, _ = redis.NewRedisDistributor(
-		context.Background(),
-		"redis-distributor-test",
-		wd.DefaultDistributorOptions().WithLockTimeOut(3 * time.Second),
-	)
+	s.distributor, _ = redis.NewRedisDistributor(context.Background(), "redis-distributor-test")
+	s.distributor.
+		WithOptions(nil).
+		WithLockTimeOut(3 * time.Second).
+		WithDistributionSize(10)
 
 	err := s.distributor.SetConnection(s.Host, s.Port)
 	if err != nil {

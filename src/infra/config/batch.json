@@ -1,7 +1,0 @@
-{
-    "collections": {
-        "campaign_users": {
-            "batch_size": 1000
-        }
-    }
-}
