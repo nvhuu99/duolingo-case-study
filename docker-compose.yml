@@ -26,18 +26,6 @@ services:
     volumes:
       - campaign-db:/data/db
 
-  duolingo-db:
-    image: mysql:8.0
-    ports:
-      - 3360:3306
-    environment:
-      MYSQL_DATABASE: duolingo
-      MYSQL_ROOT_PASSWORD: root@1234
-    volumes:
-      - duolingo-db:/var/lib/mysql
-    networks:
-      - duolingo
-
   redis:
     image: redis:7.4.2-alpine
     container_name: redis
@@ -86,7 +74,6 @@ networks:
 
 volumes:
   campaign-db:
-  duolingo-db:
   redis-data:
   message-queue-data:
   # noti-queue-data:
