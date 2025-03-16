@@ -49,7 +49,6 @@ func ServiceContext() (context.Context, context.CancelFunc) {
 }
 
 // Dir constructs an absolute path by appending the provided parts to the service's root directory.
-// The root directory is determined dynamically based on the location of the `common` package.
 func Dir(parts ...string) string {
 	if len(parts) == 1 {
 		parts = strings.Split(parts[0], "/")

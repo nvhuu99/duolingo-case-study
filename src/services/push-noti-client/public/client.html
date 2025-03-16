@@ -1,0 +1,59 @@
+<button id="enableNotifications">Enable Notifications</button>
+
+<script type="module">
+    import { initializeApp,  } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+    import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-messaging.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBNORe4oovYPbTtYKzmx-fp21fxS9AE7Kk",
+        authDomain: "duolingo-case-study.firebaseapp.com",
+        projectId: "duolingo-case-study",
+        storageBucket: "duolingo-case-study.firebasestorage.app",
+        messagingSenderId: "859641602216",
+        appId: "1:859641602216:web:a3ccea333519773c23a29d",
+        measurementId: "G-GZ62PPVDKR"
+    };
+    const app = initializeApp(firebaseConfig);
+    const messaging = getMessaging(app);
+
+    async function requestPermission() {
+        var permission = await Notification.requestPermission()
+        if ( permission != 'granted') {
+            console.log('Notification permission rejected.');
+            return ""
+        }
+        try {
+            const token = await getToken(messaging, { vapidKey: 'BCDg_UnXwt83TNvt2eft8SRnihJzNTi1SsOWrGJ2L43ULlPyq65bZnOGT9_BoNYgz2dnUKQWzeN07bEwwRuCn-o' });
+            console.log("FCM Token:", token);
+            return token
+        } catch (error) {
+            console.error("Error getting token", error);
+            return ""
+        }
+    }
+
+    navigator.serviceWorker.register("/firebase-messaging-sw.js")
+        .then((registration) => {
+            console.log("Service Worker registered:", registration);
+        })
+        .catch((error) => {
+            console.error("Service Worker registration failed:", error);
+        });
+
+    document.getElementById("enableNotifications").addEventListener("click", async () => {
+        const token = await requestPermission();
+        if (token) {
+            var response = await fetch("/save-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+            });
+
+            if (!response.ok) {
+                console.log("Failed to save token")
+            } else {
+                console.log("Token saved")
+            }
+        }
+    });
+</script>

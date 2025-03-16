@@ -53,13 +53,8 @@ func main() {
 		if !message.IsRelayed {
 			return relay(message)
 		}
-		// build noti messages		
-		for {
-			finished, action := build(message)
-			if finished {
-				return action
-			}
-		}
+		// build noti messages
+		return build(message)
 	})
 }
 
@@ -110,24 +105,16 @@ func relay(message model.InputMessage) mq.ConsumerAction {
 	}
 }
 
-func build(message model.InputMessage) (bool, mq.ConsumerAction) {
+func build(message model.InputMessage) mq.ConsumerAction {
 	var err error
 	var assignment *wd.Assignment
 	var users []*model.CampaignUser
 
-	done := func() (bool, mq.ConsumerAction) {
-		if assignment != nil {
-			distributor.Commit(assignment.Id)
-			return false, mq.ConsumerAccept
-		}
-		return true, mq.ConsumerAccept
-	}
-
-	abort := func() (bool, mq.ConsumerAction) {
+	abort := func() mq.ConsumerAction {
 		if assignment != nil {
 			distributor.RollBack(assignment.Id)
 		}
-		return false, mq.ConsumerRequeue
+		return mq.ConsumerRequeue
 	}
 
 	for {
@@ -142,7 +129,7 @@ func build(message model.InputMessage) (bool, mq.ConsumerAction) {
 			return abort()
 		}
 		if assignment == nil {
-			return done()
+			return mq.ConsumerAccept
 		}
 
 		users, err = repo.UsersList(&db.ListUserOptions{
@@ -155,24 +142,22 @@ func build(message model.InputMessage) (bool, mq.ConsumerAction) {
 			return abort()
 		}
 
-		i := 0
-		for {
-			if i == len(users) {
-				return done()
-			}
-			data := &model.PushNotiMessage{
-				Id:          uuid.New().String(),
-				Content:     message.Content,
-				DeviceToken: users[i].DeviceToken,
-			}
-			noti, _ := json.Marshal(data)
-			if err = pushNotiPublisher.Publish(string(noti)); err != nil {
-				return abort()
-			}
-			distributor.Progress(message.Id, assignment.Progress+1)
-			assignment.Progress++
-			i++
+		deviceTokens := make([]string, len(users))
+		for i, user := range users {
+			deviceTokens[i] = user.DeviceToken
 		}
+
+		data := &model.PushNotiMessage{
+			Id:          	uuid.New().String(),
+			Content:		message.Content,
+			DeviceTokens:	deviceTokens,
+		}
+		noti, _ := json.Marshal(data)
+		if err = pushNotiPublisher.Publish(string(noti)); err != nil {
+			return abort()
+		}
+		distributor.Progress(message.Id, assignment.End)
+		distributor.Commit(assignment.Id)
 	}
 }
 
