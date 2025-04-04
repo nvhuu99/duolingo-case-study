@@ -5,7 +5,7 @@ import (
 	"duolingo/common"
 	"time"
 
-	config "duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	mq "duolingo/lib/message-queue"
 	rabbitmq "duolingo/lib/message-queue/driver/rabbitmq"
 	sv "duolingo/lib/service-container"

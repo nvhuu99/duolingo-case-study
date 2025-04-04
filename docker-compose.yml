@@ -55,14 +55,11 @@ services:
     <<: *server-context
     container_name: message-api
     depends_on:
-      - campaign-db
       - message-queue
-      # - noti-queue
     environment:
       SERVICE_SRC: /var/duolingo/src/message-api
     ports:
-      - 8001:8000 # api port
-      - 4001:4000 # dlv debugger port
+      - 80:80
     networks:
       - duolingo
     volumes:
@@ -76,4 +73,3 @@ volumes:
   campaign-db:
   redis-data:
   message-queue-data:
-  # noti-queue-data:

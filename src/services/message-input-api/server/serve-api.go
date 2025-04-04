@@ -2,79 +2,51 @@ package main
 
 import (
 	"duolingo/common"
-	"duolingo/lib/config-reader"
+	"log"
+
 	mq "duolingo/lib/message-queue"
-	rest "duolingo/lib/rest-http"
+	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service-container"
 	model "duolingo/model"
 	"duolingo/services/message-input-api/bootstrap"
-	"encoding/json"
-	"log"
-	"net/http"
-
-	"github.com/google/uuid"
 )
 
 var (
-	container *sv.ServiceContainer
-	conf      config.ConfigReader
+	container 	*sv.ServiceContainer
+	publisher 	mq.Publisher
+	server		*rest.Server	
 )
 
 func input(request *rest.Request, response *rest.Response) {
 	campaign := request.Path("campaign").Str()
-	content := request.Input("message").Str()
+	content := request.Input("content").Str()
 	if content == "" {
 		response.InvalidRequest("", map[string]string{
-			"message": "message must not be empty",
+			"content": "content must not be empty",
 		})
 		return
 	}
 
-	publisher := container.Resolve("mq.publisher").(mq.Publisher)
-
-	message := model.InputMessage{
-		Id:        uuid.New().String(),
-		Content:   content,
-		IsRelayed: false,
-		Campaign:  campaign,
-	}
-	jsonMsg, _ := json.Marshal(message)
-
-	err := publisher.Publish(string(jsonMsg))
+	message := model.NewInputMessage(campaign, content, false)
+	err := publisher.Publish(message.Serialize())
 	if err != nil {
-		log.Println(err.Error())
 		response.ServerErr("Failed to publish to message queue")
 		return
 	}
 
-	response.Created(message)
+	response.Created("", message)
 }
 
 func main() {
 	bootstrap.Run()
 
-	container = common.Container()
-	conf = container.Resolve("config").(config.ConfigReader)
-	addr := conf.Get("self.addr", "")
-	if addr == "" {
-		log.Fatal("message input api address is not provided")
-	}
+	container	= common.Container()
+	publisher	= container.Resolve("mq.publisher").(mq.Publisher)
+	server		= container.Resolve("rest.server").(*rest.Server)
 
-	go panicOnMessageQueueFailure()
+	server.Router().Post("/campaign/{campaign}/message", input)
 
-	router := rest.NewRouter()
-	router.Post("/campaign/{campaign}/message", input)
+	log.Println("serving message input api")
 
-	log.Println("serving message input api at: " + addr)
-
-	http.HandleFunc("/", router.Func())
-	http.ListenAndServe(addr, nil)
-}
-
-func panicOnMessageQueueFailure() {
-	errChan := container.Resolve("mq.err_chan").(chan error)
-	err := <-errChan
-	if err != nil {
-		panic(err)
-	}
+	server.Serve()
 }

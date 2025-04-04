@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"context"
 	"duolingo/common"
-	"duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	mq "duolingo/lib/message-queue"
 	"duolingo/lib/message-queue/driver/rabbitmq"
 	noti "duolingo/lib/notification/driver/firebase"
@@ -39,7 +39,7 @@ func bind() {
 		if err != nil {
 			panic(err)
 		}
-		
+
 		return sender
 	})
 

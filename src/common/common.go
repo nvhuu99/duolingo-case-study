@@ -6,15 +6,15 @@ import (
 	"runtime"
 	"strings"
 
+	config "duolingo/lib/config_reader"
 	sv "duolingo/lib/service-container"
-	"duolingo/lib/config-reader"
 )
 
 var (
-	serviceRootDir			string
-	serviceContext			context.Context
-	serviceContextCancel	context.CancelFunc
-	serviceContainer		*sv.ServiceContainer
+	serviceRootDir       string
+	serviceContext       context.Context
+	serviceContextCancel context.CancelFunc
+	serviceContainer     *sv.ServiceContainer
 )
 
 func Container() *sv.ServiceContainer {
@@ -30,15 +30,15 @@ func SetupService() {
 	_, filename, _, _ := runtime.Caller(2)
 	serviceBootstrapDir := filepath.Dir(filename)
 	serviceRootDir = filepath.Dir(serviceBootstrapDir)
-	
+
 	// Set service context
 	serviceContext, serviceContextCancel = context.WithCancel(context.Background())
-	
+
 	// Services binding
 	container.BindSingleton("config", func() any {
 		return config.NewJsonReader(Dir("config"))
 	})
-	
+
 	container.BindSingleton("config.infra", func() any {
 		return config.NewJsonReader(Dir("..", "..", "infra", "config"))
 	})

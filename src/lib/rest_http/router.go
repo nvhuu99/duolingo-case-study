@@ -1,8 +1,6 @@
-package resthttp
+package rest_http
 
 import (
-	"errors"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -21,44 +19,36 @@ func NewRouter() *Router {
 	return &router
 }
 
-func (router *Router) Func() func (http.ResponseWriter, *http.Request) {
-	routerFunc := func (res http.ResponseWriter, req *http.Request) {
-		request := Request { req: req }
-		response := Response { writer: res }
-		// get the handler
-		match, err := router.matchRoute(req.Method, req.URL.Path)
-		if err != nil {
-			response.NotFound("The requested endpoint does not exist")
-			return
-		}
-		// set path value
-		pathValues := parsePath(req.URL.Path, match.pattern)
-		for name := range pathValues {
-			request.req.SetPathValue(name, pathValues[name])
-		}
-		// call handler
-		match.handler.Handle(&request, &response)
-	} 
+func (router *Router) Match(request *Request) func (*Request, *Response) {
+	found, err := router.matchRoute(request.Method(), request.URL().Path)
+	if err != nil {
+		return nil
+	}
 
-	return routerFunc
+	pathValues := parsePath(request.URL().Path, found.pattern)
+	for name := range pathValues {
+		request.Instance().SetPathValue(name, pathValues[name])
+	}
+
+	return found.handler
 }
 
-func (router *Router) Get(pattern string, handler func(req *Request, res *Response)) error {
-	return router.add("GET", pattern, &Handler{ Handle: handler })
+func (router *Router) Get(pattern string, handler func (*Request, *Response)) *Error {
+	return router.add("GET", pattern, handler)
 }
 
-func (router *Router) Post(pattern string, handler func(req *Request, res *Response)) error {
-	return router.add("POST", pattern, &Handler{ Handle: handler })
+func (router *Router) Post(pattern string, handler func (*Request, *Response)) *Error {
+	return router.add("POST", pattern, handler)
 }
 
-func routeParts(route string) ([]string, error) {
+func routeParts(route string) ([]string, *Error) {
 	route = strings.Trim(route, "/")
 	route = strings.ReplaceAll(route, "//", "/")
 	parts := strings.Split(route, "/")
 	for i := range parts {
 		esc, err := url.PathUnescape(parts[i])
 		if err != nil {
-			return []string{}, err
+			return []string{}, NewError(ERR_URL_DECODE_FAILURE, err, "", route)
 		}
 		parts[i] = esc
 	}
@@ -81,7 +71,7 @@ func parsePath(path string, pattern string) map[string]string {
 	return pathValue
 }
 
-func (router *Router) add(method string, pattern string, handler *Handler) error {
+func (router *Router) add(method string, pattern string, handler func (*Request, *Response)) *Error {
 	// append method at the begining
 	parts, err := routeParts(pattern)
 	if err != nil {
@@ -95,7 +85,7 @@ func (router *Router) add(method string, pattern string, handler *Handler) error
 		if strings.HasPrefix(part, "{") {
 			// path argument
 			if ! strings.HasSuffix(part, "}") {
-				return errors.New("path argument is not enclosed with \"{}\"")
+				return NewError(ERR_ARGUMENT_NOT_ENCLOSED, nil, method, pattern)
 			}
 			pathVal = "*"
 		} else {
@@ -118,7 +108,7 @@ func (router *Router) add(method string, pattern string, handler *Handler) error
 	return nil
 }
 
-func (router *Router) matchRoute(method string, pattern string) (*RouteMap, error) {
+func (router *Router) matchRoute(method string, pattern string) (*RouteMap, *Error) {
 	parts, err := routeParts(pattern)
 	if err != nil {
 		return nil, err
@@ -126,7 +116,7 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, erro
 
 	routes, ok := router.routeMap.childs[method]
 	if !ok {
-		return nil, errors.New("route does not exist")
+		return nil, NewError(ERR_ROUTE_NOT_FOUND, nil, method, pattern)
 	}
 	matches := routes.childs
 
@@ -153,5 +143,5 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, erro
 		matches = tmp
 	}
 
-	return nil, errors.New("route does not exist")
+	return nil, NewError(ERR_ROUTE_NOT_FOUND, nil, method, pattern)
 }

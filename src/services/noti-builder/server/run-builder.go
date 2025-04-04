@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"duolingo/common"
-	config "duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	mq "duolingo/lib/message-queue"
 	sv "duolingo/lib/service-container"
 	wd "duolingo/lib/work-distributor"
@@ -17,30 +17,30 @@ import (
 )
 
 var (
-	ctx         context.Context
-	cancel      context.CancelFunc
-	container   *sv.ServiceContainer
-	conf		config.ConfigReader
+	ctx       context.Context
+	cancel    context.CancelFunc
+	container *sv.ServiceContainer
+	conf      config.ConfigReader
 
 	repo        *db.UserRepo
-	distributor	wd.Distributor
-	
-	consumer			mq.Consumer
-	inputMssgPublisher	mq.Publisher
-	pushNotiPublisher	mq.Publisher
+	distributor wd.Distributor
+
+	consumer           mq.Consumer
+	inputMssgPublisher mq.Publisher
+	pushNotiPublisher  mq.Publisher
 )
 
 func main() {
 	bootstrap.Run()
 
-	container			= common.Container()
-	ctx, cancel 		= common.ServiceContext()
-	conf				= container.Resolve("config").(config.ConfigReader)
-	repo				= container.Resolve("repo.campaign_user").(*db.UserRepo)
-	distributor			= container.Resolve("distributor").(wd.Distributor)
-	consumer			= container.Resolve("mq.consumer.input_messages").(mq.Consumer)
-	inputMssgPublisher	= container.Resolve("mq.publisher.input_messages").(mq.Publisher)
-	pushNotiPublisher	= container.Resolve("mq.publisher.push_noti_messages").(mq.Publisher)
+	container = common.Container()
+	ctx, cancel = common.ServiceContext()
+	conf = container.Resolve("config").(config.ConfigReader)
+	repo = container.Resolve("repo.campaign_user").(*db.UserRepo)
+	distributor = container.Resolve("distributor").(wd.Distributor)
+	consumer = container.Resolve("mq.consumer.input_messages").(mq.Consumer)
+	inputMssgPublisher = container.Resolve("mq.publisher.input_messages").(mq.Publisher)
+	pushNotiPublisher = container.Resolve("mq.publisher.push_noti_messages").(mq.Publisher)
 
 	go cancelOnServicesFatalFailures()
 
@@ -65,7 +65,7 @@ func relay(message model.InputMessage) mq.ConsumerAction {
 		return mq.ConsumerRequeue
 	}
 	err = distributor.RegisterWorkLoad(&wd.Workload{
-		Name: message.Id,
+		Name:       message.Id,
 		NumOfUnits: count,
 	})
 	if err != nil {
@@ -79,10 +79,10 @@ func relay(message model.InputMessage) mq.ConsumerAction {
 	numOfBuilders := conf.GetInt("self.num_of_builders", 1)
 	batch := make([]string, numOfBuilders)
 	for i := 0; i < numOfBuilders; i++ {
-		serialized, _ := json.Marshal(model.InputMessage {
-			Id: message.Id,
-			Content: message.Content,
-			Campaign: message.Campaign,
+		serialized, _ := json.Marshal(model.InputMessage{
+			Id:        message.Id,
+			Content:   message.Content,
+			Campaign:  message.Campaign,
 			IsRelayed: true,
 		})
 		batch[i] = string(serialized)
@@ -148,9 +148,9 @@ func build(message model.InputMessage) mq.ConsumerAction {
 		}
 
 		data := &model.PushNotiMessage{
-			Id:          	uuid.New().String(),
-			Content:		message.Content,
-			DeviceTokens:	deviceTokens,
+			Id:           uuid.New().String(),
+			Content:      message.Content,
+			DeviceTokens: deviceTokens,
 		}
 		noti, _ := json.Marshal(data)
 		if err = pushNotiPublisher.Publish(string(noti)); err != nil {

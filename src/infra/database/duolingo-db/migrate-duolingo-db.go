@@ -1,7 +1,7 @@
 package main
 
 import (
-	"duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	"flag"
 	"log"
 	"os/exec"
@@ -14,11 +14,11 @@ func main() {
 	dir := filepath.Dir(caller)
 	file := filepath.Join(dir, "..", "..", "..", "command", "migrate", "migrate.go")
 	config := config.NewJsonReader(filepath.Join(dir, "..", "..", "config"))
-	
+
 	flag.Parse()
-	
+
 	cmd := exec.Command(
-		"go", "run", file, 
+		"go", "run", file,
 		"--db", config.Get("db.duolingo.driver", ""),
 		"--db-name", config.Get("db.duolingo.name", ""),
 		"--host", config.Get("db.duolingo.host", ""),
@@ -29,7 +29,7 @@ func main() {
 		"--src-uri", config.Get("db.duolingo.migration.uri", ""),
 		flag.Arg(0),
 	)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Println(err)

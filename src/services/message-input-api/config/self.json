@@ -1,3 +1,12 @@
 {
-    "addr": "localhost:8002"
+    "server": {
+        "addr": "localhost:8002"
+    },
+    "log": {
+        "rotation": 5,
+        "buffer": {
+            "size": 2,
+            "max_count": 1000
+        }
+    }
 }

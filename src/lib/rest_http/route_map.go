@@ -1,8 +1,8 @@
-package resthttp
+package rest_http
 
 type RouteMap struct {
 	name    string
 	childs  map[string]*RouteMap
-	handler *Handler
+	handler func (*Request, *Response)
 	pattern string
 }

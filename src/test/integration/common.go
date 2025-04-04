@@ -1,7 +1,7 @@
 package integration
 
 import (
-	"duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	"path/filepath"
 )
 

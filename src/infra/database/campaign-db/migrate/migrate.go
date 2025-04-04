@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	"duolingo/lib/migrate"
 	"duolingo/lib/migrate/driver/database/mongo"
 	"duolingo/lib/migrate/driver/source/local"
@@ -19,13 +19,13 @@ func main() {
 	_, caller, _, _ := runtime.Caller(0)
 	dir := filepath.Dir(caller)
 	config := config.NewJsonReader(filepath.Join(dir, "..", "..", "..", "config"))
-	
+
 	flag.Parse()
 
 	var migrType migrate.MigrateType
 	flg := flag.Arg(0)
 	switch flg {
-	case"", "up":
+	case "", "up":
 		migrType = migrate.MigrateUp
 	case "rollback":
 		migrType = migrate.MigrateRollback

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"duolingo/lib/config-reader"
+	config "duolingo/lib/config_reader"
 	"duolingo/model"
 	campaigndb "duolingo/repository/campaign-db"
 	"log"
@@ -18,7 +18,7 @@ func main() {
 	conf := config.NewJsonReader(filepath.Join(dir, "..", "..", "..", "config"))
 
 	userRepo := campaigndb.NewUserRepo(
-		context.Background(), 
+		context.Background(),
 		conf.Get("db.campaign.name", ""),
 	)
 	userRepo.SetConnection(
@@ -30,26 +30,26 @@ func main() {
 
 	users := make([]*model.CampaignUser, 100)
 	for i := 0; i < 50; i++ {
-		users[i] = &model.CampaignUser {
-			Campaign: "superbowl",
-			LastName: "John",
-			FirstName: "Doe",
-			DeviceToken: uuid.New().String(),
+		users[i] = &model.CampaignUser{
+			Campaign:       "superbowl",
+			LastName:       "John",
+			FirstName:      "Doe",
+			DeviceToken:    uuid.New().String(),
 			NativeLanguage: "EN",
-			Membership: model.Premium,
-			SortValue: "1",
+			Membership:     model.Premium,
+			SortValue:      "1",
 		}
 	}
 
 	for i := 50; i < 100; i++ {
-		users[i] = &model.CampaignUser {
-			Campaign: "superbowl",
-			LastName: "John",
-			FirstName: "Doe",
-			DeviceToken: uuid.New().String(),
+		users[i] = &model.CampaignUser{
+			Campaign:       "superbowl",
+			LastName:       "John",
+			FirstName:      "Doe",
+			DeviceToken:    uuid.New().String(),
 			NativeLanguage: "EN",
-			Membership: model.FreeTier,
-			SortValue: "2",
+			Membership:     model.FreeTier,
+			SortValue:      "2",
 		}
 	}
 

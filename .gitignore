@@ -4,3 +4,4 @@ node_modules
 .env
 src/infra/config/firebase-service-account-key.json
 src/infra/config/firebase-service-worker.json
+**/storage/log/*

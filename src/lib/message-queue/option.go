@@ -1,7 +1,6 @@
 package messagequeue
 
 import "time"
-
 type ManagerOptions struct {	
 	GraceTimeOut		time.Duration
 	ConnectionTimeOut	time.Duration
