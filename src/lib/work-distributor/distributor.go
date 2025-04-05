@@ -6,7 +6,7 @@ type Distributor interface {
 	
 	WorkloadExists(workloadName string) (bool, error)
 	RegisterWorkLoad(workload *Workload) error
-	SwitchToWorkload(workload string) error
+	SwitchToWorkload(workload string) (*Workload, error)
 	
 	Next() (*Assignment, error)
 	Progress(assignmentId string, newVal int) error

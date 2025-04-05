@@ -3,8 +3,8 @@ package redisdistributor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	// "log"
 	"strconv"
 	"time"
 
@@ -45,7 +45,7 @@ func (m *RedisDistributor) WithOptions(opts *wd.DistributorOptions) *wd.Distribu
 func (d *RedisDistributor) SetConnection(host string, port string) error {
 	opt, err := redis.ParseURL(fmt.Sprintf("redis://%v:%v", host, port))
 	if err != nil {
-		return wd.NewError(wd.ConnectionFailure,err, "", "", "" )
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_CONNECTION_FAILURE], err)
 	}
 	d.rdb = redis.NewClient(opt)
 
@@ -55,33 +55,33 @@ func (d *RedisDistributor) SetConnection(host string, port string) error {
 func (d *RedisDistributor) PurgeData() error {
 	lockVal, err := d.acquireLock("workloads")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "workloads")
 	// Get the workload list of this distributor
 	workloads, err := d.rdb.HKeys(d.ctx, d.key("workloads")).Result()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.PurgeFailure, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_PURGE_FAILURE], err)
 	}
 	// Loop over workloads and purge all data (including the locks)
 	for _, name := range workloads {
-		if err := d.SwitchToWorkload(name); err != nil {
-			return wd.NewError(wd.PurgeFailure, err, d.name, name, "")
+		if _, err := d.SwitchToWorkload(name); err != nil {
+			return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_PURGE_FAILURE], err)
 		}
 		lockVal, err := d.acquireLock("assignments", "assignment_index", "available")
 		if err != nil {
-			return wd.NewError(wd.LockErr, err, d.name, "", "")
+			return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 		}
 		err = d.rdb.Del(d.ctx, d.key("assignment_index"), d.key("available"), d.key("assignments")).Err()
 		if err != nil {
-			return wd.NewError(wd.PurgeFailure, err, d.name, "", "")
+			return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_PURGE_FAILURE], err)
 		}
 		d.releaseLock(lockVal, "assignments", "assignment_index", "available")
 	}
 	// Delete all workloads
 	err = d.rdb.Del(d.ctx, d.key("workloads")).Err()
 	if err != nil {
-		return wd.NewError(wd.PurgeFailure, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_PURGE_FAILURE], err)
 	}
 
 	return nil
@@ -90,13 +90,13 @@ func (d *RedisDistributor) PurgeData() error {
 func (d *RedisDistributor) WorkloadExists(workloadName string) (bool, error) {
 	lockVal, err := d.acquireLock("workloads")
 	if err != nil {
-		return false, wd.NewError(wd.LockErr, err, d.name, "", "")
+		return false, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "workloads")
 
 	exist, err := d.rdb.HExists(d.ctx, d.key("workloads"), workloadName).Result()
 	if err != nil {
-		return false, wd.NewError(wd.UnKnownErr, err, d.name, workloadName, "")
+		return false, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_UNKNOWN], err)
 	}
 	if exist {
 		return true, nil
@@ -109,18 +109,18 @@ func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
 		workload.DistributionSize = d.opts.DistributionSize
 	}
 	if ! workload.ValidAttributes() {
-		return wd.NewError(wd.WorkloadAttributesInvalid, nil, d.name, "", "")
+		return errors.New(wd.ErrMessages[wd.ERR_WORKLOAD_ATTRIBUTES_INVALID])
 	}
 	lockVal, err := d.acquireLock("workloads")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "workloads")
 
 	// Skip if the workload has already registered
 	exist, err := d.WorkloadExists(workload.Name)
 	if err != nil {
-		return wd.NewError(wd.WorkloadCreationErr, err, d.name, workload.Name, "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_CREATION], err)
 	}
 	if exist {
 		return nil
@@ -129,35 +129,37 @@ func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
 	str, _ := json.Marshal(workload)
 	err = d.rdb.HSet(d.ctx, d.key("workloads"), workload.Name, string(str)).Err()
 	if err != nil {
-		return wd.NewError(wd.WorkloadCreationErr, err, d.name, workload.Name, "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_CREATION], err)
 	}
 
 	return nil
 }
 
-func (d *RedisDistributor) SwitchToWorkload(name string) error {
+func (d *RedisDistributor) SwitchToWorkload(name string) (*wd.Workload, error) {
 	lockVal, err := d.acquireLock("workloads")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "workloads")
 
 	result, err := d.rdb.HGet(d.ctx, d.key("workloads"), name).Result()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadSwitchErr, err, d.name, name, "")
+		return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_SWITCH], err)
 	}
 	if err == redis.Nil {
-		return wd.NewError(wd.WorkloadNotFound, nil, d.name, name, "")
+		return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_SWITCH], err)
 	}
 
-	json.Unmarshal([]byte(result), &d.workload)
+	var workload *wd.Workload
+	json.Unmarshal([]byte(result), &workload)
+	d.workload = workload
 
-	return nil
+	return workload, nil
 }
 
 func (d *RedisDistributor) Next() (*wd.Assignment, error) {
 	if d.workload == nil {
-		return nil, wd.NewError(wd.WorkloadNotSet, nil, d.name, "", "")
+		return nil, errors.New(wd.ErrMessages[wd.ERR_WORKLOAD_NOT_SET])
 	}
 	// Get next distribution start & end
 	next, err := d.available()
@@ -185,14 +187,14 @@ func (d *RedisDistributor) Next() (*wd.Assignment, error) {
 func (d *RedisDistributor) Progress(assignmentId string, newVal int) error {
 	lockVal, err := d.acquireLock("assignments")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "assignments")
 
 	var assignment wd.Assignment
 	result, err := d.rdb.HGet(d.ctx, d.key("assignments"), assignmentId).Result()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	json.Unmarshal([]byte(result), &assignment)
 	
@@ -200,7 +202,7 @@ func (d *RedisDistributor) Progress(assignmentId string, newVal int) error {
 	str, _ := json.Marshal(assignment)
 	err = d.rdb.HSet(d.ctx, d.key("assignments"), assignmentId, string(str)).Err()
 	if err != nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 
 	return nil
@@ -209,13 +211,13 @@ func (d *RedisDistributor) Progress(assignmentId string, newVal int) error {
 func (d *RedisDistributor) Commit(assignmentId string) error {
 	lockVal, err := d.acquireLock("assignments")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "assignments")
 
 	err = d.rdb.HDel(d.ctx, d.key("assignments"), assignmentId).Err()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 
 	return nil
@@ -225,14 +227,14 @@ func (d *RedisDistributor) RollBack(assignmentId string) error {
 	// Acquire the locks
 	lockVal, err := d.acquireLock("assignment_index", "available", "assignments")
 	if err != nil {
-		return wd.NewError(wd.LockErr, err, d.name, "", "")
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "assignment_index", "available", "assignments")
 
 	var assignment wd.Assignment
 	str, err := d.rdb.HGet(d.ctx, d.key("assignments"), assignmentId).Result()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	json.Unmarshal([]byte(str), &assignment)
 	// Mark this batch "failed" as its rollbacked
@@ -243,23 +245,23 @@ func (d *RedisDistributor) RollBack(assignmentId string) error {
 	assignmentJson, _ := json.Marshal(assignment)
 	err = d.rdb.HSet(d.ctx, d.key("assignments"), assignmentId, string(assignmentJson)).Err()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	// Set the "available" with the batch data at "index - 1"
 	// and future call to Next() will return this batch
 	idx, err := d.rdb.Get(d.ctx, d.key("assignment_index")).Int()
 	if err != nil && err != redis.Nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	available := fmt.Sprintf("[%v, %v]", assignment.Start, assignment.End)
 	err = d.rdb.HSet(d.ctx, d.key("available"), strconv.Itoa(idx-1), available).Err()
 	if err != nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	// Update the index value
 	err = d.rdb.Decr(d.ctx, d.key("assignment_index")).Err()
 	if err != nil {
-		return wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, assignmentId)
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	return nil
 }
@@ -282,10 +284,10 @@ func (d *RedisDistributor) lock(k string) string {
 	}
 }
 
-func (d *RedisDistributor) available() ([2]int, *wd.Error) {
+func (d *RedisDistributor) available() ([2]int, error) {
 	lockVal, err := d.acquireLock("assignment_index", "available")
 	if err != nil {
-		return [2]int{}, wd.NewError(wd.LockErr, err, d.name, "", "")
+		return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "assignment_index", "available")
 
@@ -293,16 +295,16 @@ func (d *RedisDistributor) available() ([2]int, *wd.Error) {
 	// Get index
 	idx, err := d.rdb.Get(d.ctx, d.key("assignment_index")).Int()
 	if err != nil && err != redis.Nil {
-		return [2]int{}, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+		return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	// Nil batch
 	if idx == d.workload.NumOfAssignments() {
-		return [2]int{}, wd.NewError(wd.WorkloadEmpty, nil, d.name, d.workload.Name, "")
+		return [2]int{}, errors.New(wd.ErrMessages[wd.ERR_WORKLOAD_EMPTY])
 	}
 	// Get next assignment unit start, and end from "available"
 	exists, err := d.rdb.HExists(d.ctx, d.key("available"), strconv.Itoa(idx)).Result()
 	if err != nil {
-		return [2]int{}, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+		return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	// Create new available assignment if not exists
 	if !exists {
@@ -314,13 +316,13 @@ func (d *RedisDistributor) available() ([2]int, *wd.Error) {
 		str := fmt.Sprintf("[%v, %v]", s, e)
 		err := d.rdb.HSet(d.ctx, d.key("available"), strconv.Itoa(idx), str).Err()
 		if err != nil {
-			return [2]int{}, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+			return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 		}
 		result = [2]int{s, e}
 	} else {
 		val, err := d.rdb.HGet(d.ctx, d.key("available"), strconv.Itoa(idx)).Result()
 		if err != nil && err != redis.Nil {
-			return [2]int{}, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+			return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 		}
 		json.Unmarshal([]byte(val), &result)
 	}
@@ -328,16 +330,16 @@ func (d *RedisDistributor) available() ([2]int, *wd.Error) {
 	// Increase index
 	err = d.rdb.Set(d.ctx, d.key("assignment_index"), idx+1, 0).Err()
 	if err != nil {
-		return [2]int{}, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+		return [2]int{}, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 
 	return result, nil
 }
 
-func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, *wd.Error) {
+func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, error) {
 	lockVal, err := d.acquireLock("assignments")
 	if err != nil {
-		return nil, wd.NewError(wd.LockErr, err, d.name, "", "")
+		return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 	}
 	defer d.releaseLock(lockVal, "assignments")
 
@@ -345,7 +347,7 @@ func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, *wd.Error) {
 	assignmentId := fmt.Sprintf("%v-%v", s, e)
 	result, err := d.rdb.HGet(d.ctx, d.key("assignments"), assignmentId).Result()
 	if err != nil && err != redis.Nil {
-		return nil, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+		return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 	}
 	if err == redis.Nil {
 		assignment = wd.Assignment{
@@ -358,7 +360,7 @@ func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, *wd.Error) {
 		str, _ := json.Marshal(assignment)
 		err := d.rdb.HSet(d.ctx, d.key("assignments"), assignmentId, string(str)).Err()
 		if err != nil {
-			return nil, wd.NewError(wd.WorkloadAssignmentErr, err, d.name, d.workload.Name, "")
+			return nil, fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_ASSIGNMENT], err)
 		}
 	} else {
 		json.Unmarshal([]byte(result), &assignment)

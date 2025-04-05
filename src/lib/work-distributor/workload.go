@@ -2,7 +2,7 @@ package workdistributor
 
 import "math"
 
-type Workload struct {
+type 	Workload struct {
 	Name             string `json:"name"`
 	NumOfUnits       int    `json:"num_of_units"`
 	DistributionSize int    `json:"distribution_size"`
