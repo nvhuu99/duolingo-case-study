@@ -1,6 +1,8 @@
 package rest_http
 
 import (
+	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -33,22 +35,22 @@ func (router *Router) Match(request *Request) func (*Request, *Response) {
 	return found.handler
 }
 
-func (router *Router) Get(pattern string, handler func (*Request, *Response)) *Error {
+func (router *Router) Get(pattern string, handler func (*Request, *Response)) error {
 	return router.add("GET", pattern, handler)
 }
 
-func (router *Router) Post(pattern string, handler func (*Request, *Response)) *Error {
+func (router *Router) Post(pattern string, handler func (*Request, *Response)) error {
 	return router.add("POST", pattern, handler)
 }
 
-func routeParts(route string) ([]string, *Error) {
+func routeParts(route string) ([]string, error) {
 	route = strings.Trim(route, "/")
 	route = strings.ReplaceAll(route, "//", "/")
 	parts := strings.Split(route, "/")
 	for i := range parts {
 		esc, err := url.PathUnescape(parts[i])
 		if err != nil {
-			return []string{}, NewError(ERR_URL_DECODE_FAILURE, err, "", route)
+			return []string{}, fmt.Errorf("%v - %w", ErrMessages[ERR_URL_DECODE_FAILURE], err)
 		}
 		parts[i] = esc
 	}
@@ -71,7 +73,7 @@ func parsePath(path string, pattern string) map[string]string {
 	return pathValue
 }
 
-func (router *Router) add(method string, pattern string, handler func (*Request, *Response)) *Error {
+func (router *Router) add(method string, pattern string, handler func (*Request, *Response)) error {
 	// append method at the begining
 	parts, err := routeParts(pattern)
 	if err != nil {
@@ -85,7 +87,7 @@ func (router *Router) add(method string, pattern string, handler func (*Request,
 		if strings.HasPrefix(part, "{") {
 			// path argument
 			if ! strings.HasSuffix(part, "}") {
-				return NewError(ERR_ARGUMENT_NOT_ENCLOSED, nil, method, pattern)
+				return errors.New(ErrMessages[ERR_ARGUMENT_NOT_ENCLOSED])
 			}
 			pathVal = "*"
 		} else {
@@ -108,7 +110,7 @@ func (router *Router) add(method string, pattern string, handler func (*Request,
 	return nil
 }
 
-func (router *Router) matchRoute(method string, pattern string) (*RouteMap, *Error) {
+func (router *Router) matchRoute(method string, pattern string) (*RouteMap, error) {
 	parts, err := routeParts(pattern)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, *Err
 
 	routes, ok := router.routeMap.childs[method]
 	if !ok {
-		return nil, NewError(ERR_ROUTE_NOT_FOUND, nil, method, pattern)
+		return nil, errors.New(ErrMessages[ERR_ROUTE_NOT_FOUND])
 	}
 	matches := routes.childs
 
@@ -143,5 +145,5 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, *Err
 		matches = tmp
 	}
 
-	return nil, NewError(ERR_ROUTE_NOT_FOUND, nil, method, pattern)
+	return nil, errors.New(ErrMessages[ERR_ROUTE_NOT_FOUND])
 }

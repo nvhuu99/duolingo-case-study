@@ -1,6 +1,8 @@
 package rest_http
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -72,14 +74,20 @@ func (server *Server) configServer() {
 func (server *Server) startServer() {
 	err := http.ListenAndServe(server.addr, nil)
 	if err != nil {
-		panic(NewError(ERR_SERVER_PANIC, err, "", ""))
+		panic(fmt.Errorf("%v - %w", ErrMessages[ERR_SERVER_PANIC], err))
 	}
 }
 
 func (server *Server) panicHandler(request *Request, response *Response) {
 	if r := recover(); r != nil {
-		response.Errors = []*Error{ 
-			NewError(ERR_SERVER_PANIC, r, request.Method(), request.URL().RequestURI()),
+		if err, ok := r.(error); ok {
+			response.Errors = []error{ 
+				fmt.Errorf("%v - %w", ErrMessages[ERR_SERVER_PANIC], err),
+			}
+		} else {
+			response.Errors = []error{ 
+				errors.New(ErrMessages[ERR_SERVER_PANIC]),
+			}
 		}
 		server.SendResponse(request, response.ServerErr(""))
 	}
