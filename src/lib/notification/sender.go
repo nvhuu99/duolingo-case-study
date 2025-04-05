@@ -1,5 +1,5 @@
 package notification
 
 type Sender interface {
-	SendAll(message *Message, deviceTokens []string) (*Result, error)
+	SendAll(title string, content string, deviceTokens []string) *Result
 }
