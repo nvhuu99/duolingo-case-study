@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"strings"
 	// "strconv"
 	"time"
 
@@ -136,10 +137,10 @@ func (s *RabbitMQTestSuite) TestTopologyAutoDeclare() {
 	s.manager.Connect()
 	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-	declareErr := s.topology.Declare().(*mq.Error)
+	declareErr := s.topology.Declare()
 	s.Require().NotNil(declareErr, "topology declare must fail")
 	s.Require().False(s.topology.IsReady(), "topology must not be ready")
-	s.Assert().Equal(declareErr.Code, mq.DeclareTimeOutExceed, "declare err code should be DeclareTimeOutExceed")
+	s.Assert().True(strings.HasPrefix(declareErr.Error(), mq.ErrMessages[mq.ERR_DECLARE_TIMEOUT_EXCEED]), "must be ERR_DECLARE_TIMEOUT_EXCEED")
 
 	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
 	s.WaitForConnection(10*time.Second, graceTimeOut)
@@ -151,9 +152,9 @@ func (s *RabbitMQTestSuite) TestPublisherAutoReconnect() {
 	s.manager.Connect()
 	time.Sleep(connTimeOut + graceTimeOut * 2)
 
-	firstErr := s.publisher.Publish("first message").(*mq.Error)
+	firstErr := s.publisher.Publish("first message")
 	s.Require().NotNil(firstErr, "first message must fail to be published")
-	s.Assert().Equal(firstErr.Code, mq.PublishTimeOutExceed, "pub err code should be PublishTimeOutExceed")
+	s.Assert().True(strings.HasPrefix(firstErr.Error(), mq.ErrMessages[mq.ERR_PUBLISH_TIMEOUT_EXCEED]), "should be ERR_PUBLISH_TIMEOUT_EXCEED")
 
 	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)
 	s.WaitForConnection(10*time.Second, graceTimeOut)

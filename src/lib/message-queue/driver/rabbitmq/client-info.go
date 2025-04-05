@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	mq "duolingo/lib/message-queue"
+	"fmt"
 	"sync"
 	"time"
 
@@ -103,7 +104,7 @@ func (c *clientInfo) handleClientChannel() {
 			// then the client must be informed.
 			// It's up to the client to unregister and terminate itself.
 			if ! c.manager.IsReConnecting() {
-				go c.client.OnClientFatalError(mq.NewError(mq.ClientFatalError, chanErr, "", "", ""))
+				go c.client.OnClientFatalError(fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CLIENT_FATAL_ERROR], chanErr))
 			}
 			// Trigger resetting clients connections.
 			go c.triggerReset()
@@ -156,7 +157,7 @@ func (c *clientInfo) makeChannel() (*amqp.Channel, error) {
 		}
 	}
 
-	return nil, mq.NewError(mq.ConnectionFailure, err, "", "", "")
+	return nil, fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CONNECTION_FAILURE], err)
 }
 
 func (c *clientInfo) discardChannel() {

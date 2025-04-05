@@ -3,6 +3,8 @@ package rabbitmq
 import (
 	"context"
 	mq "duolingo/lib/message-queue"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -113,7 +115,7 @@ func (client *RabbitMQTopology) Declare() error {
 		case <-client.ctx.Done():
 			return declareErr
 		case <-declareDeadline:
-			return mq.NewError(mq.DeclareTimeOutExceed, declareErr, "", "", "")
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_DECLARE_TIMEOUT_EXCEED], declareErr)
 		default:
 		}
 
@@ -124,7 +126,7 @@ func (client *RabbitMQTopology) Declare() error {
 
 		ch = client.getChannel()
 		if ch == nil {
-			declareErr = mq.NewError(mq.ConnectionFailure, nil, "", "", "")
+			declareErr = errors.New(mq.ErrMessages[mq.ERR_CONNECTION_FAILURE])
 			continue
 		}
 		if declareErr = client.declareTopics(ch, topics); declareErr != nil {
@@ -157,7 +159,7 @@ func (client *RabbitMQTopology) CleanUp() error {
 
 	ch := client.getChannel()
 	if ch == nil {
-		return mq.NewError(mq.ConnectionFailure, nil, "", "", "")
+		return errors.New(mq.ErrMessages[mq.ERR_CONNECTION_FAILURE])
 	}
 
 	client.mu.Lock()
@@ -175,13 +177,13 @@ func (client *RabbitMQTopology) CleanUp() error {
 
 	for q := range queues {
 		if _, err := ch.QueueDelete(q, false, false, false); err != nil {
-			return mq.NewError(mq.TopologyFailure, err, "", q, "")
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_TOPOLOGY_FAILURE], err)
 		}
 	}
 
 	for t := range topics {
 		if err := ch.ExchangeDelete(t, false, false); err != nil {
-			return mq.NewError(mq.TopologyFailure, err, t, "", "")
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_TOPOLOGY_FAILURE], err)
 		}
 	}
 
@@ -200,7 +202,7 @@ func (client *RabbitMQTopology) declareTopics(ch *amqp.Channel, topics []string)
 			nil,   // arguments
 		)
 		if err != nil {
-			return mq.NewError(mq.TopicDeclareFailure, err, topics[i], "", "")
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_TOPIC_DECLARE_FAILURE], err)
 		}
 	}
 
@@ -218,12 +220,12 @@ func (client *RabbitMQTopology) declareQueues(ch *amqp.Channel, queues map[strin
 			nil,   // arguments
 		)
 		if err != nil {
-			return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_QUEUE_DECLARE_FAILURE], err)
 		}
 		if client.opts.QueuesPurged {
 			_, err = ch.QueuePurge(q, false)
 			if err != nil {
-				return mq.NewError(mq.QueueDeclareFailure, err, q, "", "")
+				return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_QUEUE_DECLARE_FAILURE], err)
 			}
 		}
 	}
@@ -236,7 +238,7 @@ func (client *RabbitMQTopology) declareBindings(ch *amqp.Channel, bindings [][3]
 		binding := bindings[i]
 		err := ch.QueueBind(binding[0], binding[1], binding[2], false, nil)
 		if err != nil {
-			return mq.NewError(mq.BindingDeclareFailure, err, binding[2], binding[1], binding[0])
+			return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_BINDING_DECLARE_FAILURE], err)
 		}
 	}
 
@@ -250,7 +252,7 @@ func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) error {
 		true, // Apply all channels
 	)
 	if err != nil {
-		return mq.NewError(mq.DeclareFailure, err, "", "", "")
+		return fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_DECLARE_FAILURE], err)
 	}
 
 	return nil

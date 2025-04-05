@@ -1,106 +1,35 @@
 package messagequeue
 
-import (
-	"fmt"
-	"runtime"
-)
-
 const (
-	ConnectionFailure			= 501
-	ConnectionTimeOut			= 502
-	PublishFailure				= 503
-	PublishConfirmFailure		= 504
-	PublishNACK					= 505
-	PublishTimeOutExceed		= 506
-	DeclareFailure				= 507
-	DeclareTimeOutExceed		= 508
-	TopicDeclareFailure			= 509
-	QueueDeclareFailure			= 510
-	BindingDeclareFailure		= 511
-	TopologyFailure				= 512
-	ClientFatalError			= 513
-	ManagerConfigMissing		= 514
+	ERR_CONNECTION_FAILURE      = 501
+	ERR_CONNECTION_TIMEOUT      = 502
+	ERR_PUBLISH_FAILURE         = 503
+	ERR_PUBLISH_CONFIRM_FAILURE = 504
+	ERR_PUBLISH_NACK            = 505
+	ERR_PUBLISH_TIMEOUT_EXCEED  = 506
+	ERR_DECLARE_FAILURE         = 507
+	ERR_DECLARE_TIMEOUT_EXCEED  = 508
+	ERR_TOPIC_DECLARE_FAILURE   = 509
+	ERR_QUEUE_DECLARE_FAILURE   = 510
+	ERR_BINDING_DECLARE_FAILURE = 511
+	ERR_TOPOLOGY_FAILURE        = 512
+	ERR_CLIENT_FATAL_ERROR      = 513
+	ERR_MANAGER_CONFIG_MISSING  = 514
 )
 
 var ErrMessages = map[int]string{
-	ConnectionFailure:		"connection failure",
-	ConnectionTimeOut:		"connection timeout",
-	PublishFailure:			"publish message failure",
-	PublishConfirmFailure:	"publish message confirm failure",
-	PublishNACK:			"publish message not acknowledged (NACK)",
-	PublishTimeOutExceed:	"publish message timeout exceeded",
-	DeclareTimeOutExceed:	"declare timeout exceeded",
-	TopicDeclareFailure:	"topic declare failure",
-	QueueDeclareFailure:	"queue declare failure",
-	BindingDeclareFailure:	"binding beclare failure",
-	TopologyFailure:		"topology operation failure",
-	ClientFatalError:		"client operations fatal error",
-	ManagerConfigMissing:	"manager configuration missing",
-}
-
-type Error struct {
-	Topic  string
-	Queue string
-	Pattern string
-	
-	Code          int
-	Message       string
-	OriginalError error
-	
-	FuncName   string
-	File       string
-	LineNumber int
-}
-
-func (e *Error) Error() string {
-	mssg := fmt.Sprintf(
-		"error code: %v, error message: \"%v\"\nfile: \"%v\", line: %v, function: \"%v\"\n",
-		e.Code,
-		e.Message,
-		e.File,
-		e.LineNumber,
-		e.FuncName,
-	)
-
-	if e.Topic != "" {
-		mssg += "topic: " + e.Topic
-		if e.Queue != "" {
-			mssg += ", queue: " + e.Queue
-		}
-		if e.Pattern != "" {
-			mssg += ", pattern: " + e.Pattern
-		}
-		mssg += "\n"
-	}
-
-	if e.OriginalError != nil {
-		if _, check := e.OriginalError.(*Error); check {
-			return mssg +  e.OriginalError.Error()
-		} else {
-			mssg += fmt.Sprintf("original error: %v", e.OriginalError)
-		}
-	}
-
-	return mssg
-}
-
-func NewError(code int, err error, topic string, queue string, pattern string) *Error {
-	mqErr := Error {
-		Code: code,
-		Message: ErrMessages[code],
-		OriginalError: err,
-		Topic: topic,
-		Queue: queue,
-		Pattern: pattern,
-	}
-	pc, file, line, ok := runtime.Caller(1)
-	if ok {
-		mqErr.File = file
-		mqErr.LineNumber = line
-	}
-	if f := runtime.FuncForPC(pc); f != nil {
-		mqErr.FuncName = f.Name()
-	}
-
-	return &mqErr
+	ERR_CONNECTION_FAILURE:      "501 - connection failure",
+	ERR_CONNECTION_TIMEOUT:      "502 - connection timeout",
+	ERR_PUBLISH_FAILURE:         "503 - publish message failure",
+	ERR_PUBLISH_CONFIRM_FAILURE: "504 - publish message confirm failure",
+	ERR_PUBLISH_NACK:            "505 - publish message not acknowledged (NACK)",
+	ERR_PUBLISH_TIMEOUT_EXCEED:  "506 - publish message timeout exceeded",
+	ERR_DECLARE_FAILURE:         "507 - declare failure",
+	ERR_DECLARE_TIMEOUT_EXCEED:  "508 - declare timeout exceeded",
+	ERR_TOPIC_DECLARE_FAILURE:   "509 - topic declare failure",
+	ERR_QUEUE_DECLARE_FAILURE:   "510 - queue declare failure",
+	ERR_BINDING_DECLARE_FAILURE: "511 - binding declare failure",
+	ERR_TOPOLOGY_FAILURE:        "512 - topology operation failure",
+	ERR_CLIENT_FATAL_ERROR:      "513 - client operations fatal error",
+	ERR_MANAGER_CONFIG_MISSING:  "514 - manager configuration missing",
 }

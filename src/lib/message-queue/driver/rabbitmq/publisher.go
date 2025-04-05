@@ -3,6 +3,8 @@ package rabbitmq
 import (
 	"context"
 	mq "duolingo/lib/message-queue"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,7 +75,7 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 		case <-client.ctx.Done():
 			return publishErr
 		case <-writeDeadline:
-			return mq.NewError(mq.PublishTimeOutExceed, nil, topic, "", routingKey)
+			return errors.New(mq.ErrMessages[mq.ERR_PUBLISH_TIMEOUT_EXCEED])
 		default:
 		}
 
@@ -84,7 +86,7 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 
 		ch := client.getChannel()
 		if ch == nil {
-			publishErr = mq.NewError(mq.ConnectionFailure, nil, topic, "", routingKey)
+			publishErr = errors.New(mq.ErrMessages[mq.ERR_CONNECTION_FAILURE])
 			continue
 		}
 
@@ -105,19 +107,19 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 		)
 
 		if err != nil {
-			publishErr = mq.NewError(mq.PublishFailure, err, topic, "", routingKey)
+			publishErr = fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_PUBLISH_FAILURE], err)
 			continue
 		}
 
 		confirm := <-client.confirm
 
 		if !confirm.Ack {
-			publishErr = mq.NewError(mq.PublishNACK, nil, topic, "", routingKey)
+			publishErr = errors.New(mq.ErrMessages[mq.ERR_PUBLISH_NACK])
 			continue
 		}
 
 		if confirm.DeliveryTag != client.deliveryTag {
-			publishErr = mq.NewError(mq.PublishConfirmFailure, nil, topic, "", routingKey)
+			publishErr = errors.New(mq.ErrMessages[mq.ERR_PUBLISH_CONFIRM_FAILURE])
 			continue
 		}
 

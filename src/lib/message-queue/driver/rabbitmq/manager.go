@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	mq "duolingo/lib/message-queue"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -73,7 +74,7 @@ func (m *RabbitMQManager) Connect() error {
 	defer m.mu.RUnlock()
 
 	if m.opts == nil || m.uri == "" {
-		return mq.NewError(mq.ManagerConfigMissing, nil, "", "", "")
+		return errors.New(mq.ErrMessages[mq.ERR_MANAGER_CONFIG_MISSING])
 	}
 
 	go m.handleReconnect()
@@ -158,7 +159,7 @@ func (m *RabbitMQManager) connect() (*amqp.Connection, error) {
 		case <-m.ctx.Done():
 			return nil, nil
 		case <-connectDeadline:
-			return nil, mq.NewError(mq.ConnectionTimeOut, err, "", "", "")
+			return nil, fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CONNECTION_TIMEOUT], err)
 		default:
 		}
 
