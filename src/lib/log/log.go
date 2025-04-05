@@ -26,8 +26,7 @@ func NewLog(level LogLevel, message string) (*Log, <-chan bool) {
 	return log, ready
 }
 
-func (log *Log) Group(namespace string, attrs any) *Log {
-	log.Namespace = namespace
+func (log *Log) Group(attrs any) *Log {
 	log.GroupAttrs = attrs
 	return log
 }
@@ -42,7 +41,10 @@ func (log *Log) Data(attrs any) *Log {
 	return log
 }
 
-func (log *Log) Errors(errs ...any) *Log {
+func (log *Log) Errors(errs any) *Log {
+	if asErr, ok := errs.(error); ok {
+		log.LogErrors = asErr.Error()
+	}
 	log.LogErrors = errs
 	return log
 }
@@ -50,4 +52,20 @@ func (log *Log) Errors(errs ...any) *Log {
 func (log *Log) Write() {
 	log.ready <- true
 	close(log.ready)
+}
+
+func (log *Log) Detail(detail map[string]any) *Log {
+	if logCtx, has := detail["context"]; has {
+		log.Context(logCtx)
+	}
+	if logData, has := detail["data"]; has {
+		log.Data(logData)
+	}
+	if logGroup, has := detail["group"]; has {
+		log.Group(logGroup)
+	}
+	if errs, has := detail["errors"]; has {
+		log.Errors(errs)
+	}
+	return log
 }

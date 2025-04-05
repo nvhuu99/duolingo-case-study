@@ -3,10 +3,13 @@ package bootstrap
 import (
 	"context"
 	"duolingo/common"
+
+	cnst "duolingo/common/constant"
 	config "duolingo/lib/config_reader"
+	log "duolingo/lib/log"
 	mq "duolingo/lib/message-queue"
 	"duolingo/lib/message-queue/driver/rabbitmq"
-	noti "duolingo/lib/notification/driver/firebase"
+	noti "duolingo/lib/notification/sender/firebase"
 	sv "duolingo/lib/service-container"
 	"os"
 	"time"
@@ -16,6 +19,7 @@ var (
 	container *sv.ServiceContainer
 	ctx       context.Context
 	infra     config.ConfigReader
+	conf      config.ConfigReader
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -23,7 +27,38 @@ var (
 	declareTimeOut = 10 * time.Second
 )
 
-func bind() {
+func Run() {
+	common.SetupService()
+
+	container = common.Container()
+	infra = container.Resolve("config.infra").(config.ConfigReader)
+	conf = container.Resolve("config").(config.ConfigReader)
+	ctx, _ = common.ServiceContext()
+
+	bindLogger()
+	bindMessageQueue()
+}
+
+func bindLogger() {
+	container.BindSingleton("logger", func() any {
+		rotation := time.Duration(conf.GetInt("self.log.rotation", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("self.log.flush", 300)) * time.Second
+		bufferSize := conf.GetInt("self.log.buffer.size", 1)
+		bufferCount := conf.GetInt("self.log.buffer.max_count", 1000)
+
+		return log.NewLoggerBuilder(ctx).
+			UseNamespace("services", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER).
+			UseJsonFormat().
+			AddLocalWriter(common.Dir("storage/log")).
+			WithFilePrefix(cnst.SV_PUSH_SENDER).
+			WithBuffering(bufferSize, bufferCount).
+			WithRotation(rotation).
+			WithFlushInterval(flush).
+			Get()
+	})
+}
+
+func bindMessageQueue() {
 	container.BindSingleton("err_chan", func() any {
 		return make(chan error, 2)
 	})
@@ -102,18 +137,4 @@ func bind() {
 
 		return consumer
 	})
-}
-
-func boot() {
-}
-
-func Run() {
-	common.SetupService()
-
-	container = common.Container()
-	infra = container.Resolve("config.infra").(config.ConfigReader)
-	ctx, _ = common.ServiceContext()
-
-	bind()
-	boot()
 }

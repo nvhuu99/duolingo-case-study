@@ -19,7 +19,14 @@ var (
 
 func input(request *rest.Request, response *rest.Response) {
 	campaign := request.Path("campaign").Str()
+	title := request.Input("title").Str()
 	content := request.Input("content").Str()
+	if title == "" {
+		response.InvalidRequest("", map[string]string{
+			"title": "title must not be empty",
+		})
+		return
+	}
 	if content == "" {
 		response.InvalidRequest("", map[string]string{
 			"content": "content must not be empty",
@@ -27,7 +34,7 @@ func input(request *rest.Request, response *rest.Response) {
 		return
 	}
 
-	message := model.NewInputMessage(campaign, content, false)
+	message := model.NewInputMessage(request.Id(), campaign, title, content, false)
 	err := publisher.Publish(message.Serialize())
 	if err != nil {
 		response.ServerErr("Failed to publish to message queue")

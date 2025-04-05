@@ -5,7 +5,10 @@ import (
 	"duolingo/common"
 	"time"
 
+	cnst "duolingo/common/constant"
+
 	config "duolingo/lib/config_reader"
+	"duolingo/lib/log"
 	mq "duolingo/lib/message-queue"
 	rabbitmq "duolingo/lib/message-queue/driver/rabbitmq"
 	sv "duolingo/lib/service-container"
@@ -17,6 +20,7 @@ var (
 	container *sv.ServiceContainer
 	ctx       context.Context
 	infra     config.ConfigReader
+	conf		config.ConfigReader
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -25,11 +29,40 @@ var (
 	writeTimeOut   = 10 * time.Second
 )
 
-func bind() {
-	container.BindSingleton("err_chan", func() any {
-		return make(chan error, 10)
-	})
+func Run() {
+	common.SetupService()
 
+	container = common.Container()
+	ctx, _ = common.ServiceContext()
+	infra, _ = container.Resolve("config.infra").(config.ConfigReader)
+	conf		= container.Resolve("config").(config.ConfigReader)
+
+	bindLogger()
+	bindRepository()
+	bindWorkDistributor()
+	bindMessageQueue()
+}
+
+func bindLogger() {
+	container.BindSingleton("log.server", func() any {
+		rotation := time.Duration(conf.GetInt("self.log.rotation", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("self.log.flush", 300)) * time.Second
+		bufferSize := conf.GetInt("self.log.buffer.size", 2)
+		bufferCount := conf.GetInt("self.log.buffer.max_count", 1000)
+
+		return log.NewLoggerBuilder(ctx).
+			UseNamespace("services", cnst.ServiceTypes[cnst.SV_NOTI_BUILDER], cnst.SV_NOTI_BUILDER).
+			UseJsonFormat().
+			AddLocalWriter(common.Dir("storage/log")).
+			WithFilePrefix(cnst.SV_NOTI_BUILDER).
+			WithBuffering(bufferSize, bufferCount).
+			WithRotation(rotation).
+			WithFlushInterval(flush).
+			Get()
+	})
+}
+
+func bindRepository() {
 	container.BindSingleton("repo.campaign_user", func() any {
 		repo := db.NewUserRepo(ctx, infra.Get("db.campaign.name", ""))
 		repo.SetConnection(
@@ -40,7 +73,9 @@ func bind() {
 		)
 		return repo
 	})
+}
 
+func bindWorkDistributor() {
 	container.BindSingleton("distributor", func() any {
 		size := infra.GetInt("distributor.campaign_users.distribution_size", 1000)
 		distributor, _ := distributor.NewRedisDistributor(ctx, "campaign_users")
@@ -55,6 +90,12 @@ func bind() {
 		}
 
 		return distributor
+	})
+}
+
+func bindMessageQueue() {
+	container.BindSingleton("err_chan", func() any {
+		return make(chan error, 10)
 	})
 
 	container.BindSingleton("mq.manager", func() any {
@@ -158,18 +199,4 @@ func bind() {
 
 		return consumer
 	})
-}
-
-func boot() {
-}
-
-func Run() {
-	common.SetupService()
-
-	container = common.Container()
-	ctx, _ = common.ServiceContext()
-	infra, _ = container.Resolve("config.infra").(config.ConfigReader)
-
-	bind()
-	boot()
 }

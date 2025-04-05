@@ -15,6 +15,7 @@ import (
 type LocalWriter struct {
 	Path           string
 	Rotation       time.Duration
+	FlushInterval time.Duration
 	BufferSize     int
 	MaxBufferCount int
 
@@ -30,12 +31,12 @@ type LocalWriter struct {
 	mu  sync.RWMutex
 }
 
-func NewLocalWriter(ctx context.Context, path string, bufferMb int, bufferCount int, rotation time.Duration) *LocalWriter {
+func NewLocalWriter(ctx context.Context, path string) *LocalWriter {
 	writer := &LocalWriter{
 		Path:           path,
-		Rotation:       rotation,
-		BufferSize:     bufferMb * 1024 * 1024,
-		MaxBufferCount: bufferCount,
+		Rotation:       time.Hour,
+		BufferSize:     1,
+		MaxBufferCount: 1000,
 		ctx:            ctx,
 		bufferCh:       make(chan *lw.Writable, 1000),
 		writeCh:        make(chan *lw.Writable, 1000),
@@ -43,6 +44,24 @@ func NewLocalWriter(ctx context.Context, path string, bufferMb int, bufferCount 
 
 	go writer.RunWriter()
 
+	return writer
+}
+
+func (writer *LocalWriter) WithBuffering(sizeMb int, maxCount int) lw.LogWriter {
+	writer.BufferSize = sizeMb
+	writer.MaxBufferCount = maxCount
+	writer.bufferCh = make(chan *lw.Writable, 100 + writer.MaxBufferCount)
+	writer.writeCh = make(chan *lw.Writable, 100 + writer.MaxBufferCount)
+	return writer
+}
+
+func (writer *LocalWriter) WithRotation(interval time.Duration) lw.LogWriter {
+	writer.Rotation = interval
+	return writer
+}
+
+func (writer *LocalWriter) WithFlushInterval(interval time.Duration) lw.LogWriter {
+	writer.FlushInterval = interval
 	return writer
 }
 
@@ -65,10 +84,10 @@ func (writer *LocalWriter) RunWriter() {
 			writer.flush()
 			writer.rotate()
 		case log := <-writer.writeCh:
-			if writer.wouldLimitExceed(log.Content) {
+			writer.buffer(log)
+			if writer.hasLimitExceeded() {
 				writer.flush()
 			}
-			writer.buffer(log)
 		}
 	}
 }
@@ -91,12 +110,12 @@ func (writer *LocalWriter) flush() {
 	}
 }
 
-func (writer *LocalWriter) wouldLimitExceed(log []byte) bool {
+func (writer *LocalWriter) hasLimitExceeded() bool {
 	writer.mu.RLock()
 	defer writer.mu.RUnlock()
 
-	return writer.buffered+len(log) > writer.BufferSize ||
-		writer.bufferedCount+1 >= writer.MaxBufferCount
+	return writer.buffered > writer.BufferSize ||
+		writer.bufferedCount >= writer.MaxBufferCount
 }
 
 func (writer *LocalWriter) buffer(log *lw.Writable) {

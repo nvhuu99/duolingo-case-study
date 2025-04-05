@@ -10,6 +10,7 @@ import (
 	"duolingo/lib/message-queue/driver/rabbitmq"
 	sv "duolingo/lib/service-container"
 	log "duolingo/lib/log"
+	cnst "duolingo/common/constant"
 
 	"time"
 )
@@ -42,12 +43,20 @@ func Run() {
 
 func bindLogger() {
 	container.BindSingleton("log.server", func() any {
-		rotation := time.Duration(conf.GetInt("self.log.rotation", 86400))
+		rotation := time.Duration(conf.GetInt("self.log.rotation", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("self.log.flush", 300)) * time.Second
 		bufferSize := conf.GetInt("self.log.buffer.size", 2)
 		bufferCount := conf.GetInt("self.log.buffer.max_count", 1000)
-		return log.NewLogger(ctx, "server").
+
+		return log.NewLoggerBuilder(ctx).
+			UseNamespace("services", cnst.ServiceTypes[cnst.SV_INP_MESG], cnst.SV_INP_MESG).
 			UseJsonFormat().
-			AddLocalWriter(common.Dir("storage/log"), bufferSize, bufferCount, rotation)
+			AddLocalWriter(common.Dir("storage/log")).
+			WithFilePrefix(cnst.SV_INP_MESG).
+			WithBuffering(bufferSize, bufferCount).
+			WithRotation(rotation).
+			WithFlushInterval(flush).
+			Get()
 	})
 }
 
