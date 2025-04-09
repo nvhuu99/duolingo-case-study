@@ -143,9 +143,17 @@ func (writer *LocalWriter) buffer(log *lw.Writable) {
 func (writer *LocalWriter) rotate() {
 	writer.mu.Lock()
 	defer writer.mu.Unlock()
-
+	// Calculate next rotation interval in seconds
+	now := time.Now()
+	interval := int(writer.Rotation.Seconds())
+	dayPassedSeconds := now.Hour()*3600 + now.Minute()*60 + now.Second()
+	alignedSeconds := (dayPassedSeconds / interval) * interval
+	// Create a new time aligned to the rotation interval
+	writer.currentRotation = time.
+		Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
+		Add(time.Duration(alignedSeconds) * time.Second)
+	// Reset rotation deadline to flush the buffer
 	writer.rotationDeadline = time.After(writer.Rotation)
-	writer.currentRotation = time.Now()
 }
 
 func (writer *LocalWriter) writeLines(filepath string, lines [][]byte) {

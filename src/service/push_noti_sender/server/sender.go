@@ -27,7 +27,7 @@ func main() {
 	sender = container.Resolve("noti.sender").(noti.Sender)
 	logger = container.Resolve("logger").(*lg.Logger)
 
-	log.Println("Notification worker started")
+	log.Println("notification worker started")
 
 	consumer.Consume(make(chan bool, 1), func(jsonMsg string) mq.ConsumerAction {
 		var message model.PushNotiMessage
