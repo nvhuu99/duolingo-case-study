@@ -8,9 +8,9 @@ import (
 )
 
 type Server struct {
-	addr		string
-	router		*Router
-	middlewares	*MiddlewareManager
+	addr        string
+	router      *Router
+	middlewares *MiddlewareManager
 }
 
 func NewServer(addr string) *Server {
@@ -21,7 +21,7 @@ func NewServer(addr string) *Server {
 	return server
 }
 
-func (server *Server) WithMiddlewares(group string, middlwares... Handler) *Server {
+func (server *Server) WithMiddlewares(group string, middlwares ...Handler) *Server {
 	for _, handler := range middlwares {
 		server.middlewares.Push(group, handler)
 	}
@@ -49,20 +49,20 @@ func (server *Server) SendResponse(request *Request, response *Response) {
 		response.Status = STATUS_OK
 	}
 	response.ResponseSent = true
-	
-	response.rw.Header().Set("Content-Type", "application/json") 
+
+	response.rw.Header().Set("Content-Type", "application/json")
 	response.rw.WriteHeader(response.Status)
 	response.rw.Write(body)
 }
 
 func (server *Server) configServer() {
 	// middlewares
-	server.middlewares.Push("request", &RouteRequest{ server: server })
+	server.middlewares.Push("request", &RouteRequest{server: server})
 	// set server request handler
-	http.HandleFunc("/", func (rw http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
 		request := ParseRequest(req)
 		response := NewResponse(rw)
-		
+
 		defer server.panicHandler(request, response)
 
 		server.middlewares.Handle("request", request, response)
@@ -81,11 +81,11 @@ func (server *Server) startServer() {
 func (server *Server) panicHandler(request *Request, response *Response) {
 	if r := recover(); r != nil {
 		if err, ok := r.(error); ok {
-			response.Errors = []error{ 
+			response.Errors = []error{
 				fmt.Errorf("%v - %w", ErrMessages[ERR_SERVER_PANIC], err),
 			}
 		} else {
-			response.Errors = []error{ 
+			response.Errors = []error{
 				errors.New(ErrMessages[ERR_SERVER_PANIC]),
 			}
 		}

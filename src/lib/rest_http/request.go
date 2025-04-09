@@ -12,7 +12,7 @@ import (
 )
 
 type Request struct {
-	id        string
+	id      string
 	req     *http.Request
 	rawBody []byte
 	inputs  map[string]any
@@ -22,8 +22,8 @@ type Request struct {
 
 func ParseRequest(req *http.Request) *Request {
 	request := &Request{
-		id:  uuid.New().String(),
-		req: req,
+		id:        uuid.New().String(),
+		req:       req,
 		Timestamp: time.Now(),
 	}
 	request.parseBody()
@@ -65,7 +65,7 @@ func (request *Request) Query(key string) *Value {
 			queryParams[k] = v[0]
 		}
 
-		return &Value{ queryParams }
+		return &Value{queryParams}
 	}
 
 	return &Value{request.req.URL.Query().Get(key)}

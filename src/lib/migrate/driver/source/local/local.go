@@ -40,22 +40,21 @@ var (
 // LocalFile implements the Source interface, managing database migration files from a local directory.
 // Files are pre-buffered for efficient processing based on a configurable buffer size.
 type LocalFile struct {
-	uri            string       // Directory location for migration files.
-	err            error        // Tracks the most recent error.
-	status         sourceStatus // Tracks the current status of the source (opened/closed).
-	files          []string     // List of all migration file names in the directory.
-	batch          []string     // Current batch of migration files to process.
-	fileIdx        int          // Index for iterating through the batch.
+	uri     string       // Directory location for migration files.
+	err     error        // Tracks the most recent error.
+	status  sourceStatus // Tracks the current status of the source (opened/closed).
+	files   []string     // List of all migration file names in the directory.
+	batch   []string     // Current batch of migration files to process.
+	fileIdx int          // Index for iterating through the batch.
 
-	ctx            context.Context       // Context for managing goroutine lifecycle.
-	ctxCancel      context.CancelFunc    // Function to cancel the context.
-	mu             sync.Mutex            // Mutex for safe concurrent access.
+	ctx       context.Context    // Context for managing goroutine lifecycle.
+	ctxCancel context.CancelFunc // Function to cancel the context.
+	mu        sync.Mutex         // Mutex for safe concurrent access.
 
 	migrationBuffer chan migrate.Migration // Channel for buffered Migration objects.
 	maxBufferSize   int64                  // Maximum size of the buffer.
 	buffered        int64                  // Current size of the buffered data.
 }
-
 
 // New creates and initializes a new LocalFile instance.
 func New(ctx context.Context, cancel context.CancelFunc) *LocalFile {
@@ -138,7 +137,7 @@ func (src *LocalFile) Next() (*migrate.Migration, error) {
 
 	src.buffered -= int64(len(migr.Body))
 	src.fileIdx++
-	
+
 	return &migr, nil
 }
 
@@ -203,7 +202,7 @@ func (src *LocalFile) buffer() {
 		src.migrationBuffer <- *migr
 		src.buffered += info.Size()
 		idx++
-		
+
 		return idx != len(src.batch)
 	}
 	// start buffering

@@ -21,7 +21,7 @@ func NewRouter() *Router {
 	return &router
 }
 
-func (router *Router) Match(request *Request) func (*Request, *Response) {
+func (router *Router) Match(request *Request) func(*Request, *Response) {
 	found, err := router.matchRoute(request.Method(), request.URL().Path)
 	if err != nil {
 		return nil
@@ -35,11 +35,11 @@ func (router *Router) Match(request *Request) func (*Request, *Response) {
 	return found.handler
 }
 
-func (router *Router) Get(pattern string, handler func (*Request, *Response)) error {
+func (router *Router) Get(pattern string, handler func(*Request, *Response)) error {
 	return router.add("GET", pattern, handler)
 }
 
-func (router *Router) Post(pattern string, handler func (*Request, *Response)) error {
+func (router *Router) Post(pattern string, handler func(*Request, *Response)) error {
 	return router.add("POST", pattern, handler)
 }
 
@@ -63,7 +63,7 @@ func parsePath(path string, pattern string) map[string]string {
 	patterns, _ := routeParts(pattern)
 	pathValue := make(map[string]string)
 	for i := range patterns {
-		if strings.HasPrefix(patterns[i], "{") && 
+		if strings.HasPrefix(patterns[i], "{") &&
 			strings.HasSuffix(patterns[i], "}") {
 			key := strings.Trim(patterns[i], "{}")
 			pathValue[key] = paths[i]
@@ -73,20 +73,20 @@ func parsePath(path string, pattern string) map[string]string {
 	return pathValue
 }
 
-func (router *Router) add(method string, pattern string, handler func (*Request, *Response)) error {
+func (router *Router) add(method string, pattern string, handler func(*Request, *Response)) error {
 	// append method at the begining
 	parts, err := routeParts(pattern)
 	if err != nil {
 		return err
-	} 
-	parts = append([]string {method}, parts...)
+	}
+	parts = append([]string{method}, parts...)
 	// build route map
-	node := router.routeMap 
+	node := router.routeMap
 	for _, part := range parts {
 		var pathVal string
 		if strings.HasPrefix(part, "{") {
 			// path argument
-			if ! strings.HasSuffix(part, "}") {
+			if !strings.HasSuffix(part, "}") {
 				return errors.New(ErrMessages[ERR_ARGUMENT_NOT_ENCLOSED])
 			}
 			pathVal = "*"
@@ -94,10 +94,10 @@ func (router *Router) add(method string, pattern string, handler func (*Request,
 			// fixed value
 			pathVal = part
 		}
-		
+
 		if _, ok := node.childs[pathVal]; !ok {
 			node.childs[pathVal] = &RouteMap{
-				name: pathVal,
+				name:   pathVal,
 				childs: make(map[string]*RouteMap),
 			}
 		}
@@ -128,16 +128,16 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, erro
 		tmp := make(map[string]*RouteMap)
 		for _, m := range matches {
 			if m.name == "*" || m.name == part {
-				if i == len(parts) - 1 {
+				if i == len(parts)-1 {
 					return m, nil
 				}
 				for _, ch := range m.childs {
-					tmp[m.name + ch.name] = ch
+					tmp[m.name+ch.name] = ch
 				}
 			}
 		}
 		// if we cannot find a child, return nil
-		if len(tmp) == 0 && i != len(parts) - 1 {
+		if len(tmp) == 0 && i != len(parts)-1 {
 			break
 		}
 

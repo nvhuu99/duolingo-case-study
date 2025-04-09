@@ -10,8 +10,8 @@ const (
 )
 
 var levelFileExtensions = map[LogLevel]string{
-	LevelInfo:    "info.json",
-	LevelWarning: "warning.json",
-	LevelError:   "error.json",
-	LevelFatal:   "fatal.json",
+	LevelInfo:    "info",
+	LevelWarning: "warning",
+	LevelError:   "error",
+	LevelFatal:   "fatal",
 }

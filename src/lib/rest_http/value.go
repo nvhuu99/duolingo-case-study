@@ -13,11 +13,11 @@ func (p *Value) Raw() any {
 	return p.value
 }
 
-func (p *Value) Str() string { 
+func (p *Value) Str() string {
 	return fmt.Sprintf("%v", p.value)
 }
 
-func (p *Value) Int() (int, bool) { 
+func (p *Value) Int() (int, bool) {
 	strVal := p.Str()
 	intVal, err := strconv.Atoi(strVal)
 	if err != nil {

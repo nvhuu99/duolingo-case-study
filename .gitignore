@@ -2,6 +2,6 @@
 bin/
 node_modules
 .env
-src/infra/config/firebase-service-account-key.json
-src/infra/config/firebase-service-worker.json
 **/storage/log/*
+**/firebase_service_account_key.json
+**/firebase_service_worker.json

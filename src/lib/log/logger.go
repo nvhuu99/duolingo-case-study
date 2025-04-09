@@ -2,16 +2,17 @@ package log
 
 import (
 	"context"
+	fm "duolingo/lib/log/formatter"
 	lw "duolingo/lib/log/writer"
 )
 
 type Logger struct {
-	formatter Formatter
+	formatter fm.Formatter
 	writers   []lw.LogWriter
 	ctx       context.Context
 
 	FilePrefix string
-	Namespace string
+	Namespace  string
 }
 
 func (logger *Logger) Info(message string) *Log {
@@ -36,11 +37,11 @@ func (logger *Logger) writeWhenReady(ready <-chan bool, log *Log) {
 		<-ready
 		for _, writer := range logger.writers {
 			writer.Write(&lw.Writable{
-				Prefix: logger.FilePrefix,
+				Namespace: log.Namespace,
+				Prefix:    logger.FilePrefix,
 				Extension: levelFileExtensions[log.Level],
-				Content: logger.formatter.Format(log),
+				Content:   logger.formatter.Format(log),
 			})
 		}
 	}()
 }
-

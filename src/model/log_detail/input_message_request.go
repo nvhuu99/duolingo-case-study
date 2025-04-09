@@ -1,7 +1,7 @@
 package log_detail
 
 import (
-	cnst "duolingo/common/constant"
+	cnst "duolingo/constant"
 	"duolingo/lib/log"
 	rest "duolingo/lib/rest_http"
 	"duolingo/model"
@@ -11,7 +11,7 @@ import (
 
 type InputMessageRequest struct {
 	log.Log
-	
+
 	LogData *model.InputMessage `json:"data"`
 
 	ContextAttr struct {

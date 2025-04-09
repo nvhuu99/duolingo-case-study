@@ -1,7 +1,7 @@
 package migrate
 
-// Source is responsible for reading the database migration files 
-// and creating Migration objects. These Migration objects are then 
+// Source is responsible for reading the database migration files
+// and creating Migration objects. These Migration objects are then
 // executed by a database driver.
 type Source interface {
 	UseUri(uri string) error

@@ -75,10 +75,10 @@ func (driver *MySQL) PrepareDatabase() error {
 		ORDER BY batch_number DESC, id DESC
 	`, migrate.MigrateFinished)
 	if err := row.Scan(&lastBatchNum); err != nil {
-        if err == sql.ErrNoRows {
+		if err == sql.ErrNoRows {
 			lastBatchNum = 0
-        }
-    }
+		}
+	}
 	// Set the next batch number
 	driver.batchNumber = lastBatchNum + 1
 
@@ -98,8 +98,8 @@ func (driver *MySQL) LastBatch() ([]migrate.Migration, error) {
 	defer db.Close()
 
 	rows, err := db.Query(
-		`SELECT * FROM migrations WHERE batch_number = ? ORDER BY id ASC`, 
-		driver.batchNumber - 1,
+		`SELECT * FROM migrations WHERE batch_number = ? ORDER BY id ASC`,
+		driver.batchNumber-1,
 	)
 	if err != nil {
 		return []migrate.Migration{}, err
@@ -109,11 +109,11 @@ func (driver *MySQL) LastBatch() ([]migrate.Migration, error) {
 	migrations := []migrate.Migration{}
 	for rows.Next() {
 		migr := migrate.Migration{}
-        if err := rows.Scan(&migr.Id, &migr.Name, &migr.BatchNumber, &migr.Status); err != nil {
-            return []migrate.Migration{}, err
-        }
+		if err := rows.Scan(&migr.Id, &migr.Name, &migr.BatchNumber, &migr.Status); err != nil {
+			return []migrate.Migration{}, err
+		}
 		migrations = append(migrations, migr)
-    }
+	}
 
 	return migrations, nil
 }
@@ -124,7 +124,7 @@ func (driver *MySQL) RunMigration(migr *migrate.Migration) error {
 		return err
 	}
 	defer db.Close()
-	
+
 	_, err = db.Exec(string(migr.Body))
 	if err != nil {
 		return err

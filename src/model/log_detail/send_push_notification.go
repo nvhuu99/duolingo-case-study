@@ -1,7 +1,7 @@
 package log_detail
 
 import (
-	cnst "duolingo/common/constant"
+	cnst "duolingo/constant"
 	"duolingo/lib/log"
 	noti "duolingo/lib/notification"
 	"duolingo/model"
@@ -41,8 +41,8 @@ func SendNotificationDetail(message *model.PushNotiMessage, result *noti.Result)
 
 	return map[string]any{
 		"context": map[string]any{
-			"request_id": mesgId,
-			"message_id": reqId,
+			"request_id": reqId,
+			"message_id": mesgId,
 			"service":    serviceContext,
 		},
 		"data": map[string]any{

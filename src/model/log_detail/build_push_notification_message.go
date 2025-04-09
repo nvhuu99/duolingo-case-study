@@ -1,9 +1,9 @@
 package log_detail
 
 import (
-	cnst "duolingo/common/constant"
+	cnst "duolingo/constant"
 	"duolingo/lib/log"
-	wd "duolingo/lib/work-distributor"
+	wd "duolingo/lib/work_distributor"
 	"duolingo/model"
 	lc "duolingo/model/log_context"
 )
@@ -11,13 +11,13 @@ import (
 type BuildNotification struct {
 	log.Log
 
-	LogData struct {
+	LogData *struct {
 		PushMessage *model.InputMessage `json:"push_message"`
-		Assigment   *wd.Assignment      `json:"assigment"`
+		Assignment  *wd.Assignment      `json:"assignment"`
 		Workload    *wd.Workload        `json:"workload"`
 	} `json:"data"`
 
-	ContextAttr struct {
+	ContextAttr *struct {
 		RequestId string             `json:"request_id"`
 		MessageId string             `json:"message_id"`
 		Service   *lc.ServiceContext `json:"service"`
@@ -42,8 +42,8 @@ func BuildNotificationDetail(message *model.InputMessage, workload *wd.Workload,
 
 	return map[string]any{
 		"context": map[string]any{
-			"request_id": mesgId,
-			"message_id": reqId,
+			"request_id": reqId,
+			"message_id": mesgId,
 			"service":    serviceContext,
 		},
 		"data": map[string]any{

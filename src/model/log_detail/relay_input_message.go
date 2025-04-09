@@ -1,7 +1,7 @@
 package log_detail
 
 import (
-	cnst "duolingo/common/constant"
+	cnst "duolingo/constant"
 	"duolingo/lib/log"
 	"duolingo/model"
 	lc "duolingo/model/log_context"
@@ -10,7 +10,10 @@ import (
 type RelayInputMessage struct {
 	log.Log
 
-	LogData *model.InputMessage `json:"data"`
+	LogData struct {
+		RelayedMessage *model.InputMessage `json:"relayed_message"`
+		RelayedTotal   int                 `json:"relayed_total"`
+	} `json:"data"`
 
 	ContextAttr struct {
 		RequestId string             `json:"request_id"`
@@ -19,7 +22,7 @@ type RelayInputMessage struct {
 	} `json:"context"`
 }
 
-func RelayInputMessageDetail(message *model.InputMessage) map[string]any {
+func RelayInputMessageDetail(message *model.InputMessage, relayTotal int) map[string]any {
 	serviceContext := &lc.ServiceContext{
 		Type:            cnst.ServiceTypes[cnst.SV_NOTI_BUILDER],
 		Name:            cnst.SV_NOTI_BUILDER,
@@ -37,10 +40,13 @@ func RelayInputMessageDetail(message *model.InputMessage) map[string]any {
 
 	return map[string]any{
 		"context": map[string]any{
-			"request_id": mesgId,
-			"message_id": reqId,
-			"service": serviceContext,
+			"request_id": reqId,
+			"message_id": mesgId,
+			"service":    serviceContext,
 		},
-		"data": message,
+		"data": map[string]any{
+			"relayed_message": message,
+			"relayed_total":   relayTotal,
+		},
 	}
 }

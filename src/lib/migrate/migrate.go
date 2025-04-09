@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"context"
-	"duolingo/lib/helper-functions"
+	"duolingo/lib/helper_functions"
 	"errors"
 	"log"
 	"regexp"
@@ -11,20 +11,20 @@ import (
 )
 
 var (
-	errMigrationFailure = "Migrate: failed"
-	upToDateMessage = "Migrate: already up to date"
+	errMigrationFailure   = "Migrate: failed"
+	upToDateMessage       = "Migrate: already up to date"
 	errRollbackBatchEmpty = "Migrate: nothing to rollback"
-	completeMessage = "Migrate: completed"
+	completeMessage       = "Migrate: completed"
 	startMigrationMessage = "Migrate: running"
 )
 
 type Migrate struct {
-	ctx context.Context
-	cancel context.CancelFunc
-	src Source
-	driver Database
+	ctx      context.Context
+	cancel   context.CancelFunc
+	src      Source
+	driver   Database
 	migrType MigrateType
-	err error
+	err      error
 }
 
 func New(ctx context.Context, cancel context.CancelFunc) *Migrate {
@@ -69,12 +69,12 @@ func (migr *Migrate) Start() {
 		return
 	}
 	batchNumber := migr.driver.BatchNumber()
-	lastBatch, err := migr.driver.LastBatch()	
+	lastBatch, err := migr.driver.LastBatch()
 	if err != nil {
 		migr.err = err
 		return
 	}
-	
+
 	// build batch
 	var batch []string
 	if migr.migrType == MigrateRollback {
@@ -103,7 +103,7 @@ func (migr *Migrate) Start() {
 			}
 			return
 		default:
-			if ! migr.run(batchNumber, lastBatch) {
+			if !migr.run(batchNumber, lastBatch) {
 				return
 			}
 		}
@@ -126,7 +126,7 @@ func (migr *Migrate) makeBatchMigrateUp(lastBatch []Migration) []string {
 	helper.ReverseSlice(files)
 	var lastMigration *Migration
 	if len(lastBatch) > 0 {
-		lastMigration = &lastBatch[len(lastBatch) - 1]
+		lastMigration = &lastBatch[len(lastBatch)-1]
 	}
 	for _, filename := range files {
 		re, _ := regexp.Compile(`(.*)(\.[a-z]+$)`)
@@ -136,24 +136,23 @@ func (migr *Migrate) makeBatchMigrateUp(lastBatch []Migration) []string {
 		}
 		if strings.Contains(filename, ".rollback.") {
 			continue
-		} 
-		batch = append(batch, parts[1] + migr.driver.GetFileExt())
+		}
+		batch = append(batch, parts[1]+migr.driver.GetFileExt())
 	}
 	helper.ReverseSlice(batch)
 
 	return batch
 }
 
-
 func (migr *Migrate) run(batchNumber int, lastBatch []Migration) bool {
-	if ! migr.src.HasNext() {
+	if !migr.src.HasNext() {
 		return false
 	}
 	migration, err := migr.src.Next()
 	if err != nil {
 		migr.err = err
 		return false
-	} 
+	}
 	err = migr.driver.RunMigration(migration)
 	if err != nil {
 		migr.err = err

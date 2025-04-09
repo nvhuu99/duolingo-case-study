@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"time"
-	"net/url"
 
 	"go.mongodb.org/mongo-driver/bson"
 	mongoDb "go.mongodb.org/mongo-driver/mongo"
@@ -25,11 +25,11 @@ var (
 )
 
 type Mongo struct {
-	ctx      context.Context
-	uri   string
-	database string
+	ctx         context.Context
+	uri         string
+	database    string
 	batchNumber int
-	timeOut time.Duration
+	timeOut     time.Duration
 }
 
 func New(ctx context.Context) *Mongo {
@@ -50,11 +50,11 @@ func (driver *Mongo) GetFileExt() string {
 
 func (driver *Mongo) SetConnection(host string, port string, usr string, pwd string) {
 	driver.uri = fmt.Sprintf(
-		"mongodb://%v:%v@%v:%v/", 
-		url.QueryEscape(usr), 
+		"mongodb://%v:%v@%v:%v/",
+		url.QueryEscape(usr),
 		url.QueryEscape(pwd),
 		host,
-		port, 
+		port,
 	)
 }
 
@@ -169,10 +169,10 @@ func (driver *Mongo) LastBatch() ([]migrate.Migration, error) {
 
 	migrations := make([]migrate.Migration, len(records))
 	for i, item := range records {
-		migrations[i] = migrate.Migration{ 
-			Id: item["id"].(string),
-			Name: item["name"].(string),
-			Status: migrate.MigrateStatus(item["status"].(string)),
+		migrations[i] = migrate.Migration{
+			Id:          item["id"].(string),
+			Name:        item["name"].(string),
+			Status:      migrate.MigrateStatus(item["status"].(string)),
 			BatchNumber: item["batchNumber"].(string),
 		}
 	}
