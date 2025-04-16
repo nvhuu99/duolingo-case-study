@@ -2,10 +2,10 @@ package migrate
 
 import (
 	"context"
-	"duolingo/lib/helper_functions"
 	"errors"
 	"log"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -115,7 +115,7 @@ func (migr *Migrate) makeBatchRollBack(lastBatch []Migration) []string {
 	for i, m := range lastBatch {
 		batch[i] = m.Name + ".rollback" + migr.driver.GetFileExt()
 	}
-	helper.ReverseSlice(batch)
+	slices.Reverse(batch)
 
 	return batch
 }
@@ -123,7 +123,7 @@ func (migr *Migrate) makeBatchRollBack(lastBatch []Migration) []string {
 func (migr *Migrate) makeBatchMigrateUp(lastBatch []Migration) []string {
 	var batch []string
 	files := migr.src.List()
-	helper.ReverseSlice(files)
+	slices.Reverse(files)
 	var lastMigration *Migration
 	if len(lastBatch) > 0 {
 		lastMigration = &lastBatch[len(lastBatch)-1]
@@ -139,7 +139,7 @@ func (migr *Migrate) makeBatchMigrateUp(lastBatch []Migration) []string {
 		}
 		batch = append(batch, parts[1]+migr.driver.GetFileExt())
 	}
-	helper.ReverseSlice(batch)
+	slices.Reverse(batch)
 
 	return batch
 }
