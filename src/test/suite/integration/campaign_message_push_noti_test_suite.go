@@ -17,7 +17,7 @@ import (
 	lq "duolingo/lib/log/driver/reader/local"
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	"duolingo/model"
-	"duolingo/model/log_detail"
+	"duolingo/model/log/detail"
 	db "duolingo/repository/campaign_db"
 
 	"github.com/stretchr/testify/suite"
@@ -98,7 +98,7 @@ func (s *CampaignMessagePushNotiTestSuite) TearDownSuite() {
 func (s *CampaignMessagePushNotiTestSuite) TestStep01MessageInputAPI() {
 	s.waitForMessageQueueReady(10*time.Second, graceTimeOut)
 
-	addr := s.ConfigReader.Get("message_input_api.server.address", "")
+	addr := s.ConfigReader.Get("input_message_api.server.address", "")
 	api := fmt.Sprintf("http://%v/campaign/superbowl/message", addr)
 	requestBody := `{ "title": "test_title", "content": "test_content" }`
 

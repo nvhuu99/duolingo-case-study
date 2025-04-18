@@ -54,6 +54,6 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	
+
 	log.Println("seeder run successfully")
 }

@@ -179,11 +179,11 @@ func (s *RabbitMQTestSuite) TestConsumerAutoReconnect() {
 	}()
 
 	done := make(chan bool, 1)
-	s.consumer.Consume(done, func(message string) mq.ConsumerAction {
+	s.consumer.Consume(done, func(body []byte) mq.ConsumerAction {
 		defer func() {
 			done <- true
 		}()
-		s.Require().Equal(message, "sample", "consumer must receive the correct message")
+		s.Require().Equal(string(body), "sample", "consumer must receive the correct message")
 		return mq.ConsumerAccept
 	})
 }
@@ -202,13 +202,13 @@ func (s *RabbitMQTestSuite) TestConsumerActionAccept() {
 	index := 0
 	done := make(chan bool, 1)
 	result := false
-	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+	s.consumer.Consume(done, func(body []byte) mq.ConsumerAction {
 		defer func() {
 			if !result || index == len(messages) {
 				done <- true
 			}
 		}()
-		result = s.Assert().Equal(mssg, messages[index], "consumer must receive messages in the correct order")
+		result = s.Assert().Equal(string(body), messages[index], "consumer must receive messages in the correct order")
 		result = true
 		index++
 		return mq.ConsumerAccept
@@ -224,12 +224,12 @@ func (s *RabbitMQTestSuite) TestConsumerActionRequeue() {
 
 	first := true
 	done := make(chan bool, 1)
-	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+	s.consumer.Consume(done, func(body []byte) mq.ConsumerAction {
 		if first {
 			first = false
 			return mq.ConsumerRequeue
 		} else {
-			s.Assert().Equal(mssg, "sample", "consumer must receive the same message after it is requeued")
+			s.Assert().Equal(string(body), "sample", "consumer must receive the same message after it is requeued")
 			done <- true
 			return mq.ConsumerAccept
 		}
@@ -249,13 +249,13 @@ func (s *RabbitMQTestSuite) TestConsumerActionReject() {
 	index := 0
 	done := make(chan bool, 1)
 	result := false
-	s.consumer.Consume(done, func(mssg string) mq.ConsumerAction {
+	s.consumer.Consume(done, func(body []byte) mq.ConsumerAction {
 		defer func() {
 			if !result || index == len(messages) {
 				done <- true
 			}
 		}()
-		result = s.Assert().Equal(mssg, messages[index], "consumer must receive messages in the correct order")
+		result = s.Assert().Equal(string(body), messages[index], "consumer must receive messages in the correct order")
 		result = true
 		index++
 		return mq.ConsumerReject
@@ -271,7 +271,7 @@ func (s *RabbitMQTestSuite) TestConsumerConfirmationRecovery() {
 
 	isFirst := true
 	done := make(chan bool, 1)
-	s.consumer.Consume(done, func(message string) mq.ConsumerAction {
+	s.consumer.Consume(done, func(body []byte) mq.ConsumerAction {
 		if isFirst {
 			s.manager.UseConnection("", "", "", "")
 			time.Sleep(connTimeOut + graceTimeOut*2)
@@ -288,7 +288,7 @@ func (s *RabbitMQTestSuite) TestConsumerConfirmationRecovery() {
 
 			return mq.ConsumerAccept
 		} else {
-			s.Require().Equal(message, "second", "the first message should be automatically acknowleged, and the consumer should receive the second message")
+			s.Require().Equal(body, "second", "the first message should be automatically acknowleged, and the consumer should receive the second message")
 			done <- true
 			return mq.ConsumerAccept
 		}

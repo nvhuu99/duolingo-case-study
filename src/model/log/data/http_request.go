@@ -1,6 +1,6 @@
-package log_context
+package data
 
-type RequestContext struct {
+type HttpRequest struct {
 	RequestId        string `json:"request_id"`
 	Timestamp        string `json:"timestamp"`
 	Method           string `json:"method"`
@@ -9,9 +9,10 @@ type RequestContext struct {
 	ClientAddr       string `json:"client_address"`
 	UserAgent        string `json:"user_agent"`
 	Referer          string `json:"referer"`
-	ResponseTimeMs   int    `json:"response_time_ms"`
-	ResponseBodySize int    `json:"response_body_size"`
 	Query            any    `json:"query"`
 	Inputs           any    `json:"inputs"`
 	Headers          any    `json:"headers"`
+	ResponseTimeMs   int    `json:"response_time_ms"`
+	ResponseBodySize int    `json:"response_body_size"`
+	ResponseBodyData any    `json:"response_body_data"`
 }

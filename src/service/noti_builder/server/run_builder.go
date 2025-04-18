@@ -2,27 +2,33 @@ package main
 
 import (
 	"context"
-	config "duolingo/lib/config_reader"
+	"encoding/json"
+	"log"
+
+	ed "duolingo/event/event_data"
+	eh "duolingo/event/event_handler"
+	cf "duolingo/lib/config_reader"
+	ep "duolingo/lib/event"
 	lg "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	sv "duolingo/lib/service_container"
 	wd "duolingo/lib/work_distributor"
-	"duolingo/model"
-	ld "duolingo/model/log_detail"
+	md "duolingo/model"
 	db "duolingo/repository/campaign_db"
 	"duolingo/service/noti_builder/bootstrap"
-	"encoding/json"
-	"log"
+
+	"github.com/google/uuid"
 )
 
 var (
 	ctx       context.Context
 	container *sv.ServiceContainer
-	conf      config.ConfigReader
+	conf      cf.ConfigReader
 
 	repo        *db.UserRepo
 	distributor wd.Distributor
 	logger      *lg.Logger
+	event       *ep.EventPublisher
 
 	consumer           mq.Consumer
 	inputMssgPublisher mq.Publisher
@@ -34,72 +40,56 @@ func main() {
 
 	container = sv.GetContainer()
 	ctx = context.Background()
-	conf = container.Resolve("config").(config.ConfigReader)
+	conf = container.Resolve("config").(cf.ConfigReader)
 	repo = container.Resolve("repo.campaign_user").(*db.UserRepo)
 	distributor = container.Resolve("distributor").(wd.Distributor)
 	consumer = container.Resolve("mq.consumer.input_messages").(mq.Consumer)
 	logger = container.Resolve("log.server").(*lg.Logger)
+	event = container.Resolve("event.publisher").(*ep.EventPublisher)
 	inputMssgPublisher = container.Resolve("mq.publisher.input_messages").(mq.Publisher)
 	pushNotiPublisher = container.Resolve("mq.publisher.push_noti_messages").(mq.Publisher)
 
 	log.Println("builder started")
 
-	consumer.Consume(make(chan bool, 1), func(jsonMsg string) mq.ConsumerAction {
-		var message model.InputMessage
-		json.Unmarshal([]byte(jsonMsg), &message)
-		// relay message
-		if !message.IsRelayed {
-			return relay(message)
+	consumer.Consume(make(chan bool, 1), func(body []byte) mq.ConsumerAction {
+		pushNoti := new(md.PushNotiMessage)
+		json.Unmarshal(body, pushNoti)
+		if pushNoti.RelayFlag == md.ShouldRelay {
+			return relay(pushNoti)
 		}
-		// build noti messages
-		return build(message)
+		return build(pushNoti)
 	})
 }
 
-func relay(message model.InputMessage) mq.ConsumerAction {
-	failed := func(failErr error) mq.ConsumerAction {
-		logger.Error("relay failure", failErr).Detail(ld.RelayInputMessageDetail(&message, 0)).Write()
-		return mq.ConsumerRequeue
-	}
-
-	skipped := func(reason string) mq.ConsumerAction {
-		logger.Info("message skipped: " + reason).Detail(ld.SkipInputMessageDetail(&message, reason)).Write()
-		return mq.ConsumerAccept
-	}
-
-	completed := func(relayedTotal int) mq.ConsumerAction {
-		logger.Info("relay success").Detail(ld.RelayInputMessageDetail(&message, relayedTotal)).Write()
-		return mq.ConsumerAccept
-	}
+func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
+	relayEvent := &ed.RelayInputMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
+	event.Notify(nil, eh.RELAY_INP_MESG_BEGIN, relayEvent)
+	defer event.Notify(nil, eh.RELAY_INP_MESG_END, relayEvent)
 
 	// Register a new workload
-	count, err := repo.CountUsers(message.Campaign)
+	count, err := repo.CountUsers(pushNoti.InputMessage.Campaign)
 	if err != nil {
-		return failed(err)
+		return mq.ConsumerRequeue
 	}
 	if count == 0 {
-		// skip message due to no campaign user
-		return skipped("no campaign user found")
+		relayEvent.MessageIgnoreReason = "no campaign user found"
+		return mq.ConsumerAccept
 	}
 	err = distributor.RegisterWorkLoad(&wd.Workload{
-		Name:       message.Id,
+		Name:       pushNoti.InputMessage.MessageId,
 		NumOfUnits: count,
 	})
 	if err != nil {
-		return failed(err)
+		return mq.ConsumerRequeue
 	}
 	// Build relay the message
+	trace := container.Resolve("events.data.sv_opt_trace." + relayEvent.OptId).(*ed.ServiceOperationTrace)
 	numOfBuilders := conf.GetInt("noti_builder.server.num_of_builders", 1)
 	batch := make([]string, numOfBuilders)
 	for i := 0; i < numOfBuilders; i++ {
-		serialized, _ := json.Marshal(model.InputMessage{
-			Id:        message.Id,
-			RequestId: message.RequestId,
-			Title:     message.Title,
-			Content:   message.Content,
-			Campaign:  message.Campaign,
-			IsRelayed: true,
-		})
+		pushNoti.Trace = trace.Span
+		pushNoti.RelayFlag = md.HasRelayed
+		serialized, _ := json.Marshal(pushNoti)
 		batch[i] = string(serialized)
 	}
 	// Start relaying
@@ -107,66 +97,67 @@ func relay(message model.InputMessage) mq.ConsumerAction {
 	for {
 		select {
 		case <-ctx.Done():
-			return failed(nil)
+			return mq.ConsumerRequeue
 		default:
 		}
 		if i == len(batch) {
-			return completed(numOfBuilders)
+			relayEvent.RelayedCount = uint8(numOfBuilders)
+			return mq.ConsumerAccept
 		}
 		if err := inputMssgPublisher.Publish(batch[i]); err != nil {
-			return failed(err)
+			return mq.ConsumerRequeue
 		}
 		i++
 	}
 }
 
-func build(message model.InputMessage) mq.ConsumerAction {
+func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
+	var allSuccess bool
 	var err error
-	var assignment *wd.Assignment
 	var workload *wd.Workload
-	var users []*model.CampaignUser
+	var assignment *wd.Assignment
+	var assignments []*wd.Assignment
+	var users []*md.CampaignUser
 
-	abort := func(abortErr error) mq.ConsumerAction {
-		if assignment != nil {
-			distributor.RollBack(assignment.Id)
-		}
-		logger.Error("build failed, assignment rollbacked", abortErr).Detail(ld.BuildNotificationDetail(&message, workload, assignment)).Write()
-		return mq.ConsumerRequeue
-	}
+	buildEvent := &ed.BuildPushNotiMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
+	event.Notify(nil, eh.BUILD_PUSH_NOTI_MESG_BEGIN, buildEvent)
+	defer event.Notify(nil, eh.BUILD_PUSH_NOTI_MESG_END, buildEvent)
+	defer func() {
+		buildEvent.Assignments = assignments
+		buildEvent.Workload = workload
+		buildEvent.Error = err
+		buildEvent.Success = allSuccess
+	}()
 
-	complete := func() mq.ConsumerAction {
-		logger.Info("build completed, workload completed").Detail(ld.BuildNotificationDetail(&message, workload, assignment)).Write()
-		return mq.ConsumerAccept
-	}
-
-	workload, err = distributor.SwitchToWorkload(message.Id)
+	workload, err = distributor.SwitchToWorkload(pushNoti.InputMessage.MessageId)
 	if err != nil {
-		return abort(err)
+		return mq.ConsumerRequeue
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return abort(nil)
+			return mq.ConsumerRequeue
 		default:
 		}
 
 		assignment, err = distributor.Next()
 		if err != nil {
 			if assignment == nil {
-				return complete()
+				allSuccess = true
+				return mq.ConsumerAccept
 			}
-			return abort(err)
+			return mq.ConsumerRequeue
 		}
+		assignments = append(assignments, assignment)
 
 		users, err = repo.UsersList(&db.ListUserOptions{
-			Campaign:   message.Campaign,
-			Skip:       assignment.Start - 1,
-			Limit:      assignment.End - assignment.Start + 1,
-			CursorMode: false,
+			Campaign: pushNoti.InputMessage.Campaign,
+			Skip:     assignment.Start - 1,
+			Limit:    assignment.End - assignment.Start + 1,
 		})
 		if err != nil {
-			return abort(err)
+			return mq.ConsumerRequeue
 		}
 
 		deviceTokens := make([]string, len(users))
@@ -174,18 +165,14 @@ func build(message model.InputMessage) mq.ConsumerAction {
 			deviceTokens[i] = user.DeviceToken
 		}
 
-		pushNoti := model.NewPushNotiMessage(
-			message.RequestId,
-			message.Title,
-			message.Content,
-			deviceTokens,
-		)
-		if err = pushNotiPublisher.Publish(pushNoti.Serialize()); err != nil {
-			return abort(err)
-		}
-		distributor.Progress(message.Id, assignment.End)
-		distributor.Commit(assignment.Id)
+		trace := container.Resolve("events.data.sv_opt_trace." + buildEvent.OptId).(*ed.ServiceOperationTrace)
+		pushNoti.Trace = trace.Span
+		pushNoti.DeviceTokens = deviceTokens
 
-		logger.Info("build success, assignment commited").Detail(ld.BuildNotificationDetail(&message, workload, assignment)).Write()
+		if err = pushNotiPublisher.Publish(pushNoti.Serialize()); err != nil {
+			return mq.ConsumerRequeue
+		}
+		distributor.Progress(pushNoti.InputMessage.MessageId, assignment.End)
+		distributor.Commit(assignment.Id)
 	}
 }

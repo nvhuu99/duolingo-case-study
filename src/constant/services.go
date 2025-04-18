@@ -1,9 +1,11 @@
 package constant
 
+import "fmt"
+
 const (
-	SV_INP_MESG     = "message_input_api"
-	SV_NOTI_BUILDER = "noti_builder"
-	SV_PUSH_SENDER  = "push_noti_sender"
+	SV_INP_MESG     = "api:input_message_api"
+	SV_NOTI_BUILDER = "worker:noti_builder"
+	SV_PUSH_SENDER  = "worker:push_noti_sender"
 )
 
 var ServiceTypes = map[string]string{
@@ -12,10 +14,9 @@ var ServiceTypes = map[string]string{
 	SV_PUSH_SENDER:  "worker",
 }
 
-const (
-	INP_MESG_REQUEST = "message_input_request"
-	RELAY_INP_MESG   = "relay_input_message"
-	SKIP_INP_MESG    = "skip_inp_message"
-	BUILD_NOTI_MSG   = "build_push_notification_message"
-	SEND_PUSH_NOTI   = "send_push_notification"
+var (
+	INP_MESG_REQUEST     = fmt.Sprintf("%v:%v", SV_INP_MESG, "input_message_request")
+	RELAY_INP_MESG       = fmt.Sprintf("%v:%v", SV_NOTI_BUILDER, "relay_input_message")
+	BUILD_PUSH_NOTI_MESG = fmt.Sprintf("%v:%v", SV_NOTI_BUILDER, "build_push_notification_message")
+	SEND_PUSH_NOTI       = fmt.Sprintf("%v:%v", SV_PUSH_SENDER, "send_push_notification")
 )

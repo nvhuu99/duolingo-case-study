@@ -151,14 +151,14 @@ func (client *RabbitMQPublisher) getChannel() *amqp.Channel {
 	return channel
 }
 
-func (client *RabbitMQPublisher) sendErr(err error) {
-	if client.errChan != nil {
-		client.errChan <- err
-	}
-}
+// func (client *RabbitMQPublisher) sendErr(err error) {
+// 	if client.errChan != nil {
+// 		client.errChan <- err
+// 	}
+// }
 
-func (client *RabbitMQPublisher) terminate(err error) {
-	go client.manager.UnRegisterClient(client.id)
-	client.sendErr(err)
-	client.cancel()
-}
+// func (client *RabbitMQPublisher) terminate(err error) {
+// 	go client.manager.UnRegisterClient(client.id)
+// 	client.sendErr(err)
+// 	client.cancel()
+// }

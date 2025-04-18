@@ -7,27 +7,27 @@ import (
 )
 
 type CPUMetric struct {
-	Util     float32
-	IOTimeMs uint32
+	Util     float32 `json:"util"`
+	IOTimeMs uint32  `json:"io_time_ms"`
 }
 
 type MemoryMetric struct {
-	UsedPct float32
-	FreePct float32
-	UsedMB  uint32
-	FreeMB  uint32
+	UsedPct float32 `json:"used_pct"`
+	FreePct float32 `json:"free_pct"`
+	UsedMB  uint32  `json:"used_mb"`
+	FreeMB  uint32  `json:"free_mb"`
 }
 
 type DiskIOMetric struct {
-	Device   string
-	Util     float32
-	IOTimeMs uint32
+	Device   string  `json:"device"`
+	Util     float32 `json:"util"`
+	IOTimeMs uint32  `json:"io_time_ms"`
 }
 
 type Metric struct {
-	CPUMetric     *CPUMetric
-	MemoryMetric  *MemoryMetric
-	DiskIOMetrics map[string]*DiskIOMetric
+	CPUMetric     *CPUMetric               `json:"cpu"`
+	MemoryMetric  *MemoryMetric            `json:"memory"`
+	DiskIOMetrics map[string]*DiskIOMetric `json:"disk_io"`
 }
 
 func NewMetric() *Metric {

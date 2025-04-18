@@ -1,17 +1,16 @@
 package log
 
-type LogLevel string
+type LogLevel uint8
 
 const (
-	LevelInfo    LogLevel = "info"
-	LevelWarning LogLevel = "warning"
-	LevelError   LogLevel = "error"
-	LevelFatal   LogLevel = "fatal"
+	LevelInfo  LogLevel = 0
+	LevelDebug LogLevel = 1 << iota
+	LevelError
+	LevelAll = LevelInfo | LevelDebug | LevelError
 )
 
 var levelFileExtensions = map[LogLevel]string{
-	LevelInfo:    "info",
-	LevelWarning: "warning",
-	LevelError:   "error",
-	LevelFatal:   "fatal",
+	LevelInfo:  "info",
+	LevelDebug: "debug",
+	LevelError: "error",
 }

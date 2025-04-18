@@ -25,6 +25,11 @@ func (builder *LoggerBuilder) Get() *Logger {
 	return builder.logger
 }
 
+func (builder *LoggerBuilder) SetLogLevel(level LogLevel) *LoggerBuilder {
+	builder.logger.level = level
+	return builder
+}
+
 func (builder *LoggerBuilder) UseNamespace(parts ...string) *LoggerBuilder {
 	builder.logger.Namespace = Namespace(parts...)
 	return builder
@@ -35,9 +40,9 @@ func (builder *LoggerBuilder) UseJsonFormat() *LoggerBuilder {
 	return builder
 }
 
-func (builder *LoggerBuilder) AddLocalWriter(path string) *LoggerBuilder {
+func (builder *LoggerBuilder) UseLocalWriter(path string) *LoggerBuilder {
 	writer := lw.NewLocalWriter(builder.logger.ctx, path)
-	builder.logger.writers = append(builder.logger.writers, writer)
+	builder.logger.writer = writer
 	return builder
 }
 
@@ -47,22 +52,16 @@ func (builder *LoggerBuilder) WithFilePrefix(prefix string) *LoggerBuilder {
 }
 
 func (builder *LoggerBuilder) WithBuffering(sizeMb int, maxCount int) *LoggerBuilder {
-	for _, writer := range builder.logger.writers {
-		writer.WithBuffering(sizeMb, maxCount)
-	}
+	builder.logger.writer.WithBuffering(sizeMb, maxCount)
 	return builder
 }
 
 func (builder *LoggerBuilder) WithRotation(interval time.Duration) *LoggerBuilder {
-	for _, writer := range builder.logger.writers {
-		writer.WithRotation(interval)
-	}
+	builder.logger.writer.WithRotation(interval)
 	return builder
 }
 
 func (builder *LoggerBuilder) WithFlushInterval(interval time.Duration) *LoggerBuilder {
-	for _, writer := range builder.logger.writers {
-		writer.WithFlushInterval(interval)
-	}
+	builder.logger.writer.WithFlushInterval(interval)
 	return builder
 }

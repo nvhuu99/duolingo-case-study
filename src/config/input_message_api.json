@@ -9,5 +9,9 @@
             "size": 1,
             "max_count": 1
         }
+    },
+    "metric": {
+        "datapoint_interval_ms": 15000,
+        "snapshot_interval_ms": 100
     }
 }

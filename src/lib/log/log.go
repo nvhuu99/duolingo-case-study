@@ -3,14 +3,13 @@ package log
 import "time"
 
 type Log struct {
-	Timestamp   time.Time `json:"timestamp"`
-	Level       LogLevel  `json:"level"`
-	Namespace   string    `json:"namespace"`
-	Message     string    `json:"message"`
-	LogData     any       `json:"data"`
-	LogErrors   any       `json:"errors"`
-	GroupAttrs  any       `json:"group"`
-	ContextAttr any       `json:"context"`
+	Timestamp  time.Time `json:"timestamp"`
+	Level      LogLevel  `json:"level"`
+	Namespace  string    `json:"namespace"`
+	Message    string    `json:"message"`
+	LogData    any       `json:"data"`
+	LogErrors  any       `json:"errors"`
+	LogContext any       `json:"context"`
 
 	ready chan bool
 }
@@ -26,13 +25,8 @@ func NewLog(level LogLevel, message string) (*Log, <-chan bool) {
 	return log, ready
 }
 
-func (log *Log) Group(attrs any) *Log {
-	log.GroupAttrs = attrs
-	return log
-}
-
 func (log *Log) Context(attrs any) *Log {
-	log.ContextAttr = attrs
+	log.LogContext = attrs
 	return log
 }
 
@@ -60,9 +54,6 @@ func (log *Log) Detail(detail map[string]any) *Log {
 	}
 	if logData, has := detail["data"]; has {
 		log.Data(logData)
-	}
-	if logGroup, has := detail["group"]; has {
-		log.Group(logGroup)
 	}
 	if errs, has := detail["errors"]; has {
 		log.Errors(errs)

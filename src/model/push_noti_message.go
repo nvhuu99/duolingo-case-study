@@ -1,27 +1,22 @@
 package model
 
 import (
+	"duolingo/model/log/context"
 	"encoding/json"
+)
 
-	"github.com/google/uuid"
+type RelayFlag string
+
+const (
+	ShouldRelay RelayFlag = "should_relay"
+	HasRelayed  RelayFlag = "has_relayed"
 )
 
 type PushNotiMessage struct {
-	Id           string   `json:"id"`
-	RequestId    string   `json:"request_id"`
-	Title        string   `json:"title"`
-	Content      string   `json:"content"`
-	DeviceTokens []string `json:"device_tokens"`
-}
-
-func NewPushNotiMessage(requestId string, title string, content string, deviceTokens []string) *PushNotiMessage {
-	return &PushNotiMessage{
-		Id:           uuid.New().String(),
-		RequestId:    requestId,
-		Title:        title,
-		Content:      content,
-		DeviceTokens: deviceTokens,
-	}
+	RelayFlag    RelayFlag          `json:"relay_flg"`
+	InputMessage *InputMessage      `json:"msg"`
+	Trace        *context.TraceSpan `json:"trace"`
+	DeviceTokens []string           `json:"tkns"`
 }
 
 func (msg *PushNotiMessage) Serialize() string {

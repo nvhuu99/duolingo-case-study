@@ -64,7 +64,7 @@ func (client *RabbitMQConsumer) UseManager(manager mq.Manager) {
 	client.manager = manager
 }
 
-func (client *RabbitMQConsumer) Consume(done <-chan bool, handler func(string) mq.ConsumerAction) {
+func (client *RabbitMQConsumer) Consume(done <-chan bool, handler func([]byte) mq.ConsumerAction) {
 	confirmationFailures := make(map[string]mq.ConsumerAction, 1)
 
 	client.mu.RLock()
@@ -87,11 +87,10 @@ func (client *RabbitMQConsumer) Consume(done <-chan bool, handler func(string) m
 				deliveries = client.deliveries
 				client.mu.RUnlock()
 			case d, ok := <-deliveries:
-				content := string(d.Body)
 				// Received an empty message, most of the time
 				// the cause would be the connection lost.
 				// This message will be skipped.
-				if len(content) == 0 {
+				if len(d.Body) == 0 {
 					if ok {
 						client.action(d, mq.ConsumerAccept)
 					} else {
@@ -114,7 +113,7 @@ func (client *RabbitMQConsumer) Consume(done <-chan bool, handler func(string) m
 				}
 				// Received a new message, first call the consumer "handler",
 				// then send the "confirmation" to the server (ack, reject, etc.).
-				act := handler(string(d.Body))
+				act := handler(d.Body)
 				result, _ := client.action(d, act)
 				// If the confirmation failed, the message will be requeued automatically
 				if !result {
@@ -192,14 +191,14 @@ func (client *RabbitMQConsumer) action(d amqp.Delivery, act mq.ConsumerAction) (
 	return err == nil, err
 }
 
-func (client *RabbitMQConsumer) sendErr(err error) {
-	if client.errChan != nil {
-		client.errChan <- err
-	}
-}
+// func (client *RabbitMQConsumer) sendErr(err error) {
+// 	if client.errChan != nil {
+// 		client.errChan <- err
+// 	}
+// }
 
-func (client *RabbitMQConsumer) terminate(err error) {
-	go client.manager.UnRegisterClient(client.id)
-	client.sendErr(err)
-	client.cancel()
-}
+// func (client *RabbitMQConsumer) terminate(err error) {
+// 	go client.manager.UnRegisterClient(client.id)
+// 	client.sendErr(err)
+// 	client.cancel()
+// }

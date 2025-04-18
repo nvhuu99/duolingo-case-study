@@ -3,6 +3,7 @@ package event
 import (
 	"fmt"
 	"slices"
+	"sync"
 )
 
 type EventPublisher struct {
@@ -34,10 +35,8 @@ func (p *EventPublisher) Subscribe(topic string, sub Subcriber) error {
 		p.strTopics[id] = []string{}
 	}
 
-	for _, t := range p.strTopics[id] {
-		if t == topic {
-			return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_TOPIC_EXISTED], topic)
-		}
+	if slices.Contains(p.strTopics[id], topic) {
+		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_TOPIC_EXISTED], topic)
 	}
 
 	p.strTopics[id] = append(p.strTopics[id], topic)
@@ -89,19 +88,23 @@ func (p *EventPublisher) UnSubcribe(topic Pattern, sub Subcriber) error {
 	return nil
 }
 
-func (p *EventPublisher) Notify(topic string, data any) {
+func (p *EventPublisher) Notify(wg *sync.WaitGroup, topic string, data any) {
 	for id, listener := range p.listeners {
-		// match string
-		if slices.Contains(p.strTopics[id], topic) {
-			listener.Notified(topic, data)
-			continue
-		}
-		// matching regex
-		matches := slices.ContainsFunc(p.regexTopics[id], func(rt *RegexPattern) bool {
-			return rt.Match(topic)
-		})
+		matches := slices.Contains(p.strTopics[id], topic) || slices.ContainsFunc(p.regexTopics[id],
+			func(rt *RegexPattern) bool { return rt.Match(topic) },
+		)
 		if matches {
-			listener.Notified(topic, data)
+			if wg != nil {
+				wg.Add(1)
+			}
+			go func() {
+				defer func() {
+					if wg != nil {
+						wg.Done()
+					}
+				}()
+				listener.Notified(wg, topic, data)
+			}()
 		}
 	}
 }

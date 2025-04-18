@@ -1,6 +1,8 @@
 package event
 
+import "sync"
+
 type Subcriber interface {
 	SubcriberId() string
-	Notified(string, any)
+	Notified(*sync.WaitGroup, string, any)
 }

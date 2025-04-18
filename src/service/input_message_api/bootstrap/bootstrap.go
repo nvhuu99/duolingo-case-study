@@ -3,14 +3,15 @@ package bootstrap
 import (
 	"context"
 	cnst "duolingo/constant"
+	eh "duolingo/event/event_handler"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
+	ep "duolingo/lib/event"
 	log "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
-	md "duolingo/service/message_input_api/server/middleware"
 	"path/filepath"
 	"time"
 )
@@ -18,6 +19,7 @@ import (
 var (
 	container *sv.ServiceContainer
 	ctx       context.Context
+	cancel    context.CancelFunc
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -28,12 +30,19 @@ var (
 
 func Run() {
 	container = sv.GetContainer()
-	ctx = context.Background()
+	ctx, cancel = context.WithCancel(context.Background())
 
+	bindContext()
 	bindConfigReader()
 	bindLogger()
 	bindRestHttp()
 	bindMessageQueue()
+	bindEvents()
+}
+
+func bindContext() {
+	container.BindSingleton("server.ctx", func() any { return ctx })
+	container.BindSingleton("server.ctx_cancel", func() any { return cancel })
 }
 
 func bindConfigReader() {
@@ -48,15 +57,16 @@ func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
 	container.BindSingleton("log.server", func() any {
 		dir, _ := filepath.Abs(".")
-		rotation := time.Duration(conf.GetInt("message_input_api.log.rotation", 86400)) * time.Second
-		flush := time.Duration(conf.GetInt("message_input_api.log.flush", 300)) * time.Second
-		bufferSize := conf.GetInt("message_input_api.log.buffer.size", 2)
-		bufferCount := conf.GetInt("message_input_api.log.buffer.max_count", 1000)
+		rotation := time.Duration(conf.GetInt("input_message_api.log.rotation", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("input_message_api.log.flush", 300)) * time.Second
+		bufferSize := conf.GetInt("input_message_api.log.buffer.size", 2)
+		bufferCount := conf.GetInt("input_message_api.log.buffer.max_count", 1000)
 
 		return log.NewLoggerBuilder(ctx).
+			SetLogLevel(log.LevelAll).
 			UseNamespace("service", cnst.ServiceTypes[cnst.SV_INP_MESG], cnst.SV_INP_MESG).
 			UseJsonFormat().
-			AddLocalWriter(filepath.Join(dir, "service", cnst.SV_INP_MESG, "storage", "log")).
+			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_INP_MESG, "storage", "log")).
 			WithFilePrefix(cnst.SV_INP_MESG).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
@@ -65,14 +75,24 @@ func bindLogger() {
 	})
 }
 
+func bindEvents() {
+	container.BindSingleton("event.publisher", func() any {
+		evt := ep.NewEventPublisher()
+		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+		evt.SubscribeRegex("input_message_request.+", eh.NewInputMessage())
+		return evt
+	})
+}
+
 func bindRestHttp() {
 	conf := container.Resolve("config").(config.ConfigReader)
 
 	container.BindSingleton("rest.server", func() any {
-		logger := container.Resolve("log.server").(*log.Logger)
 		server := rest.
-			NewServer(conf.Get("message_input_api.server.address", ":80")).
-			WithMiddlewares("response", &md.LogHandledRequest{Logger: logger})
+			NewServer(conf.Get("input_message_api.server.address", ":80"))
+			// WithMiddlewares("request", new(md.RequestBegin)).
+			// WithMiddlewares("response", new(md.RequestEnd))
 
 		return server
 	})

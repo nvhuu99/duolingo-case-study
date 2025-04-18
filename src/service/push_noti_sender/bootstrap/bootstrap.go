@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 
 	cnst "duolingo/constant"
+	eh "duolingo/event/event_handler"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
+	ep "duolingo/lib/event"
 	log "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
@@ -19,6 +21,7 @@ import (
 var (
 	container *sv.ServiceContainer
 	ctx       context.Context
+	cancel    context.CancelFunc
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -29,10 +32,18 @@ var (
 func Run() {
 	container = sv.GetContainer()
 	ctx = context.Background()
+	ctx, cancel = context.WithCancel(context.Background())
 
+	bindContext()
 	bindConfigReader()
 	bindLogger()
+	bindEvents()
 	bindMessageQueue()
+}
+
+func bindContext() {
+	container.BindSingleton("server.ctx", func() any { return ctx })
+	container.BindSingleton("server.ctx_cancel", func() any { return cancel })
 }
 
 func bindConfigReader() {
@@ -52,14 +63,25 @@ func bindLogger() {
 		bufferCount := conf.GetInt("push_noti_sender.log.buffer.max_count", 1000)
 
 		return log.NewLoggerBuilder(ctx).
+			SetLogLevel(log.LevelAll).
 			UseNamespace("service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER).
 			UseJsonFormat().
-			AddLocalWriter(filepath.Join(dir, "service", cnst.SV_PUSH_SENDER, "storage", "log")).
+			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_PUSH_SENDER, "storage", "log")).
 			WithFilePrefix(cnst.SV_PUSH_SENDER).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
 			WithFlushInterval(flush).
 			Get()
+	})
+}
+
+func bindEvents() {
+	container.BindSingleton("event.publisher", func() any {
+		evt := ep.NewEventPublisher()
+		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+		evt.SubscribeRegex("send_push_notification_.+", eh.NewSendPushNoti())
+		return evt
 	})
 }
 

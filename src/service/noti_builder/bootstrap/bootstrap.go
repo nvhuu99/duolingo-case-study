@@ -6,8 +6,10 @@ import (
 	"time"
 
 	cnst "duolingo/constant"
+	eh "duolingo/event/event_handler"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
+	ep "duolingo/lib/event"
 	"duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	rabbitmq "duolingo/lib/message_queue/driver/rabbitmq"
@@ -19,6 +21,7 @@ import (
 var (
 	container *sv.ServiceContainer
 	ctx       context.Context
+	cancel    context.CancelFunc
 
 	graceTimeOut   = 100 * time.Millisecond
 	connTimeOut    = 10 * time.Second
@@ -29,13 +32,20 @@ var (
 
 func Run() {
 	container = sv.GetContainer()
-	ctx = context.Background()
+	ctx, cancel = context.WithCancel(context.Background())
 
+	bindContext()
 	bindConfigReader()
 	bindLogger()
 	bindRepository()
 	bindWorkDistributor()
 	bindMessageQueue()
+	bindEvents()
+}
+
+func bindContext() {
+	container.BindSingleton("server.ctx", func() any { return ctx })
+	container.BindSingleton("server.ctx_cancel", func() any { return cancel })
 }
 
 func bindConfigReader() {
@@ -47,7 +57,7 @@ func bindConfigReader() {
 
 func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
-	container.BindSingleton("log.server", func() any {
+	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
 		rotation := time.Duration(conf.GetInt("noti_builder.log.rotation", 86400)) * time.Second
 		flush := time.Duration(conf.GetInt("noti_builder.log.flush", 300)) * time.Second
@@ -55,14 +65,26 @@ func bindLogger() {
 		bufferCount := conf.GetInt("noti_builder.log.buffer.max_count", 1000)
 
 		return log.NewLoggerBuilder(ctx).
+			SetLogLevel(log.LevelAll).
 			UseNamespace("service", cnst.ServiceTypes[cnst.SV_NOTI_BUILDER], cnst.SV_NOTI_BUILDER).
 			UseJsonFormat().
-			AddLocalWriter(filepath.Join(dir, "service", cnst.SV_NOTI_BUILDER, "storage", "log")).
+			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_NOTI_BUILDER, "storage", "log")).
 			WithFilePrefix(cnst.SV_NOTI_BUILDER).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
 			WithFlushInterval(flush).
 			Get()
+	})
+}
+
+func bindEvents() {
+	container.BindSingleton("event.publisher", func() any {
+		evt := ep.NewEventPublisher()
+		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+		evt.SubscribeRegex("relay_input_message_.+", eh.NewRelayInpMsg())
+		evt.SubscribeRegex("build_push_notification_message.+", eh.NewBuildPushNotiMsg())
+		return evt
 	})
 }
 

@@ -258,17 +258,17 @@ func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) error {
 	return nil
 }
 
-func (client *RabbitMQTopology) notifyErr(err error) {
-	if client.errChan != nil {
-		client.errChan <- err
-	}
-}
+// func (client *RabbitMQTopology) notifyErr(err error) {
+// 	if client.errChan != nil {
+// 		client.errChan <- err
+// 	}
+// }
 
-func (client *RabbitMQTopology) terminate(err error) {
-	client.notifyErr(err)
-	client.cancel()
-	client.manager.UnRegisterClient(client.id)
-}
+// func (client *RabbitMQTopology) terminate(err error) {
+// 	client.notifyErr(err)
+// 	client.cancel()
+// 	client.manager.UnRegisterClient(client.id)
+// }
 
 func (client *RabbitMQTopology) getChannel() *amqp.Channel {
 	ch, _ := client.manager.GetClientConnection(client.id)

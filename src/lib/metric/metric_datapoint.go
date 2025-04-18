@@ -5,14 +5,14 @@ import (
 )
 
 type Datapoint struct {
-	Timestamp  time.Time
-	Duration   time.Duration
-	Count      uint16
-	Sum        *Metric
-	Mean       *Metric
-	Percentile *Metric
-	UpperBound *Metric
-	LowerBound *Metric
+	Timestamp  time.Time     `json:"timestamp"`
+	Duration   time.Duration `json:"duration_ms"`
+	Count      uint16        `json:"count"`
+	Sum        *Metric       `json:"sum"`
+	Mean       *Metric       `json:"mean"`
+	Percentile *Metric       `json:"percentile"`
+	UpperBound *Metric       `json:"upperbound"`
+	LowerBound *Metric       `json:"lowerbound"`
 }
 
 func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metrics []*Metric) *Datapoint {

@@ -8,8 +8,9 @@ import (
 
 type Logger struct {
 	formatter fm.Formatter
-	writers   []lw.LogWriter
+	writer    lw.LogWriter
 	ctx       context.Context
+	level     LogLevel
 
 	FilePrefix string
 	Namespace  string
@@ -17,6 +18,14 @@ type Logger struct {
 
 func (logger *Logger) Info(message string) *Log {
 	log, ready := NewLog(LevelInfo, message)
+	log.Namespace = logger.Namespace
+	logger.writeWhenReady(ready, log)
+
+	return log
+}
+
+func (logger *Logger) Debug(message string) *Log {
+	log, ready := NewLog(LevelDebug, message)
 	log.Namespace = logger.Namespace
 	logger.writeWhenReady(ready, log)
 
@@ -35,8 +44,9 @@ func (logger *Logger) Error(message string, errs any) *Log {
 func (logger *Logger) writeWhenReady(ready <-chan bool, log *Log) {
 	go func() {
 		<-ready
-		for _, writer := range logger.writers {
-			writer.Write(&lw.Writable{
+
+		if logger.level&log.Level != 0 {
+			logger.writer.Write(&lw.Writable{
 				Namespace: log.Namespace,
 				Prefix:    logger.FilePrefix,
 				Extension: levelFileExtensions[log.Level],

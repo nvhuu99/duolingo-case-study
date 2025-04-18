@@ -12,16 +12,17 @@ import (
 // from JSON files located in a specific directory.
 //
 // Usage: retrieve a string value from the configuration file.
-//    `database.json
-//        {
-//            "migration": {
-//                "source": "local",
-//                "uri": "migration"
-//            }
-//        }
-//   `
-//    // keys are seperated by '.', the first key is the config file name
-//    uri := reader.Get("database.migration.uri", "")
+//
+//	 `database.json
+//	     {
+//	         "migration": {
+//	             "source": "local",
+//	             "uri": "migration"
+//	         }
+//	     }
+//	`
+//	 // keys are seperated by '.', the first key is the config file name
+//	 uri := reader.Get("database.migration.uri", "")
 type JsonReader struct {
 	dir   string         // Directory containing JSON configuration files.
 	cache map[string]any // Cache to store parsed JSON data by file name.
