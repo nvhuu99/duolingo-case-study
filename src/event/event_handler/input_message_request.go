@@ -38,7 +38,7 @@ func (e *InputMessageRequest) SubcriberId() string {
 	return e.id
 }
 
-func (e *InputMessageRequest) Notified(wg *sync.WaitGroup, topic string, data any) {
+func (e *InputMessageRequest) Notified(topic string, data any) {
 	switch topic {
 	case INP_MSG_REQUEST_BEGIN:
 		e.handleRequestBegin(data)
@@ -50,17 +50,19 @@ func (e *InputMessageRequest) Notified(wg *sync.WaitGroup, topic string, data an
 func (e *InputMessageRequest) handleRequestBegin(data any) {
 	evtData := data.(*ed.InputMessageRequest)
 
-	var wg *sync.WaitGroup
-	e.events.Notify(wg, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
-		ServiceOpt: cnst.RELAY_INP_MESG,
-		OptId:      evtData.OptId,
-		ParentSpan: evtData.PushNoti.Trace,
+	e.events.Notify(nil, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
+		ServiceName: cnst.SV_INP_MESG,
+		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
+		ServiceOpt:  cnst.INP_MESG_REQUEST,
+		OptId:       evtData.OptId,
+		ParentSpan:  evtData.PushNoti.Trace,
 	})
-	wg.Wait()
 
 	e.events.Notify(nil, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
-		ServiceOpt: cnst.RELAY_INP_MESG,
-		OptId:      evtData.OptId,
+		ServiceName: cnst.SV_INP_MESG,
+		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
+		ServiceOpt:  cnst.INP_MESG_REQUEST,
+		OptId:       evtData.OptId,
 	})
 }
 
@@ -69,9 +71,9 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	traceEvtData := e.container.Resolve("events.data.sv_opt_trace." + evtData.OptId).(*ed.ServiceOperationTrace)
 	metricEvtData := e.container.Resolve("events.data.sv_opt_metric." + evtData.OptId).(*ed.ServiceOperationMetric)
 
-	var wg *sync.WaitGroup
+	wg := new(sync.WaitGroup)
 	e.events.Notify(wg, SERVICE_OPERATION_TRACE_END, traceEvtData)
-	e.events.Notify(wg, SERVICE_OPERATION_METRIC_BEGIN, metricEvtData)
+	e.events.Notify(wg, SERVICE_OPERATION_METRIC_END, metricEvtData)
 	wg.Wait()
 
 	trace := traceEvtData.Span
@@ -80,8 +82,8 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	} else {
 		e.logger.Error("", evtData.Error).Detail(ldt.InpMsgRequestDetail(evtData, trace)).Write()
 	}
-	metric, err := metricEvtData.Collector.Fetch()
-	if err != nil {
-		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric))
+	metric, _ := metricEvtData.Collector.Fetch()
+	if metric != nil {
+		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
 	}
 }

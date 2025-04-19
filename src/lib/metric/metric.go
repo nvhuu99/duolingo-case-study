@@ -7,8 +7,8 @@ import (
 )
 
 type CPUMetric struct {
-	Util     float32 `json:"util"`
-	IOTimeMs uint32  `json:"io_time_ms"`
+	Util          float32 `json:"util"`
+	IOTimeSeconds float64 `json:"io_time_seconds"`
 }
 
 type MemoryMetric struct {
@@ -21,7 +21,7 @@ type MemoryMetric struct {
 type DiskIOMetric struct {
 	Device   string  `json:"device"`
 	Util     float32 `json:"util"`
-	IOTimeMs uint32  `json:"io_time_ms"`
+	IOTimeMs uint64  `json:"io_time_ms"`
 }
 
 type Metric struct {
@@ -55,7 +55,7 @@ func (m *Metric) CaptureCPU() *Metric {
 	if len(cpuPercents) > 0 && len(cpuTimes) > 0 {
 		m.CPUMetric = new(CPUMetric)
 		m.CPUMetric.Util = float32(cpuPercents[0])
-		m.CPUMetric.IOTimeMs = uint32(cpuTimes[0].Iowait * 1000)
+		m.CPUMetric.IOTimeSeconds = cpuTimes[0].Iowait
 	}
 	return m
 }
@@ -65,7 +65,7 @@ func (m *Metric) CaptureMemory() *Metric {
 	if err == nil {
 		m.MemoryMetric = new(MemoryMetric)
 		m.MemoryMetric.UsedPct = float32(vmem.UsedPercent)
-		m.MemoryMetric.FreePct = float32(100.0 - vmem.UsedPercent)
+		m.MemoryMetric.FreePct = float32(100.0 - m.MemoryMetric.UsedPct)
 		m.MemoryMetric.UsedMB = uint32(vmem.Used / 1024 / 1024)
 		m.MemoryMetric.FreeMB = uint32(vmem.Available / 1024 / 1024)
 	}
@@ -78,7 +78,7 @@ func (m *Metric) CaptureDiskIO() *Metric {
 		for name, partition := range diskIO {
 			m.DiskIOMetrics[name] = &DiskIOMetric{
 				Device:   name,
-				IOTimeMs: uint32(partition.IoTime),
+				IOTimeMs: partition.IoTime,
 			}
 		}
 	}

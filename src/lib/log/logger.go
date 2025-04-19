@@ -46,11 +46,12 @@ func (logger *Logger) writeWhenReady(ready <-chan bool, log *Log) {
 		<-ready
 
 		if logger.level&log.Level != 0 {
+			formatted, _ := logger.formatter.Format(log)
 			logger.writer.Write(&lw.Writable{
 				Namespace: log.Namespace,
 				Prefix:    logger.FilePrefix,
-				Extension: levelFileExtensions[log.Level],
-				Content:   logger.formatter.Format(log),
+				Extension: LogLevelAsString[log.Level],
+				Content: formatted,
 			})
 		}
 	}()

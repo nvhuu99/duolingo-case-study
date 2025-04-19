@@ -44,12 +44,17 @@ func (reader *LocalReader) ExpectJson() *LocalReader {
 }
 
 func (reader *LocalReader) Info() *LocalReader {
-	reader.level = string(log.LevelInfo)
+	reader.level = string(log.LogLevelAsString[log.LevelInfo])
 	return reader
 }
 
 func (reader *LocalReader) Error() *LocalReader {
-	reader.level = string(log.LevelError)
+	reader.level = string(log.LogLevelAsString[log.LevelError])
+	return reader
+}
+
+func (reader *LocalReader) Debug() *LocalReader {
+	reader.level = string(log.LogLevelAsString[log.LevelDebug])
 	return reader
 }
 

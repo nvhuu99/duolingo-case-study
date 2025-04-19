@@ -7,14 +7,14 @@ import (
 )
 
 type EventPublisher struct {
-	listeners   map[string]Subcriber
-	strTopics   map[string][]string // listener topics mapped by listener ids
+	subscribers map[string]Subcriber
+	strTopics   map[string][]string // subscriber topics mapped by subscriber ids
 	regexTopics map[string][]*RegexPattern
 }
 
 func NewEventPublisher() *EventPublisher {
 	return &EventPublisher{
-		listeners:   make(map[string]Subcriber),
+		subscribers: make(map[string]Subcriber),
 		strTopics:   make(map[string][]string),
 		regexTopics: make(map[string][]*RegexPattern),
 	}
@@ -30,8 +30,8 @@ func (p *EventPublisher) Subscribe(topic string, sub Subcriber) error {
 		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
 	}
 
-	if _, exists := p.listeners[id]; !exists {
-		p.listeners[id] = sub
+	if _, exists := p.subscribers[id]; !exists {
+		p.subscribers[id] = sub
 		p.strTopics[id] = []string{}
 	}
 
@@ -59,8 +59,8 @@ func (p *EventPublisher) SubscribeRegex(regex string, sub Subcriber) error {
 		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
 	}
 
-	if _, exists := p.listeners[id]; !exists {
-		p.listeners[id] = sub
+	if _, exists := p.subscribers[id]; !exists {
+		p.subscribers[id] = sub
 		p.regexTopics[id] = []*RegexPattern{}
 	}
 
@@ -77,11 +77,11 @@ func (p *EventPublisher) SubscribeRegex(regex string, sub Subcriber) error {
 
 func (p *EventPublisher) UnSubcribe(topic Pattern, sub Subcriber) error {
 	id := sub.SubcriberId()
-	if _, exists := p.listeners[id]; !exists {
+	if _, exists := p.subscribers[id]; !exists {
 		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_NOT_EXIST])
 	}
 
-	delete(p.listeners, id)
+	delete(p.subscribers, id)
 	delete(p.strTopics, id)
 	delete(p.regexTopics, id)
 
@@ -89,7 +89,7 @@ func (p *EventPublisher) UnSubcribe(topic Pattern, sub Subcriber) error {
 }
 
 func (p *EventPublisher) Notify(wg *sync.WaitGroup, topic string, data any) {
-	for id, listener := range p.listeners {
+	for id, subscriber := range p.subscribers {
 		matches := slices.Contains(p.strTopics[id], topic) || slices.ContainsFunc(p.regexTopics[id],
 			func(rt *RegexPattern) bool { return rt.Match(topic) },
 		)
@@ -103,7 +103,8 @@ func (p *EventPublisher) Notify(wg *sync.WaitGroup, topic string, data any) {
 						wg.Done()
 					}
 				}()
-				listener.Notified(wg, topic, data)
+
+				subscriber.Notified(topic, data)
 			}()
 		}
 	}

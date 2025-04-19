@@ -7,7 +7,6 @@ import (
 type JsonFormatter struct {
 }
 
-func (formatter *JsonFormatter) Format(log any) []byte {
-	out, _ := json.Marshal(log)
-	return out
+func (formatter *JsonFormatter) Format(log any) ([]byte, error) {
+	return json.Marshal(log)
 }

@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"time"
 
@@ -33,10 +34,11 @@ func acquireLock(ctx context.Context, rdb *redis.Client, ttl time.Duration, val 
 		case <-ctx.Done():
 			return lockErr
 		case <-timeout:
-			return lockErr
+			return errors.New("failed to acquire the lock before timeout")
 		default:
-			result, err := script.Run(ctx, rdb, keys, val, ttl.Milliseconds()).Result()
-			if err == nil && result == int64(1) {
+			var result any
+			result, lockErr = script.Run(ctx, rdb, keys, val, ttl.Milliseconds()).Result()
+			if result == int64(1) {
 				return nil
 			}
 			minWait := 10

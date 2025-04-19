@@ -4,7 +4,6 @@ import (
 	ed "duolingo/event/event_data"
 	eh "duolingo/event/event_handler"
 	ep "duolingo/lib/event"
-	lg "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	noti "duolingo/lib/notification"
 	sv "duolingo/lib/service_container"
@@ -20,7 +19,6 @@ var (
 	container *sv.ServiceContainer
 	consumer  mq.Consumer
 	sender    noti.Sender
-	logger    *lg.Logger
 	event     *ep.EventPublisher
 )
 
@@ -30,7 +28,6 @@ func main() {
 	container = sv.GetContainer()
 	consumer = container.Resolve("mq.consumer").(mq.Consumer)
 	sender = container.Resolve("noti.sender").(noti.Sender)
-	logger = container.Resolve("logger").(*lg.Logger)
 	event = container.Resolve("event.publisher").(*ep.EventPublisher)
 
 	log.Println("notification worker started")

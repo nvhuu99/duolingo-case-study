@@ -13,7 +13,7 @@ type BuildNotification struct {
 
 	LogData *struct {
 		Message      *model.InputMessage `json:"message"`
-		Assignments  *wd.Assignment      `json:"assignments"`
+		Assignments  []*wd.Assignment    `json:"assignments"`
 		Workload     *wd.Workload        `json:"workload"`
 		DeviceTokens []string            `json:"device_tokens"`
 	} `json:"data"`
@@ -26,7 +26,7 @@ type BuildNotification struct {
 func BuildNotificationDetail(eventData *ed.BuildPushNotiMessage, trace *lc.TraceSpan) map[string]any {
 	data := make(map[string]any)
 	data["message"] = eventData.PushNoti.InputMessage
-	data["assignents"] = eventData.Assignments
+	data["assignments"] = eventData.Assignments
 	data["workload"] = eventData.Workload
 	if !eventData.Success {
 		data["device_tokens"] = eventData.PushNoti.DeviceTokens

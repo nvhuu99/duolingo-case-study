@@ -66,29 +66,25 @@ func (c *MetricCollector) DatapointChannel() (<-chan *Datapoint, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.captureStatus != CaptureStatusStarted {
+	if c.captureStatus != CaptureStatusStarted && c.captureStatus != CaptureStatusEnded {
 		return nil, errors.New(ErrMessages[ERR_CAPTURE_HAS_NOT_STARTED])
-	}
-	if c.captureStatus == CaptureStatusEnded {
-		return nil, errors.New(ErrMessages[ERR_CAPTURE_ENDED])
 	}
 
 	return c.datapointsChan, nil
 }
 
 func (c *MetricCollector) Fetch() (*Datapoint, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.captureStatus != CaptureStatusStarted {
-		return nil, errors.New(ErrMessages[ERR_CAPTURE_HAS_NOT_STARTED])
+	dpChan, err := c.DatapointChannel()
+	if err != nil {
+		return nil, err
 	}
 
+	to := time.After(c.datapointInterval + 200 * time.Millisecond)
 	select {
-	case datapoint := <-c.datapointsChan:
+	case datapoint := <-dpChan:
 		return datapoint, nil
-	default:
-		return nil, nil
+	case <-to:
+		return nil, errors.New(ErrMessages[ERR_NO_DATA_POINT_YET])
 	}
 }
 

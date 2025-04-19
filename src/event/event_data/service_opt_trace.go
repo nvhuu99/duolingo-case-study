@@ -5,8 +5,10 @@ import (
 )
 
 type ServiceOperationTrace struct {
-	ServiceOpt string
-	OptId      string
-	ParentSpan *lc.TraceSpan
-	Span       *lc.TraceSpan
+	OptId       string
+	ServiceOpt  string
+	ServiceName string
+	ServiceType string
+	ParentSpan  *lc.TraceSpan
+	Span        *lc.TraceSpan
 }

@@ -62,12 +62,15 @@ func input(request *rest.Request, response *rest.Response) {
 	}
 	inputEvent.PushNoti.InputMessage = message
 
-	err := publisher.Publish(message.Serialize())
+	err := publisher.Publish(inputEvent.PushNoti.Serialize())
 	if err != nil {
 		response.ServerErr("Failed to publish to message queue")
 		return
 	}
+
 	response.Created("", message)
+
+	inputEvent.Success = true
 }
 
 func main() {

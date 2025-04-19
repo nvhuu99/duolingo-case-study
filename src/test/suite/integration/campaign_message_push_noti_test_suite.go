@@ -17,7 +17,7 @@ import (
 	lq "duolingo/lib/log/driver/reader/local"
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	"duolingo/model"
-	"duolingo/model/log/detail"
+	ldt "duolingo/model/log/detail"
 	db "duolingo/repository/campaign_db"
 
 	"github.com/stretchr/testify/suite"
@@ -41,6 +41,7 @@ type CampaignMessagePushNotiTestSuite struct {
 	manager      *rabbitmq.RabbitMQManager
 	topology     *rabbitmq.RabbitMQTopology
 	inputMessage *model.InputMessage
+	traceId      string
 	userCount    int
 }
 
@@ -98,8 +99,9 @@ func (s *CampaignMessagePushNotiTestSuite) TearDownSuite() {
 func (s *CampaignMessagePushNotiTestSuite) TestStep01MessageInputAPI() {
 	s.waitForMessageQueueReady(10*time.Second, graceTimeOut)
 
+	campaign := "superbowl"
 	addr := s.ConfigReader.Get("input_message_api.server.address", "")
-	api := fmt.Sprintf("http://%v/campaign/superbowl/message", addr)
+	api := fmt.Sprintf("http://%v/campaign/%v/message", addr, campaign)
 	requestBody := `{ "title": "test_title", "content": "test_content" }`
 
 	// Verify API status
@@ -120,29 +122,65 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep01MessageInputAPI() {
 	// Verify message properties
 	s.Require().Equal("test_title", s.inputMessage.Title, "Returned title must match input")
 	s.Require().Equal("test_content", s.inputMessage.Content, "Returned content must match input")
+	s.Require().Equal(campaign, s.inputMessage.Campaign, "Returned campaign must match input")
+
+	// Query input message request log
+	logQuery := s.logQuery(cnst.SV_INP_MESG).
+		Info().FilePrefix(cnst.SV_INP_MESG).
+		ExpectJson().
+		Filter(map[string]any{
+			"context": map[string]any{
+				"trace": map[string]any{
+					"service_name":      cnst.SV_INP_MESG,
+					"service_operation": cnst.INP_MESG_REQUEST,
+				},
+			},
+			"data": map[string]any{
+				"request": map[string]any{
+					"response_body_data": map[string]any{
+						"id":       s.inputMessage.MessageId,
+						"title":    s.inputMessage.Title,
+						"content":  s.inputMessage.Content,
+						"campaign": s.inputMessage.Campaign,
+					},
+				},
+			},
+		})
+
+	s.waitForServiceLogs(logQuery, 10*time.Second, graceTimeOut)
+
+	found, err := logQuery.First()
+	s.Require().NoError(err, "Error finding input message request log")
+	s.Require().True(len(found) != 0, "Input message request log not found")
+
+	detail := new(ldt.InputMessageRequest)
+	data, _ := json.Marshal(found)
+	err = json.Unmarshal(data, detail)
+	s.Require().NoError(err, "Error converting to log detail")
+
+	// Save trace id
+	s.traceId = detail.LogContext.Trace.TraceId
 }
 
 // TestStep02RelayInputMessageForAllBuilders verifies that the input message is relayed to all builders
 func (s *CampaignMessagePushNotiTestSuite) TestStep02RelayInputMessageForAllBuilders() {
-	time.Sleep(10 * time.Second)
-
 	logQuery := s.logQuery(cnst.SV_NOTI_BUILDER).
 		Info().FilePrefix(cnst.SV_NOTI_BUILDER).
 		ExpectJson().
 		Filter(map[string]any{
 			"context": map[string]any{
-				"request_id": s.inputMessage.RequestId,
-				"service": map[string]any{
-					"name":      cnst.SV_NOTI_BUILDER,
-					"operation": cnst.RELAY_INP_MESG,
+				"trace": map[string]any{
+					"trace_id":          s.traceId,
+					"service_type":      cnst.ServiceTypes[cnst.SV_NOTI_BUILDER],
+					"service_name":      cnst.SV_NOTI_BUILDER,
+					"service_operation": cnst.RELAY_INP_MESG,
 				},
 			},
 			"data": map[string]any{
 				"relayed_message": map[string]any{
-					"title":   s.inputMessage.Title,
-					"content": s.inputMessage.Content,
+					"id": s.inputMessage.MessageId,
 				},
-				"relayed_total": s.ConfigReader.GetInt("noti_builder.server.num_of_builders", -1),
+				"relayed_count": s.ConfigReader.GetInt("noti_builder.server.num_of_builders", -1),
 			},
 		})
 
@@ -156,23 +194,21 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep02RelayInputMessageForAllBuil
 
 // TestStep03BuildPushNotiForAllUsers verifies the push notifications were built successfully
 func (s *CampaignMessagePushNotiTestSuite) TestStep03BuildPushNotiForAllUsers() {
-	time.Sleep(10 * time.Second)
-
 	logQuery := s.logQuery(cnst.SV_NOTI_BUILDER).
 		Info().FilePrefix(cnst.SV_NOTI_BUILDER).
 		ExpectJson().
 		Filter(map[string]any{
 			"context": map[string]any{
-				"request_id": s.inputMessage.RequestId,
-				"service": map[string]any{
-					"name":      cnst.SV_NOTI_BUILDER,
-					"operation": cnst.BUILD_NOTI_MSG,
+				"trace": map[string]any{
+					"trace_id":          s.traceId,
+					"service_type":      cnst.ServiceTypes[cnst.SV_NOTI_BUILDER],
+					"service_name":      cnst.SV_NOTI_BUILDER,
+					"service_operation": cnst.BUILD_PUSH_NOTI_MESG,
 				},
 			},
 			"data": map[string]any{
-				"push_message": map[string]any{
-					"title":   s.inputMessage.Title,
-					"content": s.inputMessage.Content,
+				"message": map[string]any{
+					"id": s.inputMessage.MessageId,
 				},
 			},
 		})
@@ -180,22 +216,26 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep03BuildPushNotiForAllUsers() 
 	s.waitForServiceLogs(logQuery, 10*time.Second, graceTimeOut)
 
 	allSuccess := true
-	totalAssignments := 0
+	totalMessages := 0
 	totalOperations := 0
-	err := logQuery.Each(func(item map[string]any) lq.LoopAction {
-		var detail log_detail.BuildNotification
-		data, _ := json.Marshal(item)
-		json.Unmarshal(data, &detail)
 
-		if detail.LogData.Assignment == nil {
-			return lq.LoopContinue
-		}
-		if detail.LogData.Assignment.HasFailed {
-			allSuccess = false
+	err := logQuery.Each(func(item map[string]any) lq.LoopAction {
+		var detail ldt.BuildNotification
+		data, _ := json.Marshal(item)
+		err := json.Unmarshal(data, &detail)
+		if err != nil {
+			s.FailNow("Error deserializeing build notification log")
 			return lq.LoopCancel
 		}
-		totalAssignments = detail.LogData.Workload.NumOfAssignments()
+
 		totalOperations++
+
+		if len(detail.LogData.Assignments) == 0 {
+			return lq.LoopContinue
+		}
+		for _, asgm := range detail.LogData.Assignments {
+			totalMessages += asgm.End - asgm.Start + 1
+		}
 
 		return lq.LoopContinue
 	})
@@ -203,50 +243,55 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep03BuildPushNotiForAllUsers() 
 	// Verify push notification messages build operations
 	s.Require().NoError(err, "Error iterating build notification logs")
 	s.Require().True(allSuccess, "Some build notification operations failed")
-	s.Require().Greater(totalAssignments, 0, "Expected at least one user assignment")
-	s.Require().Equal(totalAssignments, totalOperations, "Assignment count and operations must match")
+	s.Require().Equal(s.userCount, totalMessages, "User count and push notification message must match")
+	s.Require().Equal(
+		s.ConfigReader.GetInt("noti_builder.server.num_of_builders", -1),
+		totalOperations,
+		"Number of build operations and number of builders must match",
+	)
 }
 
-// TestStep04SendPushNotiForAllUsers ensures push notifications were sent successfully to all users
+// // TestStep04SendPushNotiForAllUsers ensures push notifications were sent successfully to all users
 func (s *CampaignMessagePushNotiTestSuite) TestStep04SendPushNotiForAllUsers() {
-	time.Sleep(10 * time.Second)
-
-	logs := s.logQuery(cnst.SV_PUSH_SENDER).
+	logQuery := s.logQuery(cnst.SV_PUSH_SENDER).
 		Info().FilePrefix(cnst.SV_PUSH_SENDER).
 		ExpectJson().
 		Filter(map[string]any{
 			"context": map[string]any{
-				"request_id": s.inputMessage.RequestId,
-				"service": map[string]any{
-					"name":      cnst.SV_PUSH_SENDER,
-					"operation": cnst.SEND_PUSH_NOTI,
+				"trace": map[string]any{
+					"trace_id":          s.traceId,
+					"service_type":      cnst.ServiceTypes[cnst.SV_PUSH_SENDER],
+					"service_name":      cnst.SV_PUSH_SENDER,
+					"service_operation": cnst.SEND_PUSH_NOTI,
 				},
 			},
 			"data": map[string]any{
-				"push_message": map[string]any{
-					"title":   s.inputMessage.Title,
-					"content": s.inputMessage.Content,
+				"message": map[string]any{
+					"id": s.inputMessage.MessageId,
 				},
 			},
 		})
 
+	s.waitForServiceLogs(logQuery, 10*time.Second, graceTimeOut)
+
 	allSuccess := true
 	successCount := 0
 	failureCount := 0
-	err := logs.Each(func(item map[string]any) lq.LoopAction {
-		var detail log_detail.SendNotification
+	err := logQuery.Each(func(item map[string]any) lq.LoopAction {
+		var detail ldt.SendPushNotification
 		data, _ := json.Marshal(item)
-		json.Unmarshal(data, &detail)
-
-		if detail.LogData.PushResult == nil {
-			return lq.LoopContinue
+		err := json.Unmarshal(data, &detail)
+		if err != nil {
+			s.FailNow("Fail to deserializing send push notification log")
+			return lq.LoopCancel
 		}
-		if !detail.LogData.PushResult.Success {
+
+		if !detail.LogData.Success {
 			allSuccess = false
 			return lq.LoopCancel
 		}
-		successCount += detail.LogData.PushResult.SuccessCount
-		failureCount += detail.LogData.PushResult.FailureCount
+		successCount += detail.LogData.SuccessCount
+		failureCount += detail.LogData.FailureCount
 
 		return lq.LoopContinue
 	})

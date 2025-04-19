@@ -39,7 +39,7 @@ func (e *SendPushNotification) SubcriberId() string {
 	return e.id
 }
 
-func (e *SendPushNotification) Notified(wg *sync.WaitGroup, topic string, data any) {
+func (e *SendPushNotification) Notified(topic string, data any) {
 	switch topic {
 	case SEND_PUSH_NOTI_BEGIN:
 		e.handleSendPushNotiBegin(data)
@@ -51,17 +51,19 @@ func (e *SendPushNotification) Notified(wg *sync.WaitGroup, topic string, data a
 func (e *SendPushNotification) handleSendPushNotiBegin(data any) {
 	evtData := data.(*ed.SendPushNotification)
 
-	var wg *sync.WaitGroup
-	e.events.Notify(wg, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
-		ServiceOpt: cnst.RELAY_INP_MESG,
-		OptId:      evtData.OptId,
-		ParentSpan: evtData.PushNoti.Trace,
+	e.events.Notify(nil, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
+		ServiceName: cnst.SV_PUSH_SENDER,
+		ServiceType: cnst.ServiceTypes[cnst.SV_PUSH_SENDER],
+		ServiceOpt:  cnst.SEND_PUSH_NOTI,
+		OptId:       evtData.OptId,
+		ParentSpan:  evtData.PushNoti.Trace,
 	})
-	wg.Wait()
 
 	e.events.Notify(nil, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
-		ServiceOpt: cnst.RELAY_INP_MESG,
-		OptId:      evtData.OptId,
+		ServiceName: cnst.SV_PUSH_SENDER,
+		ServiceType: cnst.ServiceTypes[cnst.SV_PUSH_SENDER],
+		ServiceOpt:  cnst.SEND_PUSH_NOTI,
+		OptId:       evtData.OptId,
 	})
 }
 
@@ -70,9 +72,9 @@ func (e *SendPushNotification) handleSendPushNotiEnd(data any) {
 	traceEvtData := e.container.Resolve("events.data.sv_opt_trace." + evtData.OptId).(*ed.ServiceOperationTrace)
 	metricEvtData := e.container.Resolve("events.data.sv_opt_metric." + evtData.OptId).(*ed.ServiceOperationMetric)
 
-	var wg *sync.WaitGroup
+	wg := new(sync.WaitGroup)
 	e.events.Notify(wg, SERVICE_OPERATION_TRACE_END, traceEvtData)
-	e.events.Notify(wg, SERVICE_OPERATION_METRIC_BEGIN, metricEvtData)
+	e.events.Notify(wg, SERVICE_OPERATION_METRIC_END, metricEvtData)
 	wg.Wait()
 
 	trace := traceEvtData.Span
@@ -81,8 +83,8 @@ func (e *SendPushNotification) handleSendPushNotiEnd(data any) {
 	} else {
 		e.logger.Error("", evtData.Result.Error).Detail(ldt.SendPushNotiDetail(evtData, trace)).Write()
 	}
-	metric, err := metricEvtData.Collector.Fetch()
-	if err != nil {
-		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric))
+	metric, _ := metricEvtData.Collector.Fetch()
+	if metric != nil {
+		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
 	}
 }

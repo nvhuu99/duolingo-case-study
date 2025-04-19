@@ -2,8 +2,6 @@ package event_handler
 
 import (
 	"context"
-	"strings"
-	"sync"
 	"time"
 
 	ed "duolingo/event/event_data"
@@ -35,7 +33,7 @@ func (e *ServiceOperationMetric) SubcriberId() string {
 	return e.id
 }
 
-func (e *ServiceOperationMetric) Notified(wg *sync.WaitGroup, topic string, data any) {
+func (e *ServiceOperationMetric) Notified(topic string, data any) {
 	switch topic {
 	case SERVICE_OPERATION_METRIC_BEGIN:
 		e.handleServiceOperationBegin(data)
@@ -46,11 +44,10 @@ func (e *ServiceOperationMetric) Notified(wg *sync.WaitGroup, topic string, data
 
 func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 	evtData := data.(*ed.ServiceOperationMetric)
-	svName := strings.Split(evtData.ServiceOpt, ":")[1]
 	conf := e.container.Resolve("config").(config.ConfigReader)
 	ctx := e.container.Resolve("server.ctx").(context.Context)
-	dpInterval := conf.GetInt(svName+".metric.datapoint_interval_ms", 15000)
-	sInterval := conf.GetInt(svName+".metric.snapshot_interval_ms", 100)
+	dpInterval := conf.GetInt(evtData.ServiceName+".metric.datapoint_interval_ms", 15000)
+	sInterval := conf.GetInt(evtData.ServiceName+".metric.snapshot_interval_ms", 100)
 	evtData.Collector = metric.NewCollector(ctx,
 		time.Duration(dpInterval)*time.Millisecond,
 		time.Duration(sInterval)*time.Millisecond,

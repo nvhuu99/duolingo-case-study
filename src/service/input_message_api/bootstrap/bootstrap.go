@@ -55,7 +55,7 @@ func bindConfigReader() {
 
 func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
-	container.BindSingleton("log.server", func() any {
+	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
 		rotation := time.Duration(conf.GetInt("input_message_api.log.rotation", 86400)) * time.Second
 		flush := time.Duration(conf.GetInt("input_message_api.log.flush", 300)) * time.Second
@@ -76,13 +76,11 @@ func bindLogger() {
 }
 
 func bindEvents() {
-	container.BindSingleton("event.publisher", func() any {
-		evt := ep.NewEventPublisher()
-		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-		evt.SubscribeRegex("input_message_request.+", eh.NewInputMessage())
-		return evt
-	})
+	evt := ep.NewEventPublisher()
+	container.BindSingleton("event.publisher", func() any { return evt })
+	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+	evt.SubscribeRegex("input_message_request.+", eh.NewInputMessage())
 }
 
 func bindRestHttp() {

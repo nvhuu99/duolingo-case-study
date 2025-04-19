@@ -78,14 +78,12 @@ func bindLogger() {
 }
 
 func bindEvents() {
-	container.BindSingleton("event.publisher", func() any {
-		evt := ep.NewEventPublisher()
-		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-		evt.SubscribeRegex("relay_input_message_.+", eh.NewRelayInpMsg())
-		evt.SubscribeRegex("build_push_notification_message.+", eh.NewBuildPushNotiMsg())
-		return evt
-	})
+	evt := ep.NewEventPublisher()
+	container.BindSingleton("event.publisher", func() any { return evt })
+	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+	evt.SubscribeRegex("relay_input_message_.+", eh.NewRelayInpMsg())
+	evt.SubscribeRegex("build_push_notification_message.+", eh.NewBuildPushNotiMsg())
 }
 
 func bindRepository() {
@@ -109,7 +107,7 @@ func bindWorkDistributor() {
 		distributor, _ := distributor.NewRedisDistributor(ctx, "campaign_users")
 		distributor.
 			WithOptions(nil).
-			WithLockTimeOut(5 * time.Second).
+			WithLockTimeOut(100 * time.Second).
 			WithDistributionSize(size)
 
 		err := distributor.SetConnection(conf.Get("redis.host", ""), conf.Get("redis.port", ""))

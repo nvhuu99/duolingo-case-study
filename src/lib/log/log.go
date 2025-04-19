@@ -5,6 +5,7 @@ import "time"
 type Log struct {
 	Timestamp  time.Time `json:"timestamp"`
 	Level      LogLevel  `json:"level"`
+	LevelName  string    `json:"level_name"`
 	Namespace  string    `json:"namespace"`
 	Message    string    `json:"message"`
 	LogData    any       `json:"data"`
@@ -19,6 +20,7 @@ func NewLog(level LogLevel, message string) (*Log, <-chan bool) {
 	log := &Log{
 		Timestamp: time.Now(),
 		Level:     level,
+		LevelName: LogLevelAsString[level],
 		Message:   message,
 		ready:     ready,
 	}

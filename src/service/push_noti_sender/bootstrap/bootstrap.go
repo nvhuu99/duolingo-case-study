@@ -55,7 +55,7 @@ func bindConfigReader() {
 
 func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
-	container.BindSingleton("logger", func() any {
+	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
 		rotation := time.Duration(conf.GetInt("push_noti_sender.log.rotation", 86400)) * time.Second
 		flush := time.Duration(conf.GetInt("push_noti_sender.log.flush", 300)) * time.Second
@@ -76,13 +76,11 @@ func bindLogger() {
 }
 
 func bindEvents() {
-	container.BindSingleton("event.publisher", func() any {
-		evt := ep.NewEventPublisher()
-		evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-		evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-		evt.SubscribeRegex("send_push_notification_.+", eh.NewSendPushNoti())
-		return evt
-	})
+	evt := ep.NewEventPublisher()
+	container.BindSingleton("event.publisher", func() any { return evt })
+	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
+	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
+	evt.SubscribeRegex("send_push_notification_.+", eh.NewSendPushNoti())
 }
 
 func bindMessageQueue() {

@@ -5,14 +5,14 @@ import (
 )
 
 type Datapoint struct {
-	Timestamp  time.Time     `json:"timestamp"`
-	Duration   time.Duration `json:"duration_ms"`
-	Count      uint16        `json:"count"`
-	Sum        *Metric       `json:"sum"`
-	Mean       *Metric       `json:"mean"`
-	Percentile *Metric       `json:"percentile"`
-	UpperBound *Metric       `json:"upperbound"`
-	LowerBound *Metric       `json:"lowerbound"`
+	Timestamp  time.Time `json:"timestamp"`
+	Duration   uint64    `json:"duration_ms"`
+	Count      uint16    `json:"count"`
+	Sum        *Metric   `json:"sum"`
+	Mean       *Metric   `json:"mean"`
+	Percentile *Metric   `json:"percentile"`
+	UpperBound *Metric   `json:"upperbound"`
+	LowerBound *Metric   `json:"lowerbound"`
 }
 
 func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metrics []*Metric) *Datapoint {
@@ -22,7 +22,7 @@ func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metric
 
 	dp := &Datapoint{
 		Timestamp:  timestamp,
-		Duration:   duration,
+		Duration:   uint64(duration.Milliseconds()),
 		Count:      uint16(len(metrics)),
 		Sum:        NewMetric(),
 		Mean:       NewMetric(),
@@ -32,29 +32,29 @@ func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metric
 	}
 
 	cpuUtils := make([]float32, len(metrics))
-	cpuIOTimes := make([]uint32, len(metrics))
+	cpuIOTimes := make([]float64, len(metrics))
 	memUsedPct := make([]float32, len(metrics))
 	memFreePct := make([]float32, len(metrics))
 	memUsedMB := make([]uint32, len(metrics))
 	memFreeMB := make([]uint32, len(metrics))
 	diskUtils := make(map[string][]float32)
-	diskIOTimes := make(map[string][]uint32)
+	diskIOTimes := make(map[string][]uint64)
 	diskDevices := []string{}
 	for _, metric := range metrics {
 		if metric.DiskIOMetrics != nil {
 			for dev := range metric.DiskIOMetrics {
 				diskDevices = append(diskDevices, dev)
 				diskUtils[dev] = make([]float32, len(metrics))
-				diskIOTimes[dev] = make([]uint32, len(metrics))
+				diskIOTimes[dev] = make([]uint64, len(metrics))
 			}
 		}
 	}
 
-	metricInterval := duration / time.Duration(len(metrics))
+	metricInterval := int64(duration.Milliseconds()) / int64(len(metrics))
 	for i, m := range metrics {
 		if m.CPUMetric != nil {
 			cpuUtils[i] = m.CPUMetric.Util
-			cpuIOTimes[i] = m.CPUMetric.IOTimeMs
+			cpuIOTimes[i] = m.CPUMetric.IOTimeSeconds
 		}
 		if m.MemoryMetric != nil {
 			memUsedPct[i] = m.MemoryMetric.UsedPct
@@ -65,10 +65,9 @@ func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metric
 		if m.DiskIOMetrics != nil {
 			for dev, io := range m.DiskIOMetrics {
 				diskIOTimes[dev][i] = io.IOTimeMs
-				diskUtils[dev][i] = float32(diskIOTimes[dev][i]-diskIOTimes[dev][i-1]) / float32(metricInterval) * 100
-				if i > 0 {
+				if i > 0 && metricInterval > 0 {
 					delta := diskIOTimes[dev][i] - diskIOTimes[dev][i-1]
-					diskUtils[dev][i] = float32(delta) / float32(metricInterval.Milliseconds()) * 100
+					diskUtils[dev][i] = float32(delta) / float32(metricInterval) * 100
 				}
 			}
 		}
@@ -76,24 +75,24 @@ func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metric
 
 	if len(cpuUtils) > 0 {
 		dp.Sum.CPUMetric = &CPUMetric{
-			Util:     float32(sum(cpuUtils)),
-			IOTimeMs: uint32(sum(cpuIOTimes)),
+			Util:          float32(sum(cpuUtils)),
+			IOTimeSeconds: float64(sum(cpuIOTimes)),
 		}
 		dp.Mean.CPUMetric = &CPUMetric{
-			Util:     float32(mean(cpuUtils)),
-			IOTimeMs: uint32(mean(cpuIOTimes)),
+			Util:          float32(mean(cpuUtils)),
+			IOTimeSeconds: float64(mean(cpuIOTimes)),
 		}
 		dp.Percentile.CPUMetric = &CPUMetric{
-			Util:     float32(percentile(cpuUtils, 0.9)),
-			IOTimeMs: uint32(percentile(cpuIOTimes, 0.9)),
+			Util:          float32(percentile(cpuUtils, 0.9)),
+			IOTimeSeconds: float64(percentile(cpuIOTimes, 0.9)),
 		}
 		dp.UpperBound.CPUMetric = &CPUMetric{
-			Util:     float32(max(cpuUtils)),
-			IOTimeMs: uint32(max(cpuIOTimes)),
+			Util:          float32(max(cpuUtils)),
+			IOTimeSeconds: float64(max(cpuIOTimes)),
 		}
 		dp.LowerBound.CPUMetric = &CPUMetric{
-			Util:     float32(min(cpuUtils)),
-			IOTimeMs: uint32(min(cpuIOTimes)),
+			Util:          float32(min(cpuUtils)),
+			IOTimeSeconds: float64(min(cpuIOTimes)),
 		}
 	}
 
@@ -132,25 +131,30 @@ func NewDataPointFromMetrics(timestamp time.Time, duration time.Duration, metric
 
 	if len(diskUtils) > 0 && len(diskIOTimes) > 0 {
 		for _, dev := range diskDevices {
+			dp.Sum.DiskIOMetrics[dev] = new(DiskIOMetric)
 			dp.Sum.DiskIOMetrics[dev].Device = dev
 			dp.Sum.DiskIOMetrics[dev].Util = float32(sum(diskUtils[dev]))
-			dp.Sum.DiskIOMetrics[dev].IOTimeMs = uint32(sum(diskIOTimes[dev]))
+			dp.Sum.DiskIOMetrics[dev].IOTimeMs = uint64(sum(diskIOTimes[dev]))
 
+			dp.Mean.DiskIOMetrics[dev] = new(DiskIOMetric)
 			dp.Mean.DiskIOMetrics[dev].Device = dev
 			dp.Mean.DiskIOMetrics[dev].Util = float32(mean(diskUtils[dev]))
-			dp.Mean.DiskIOMetrics[dev].IOTimeMs = uint32(mean(diskIOTimes[dev]))
+			dp.Mean.DiskIOMetrics[dev].IOTimeMs = uint64(mean(diskIOTimes[dev]))
 
+			dp.Percentile.DiskIOMetrics[dev] = new(DiskIOMetric)
 			dp.Percentile.DiskIOMetrics[dev].Device = dev
 			dp.Percentile.DiskIOMetrics[dev].Util = float32(percentile(diskUtils[dev], 0.9))
-			dp.Percentile.DiskIOMetrics[dev].IOTimeMs = uint32(percentile(diskIOTimes[dev], 0.9))
+			dp.Percentile.DiskIOMetrics[dev].IOTimeMs = uint64(percentile(diskIOTimes[dev], 0.9))
 
+			dp.UpperBound.DiskIOMetrics[dev] = new(DiskIOMetric)
 			dp.UpperBound.DiskIOMetrics[dev].Device = dev
 			dp.UpperBound.DiskIOMetrics[dev].Util = float32(max(diskUtils[dev]))
-			dp.UpperBound.DiskIOMetrics[dev].IOTimeMs = uint32(max(diskIOTimes[dev]))
+			dp.UpperBound.DiskIOMetrics[dev].IOTimeMs = uint64(max(diskIOTimes[dev]))
 
+			dp.LowerBound.DiskIOMetrics[dev] = new(DiskIOMetric)
 			dp.LowerBound.DiskIOMetrics[dev].Device = dev
 			dp.LowerBound.DiskIOMetrics[dev].Util = float32(min(diskUtils[dev]))
-			dp.LowerBound.DiskIOMetrics[dev].IOTimeMs = uint32(min(diskIOTimes[dev]))
+			dp.LowerBound.DiskIOMetrics[dev].IOTimeMs = uint64(min(diskIOTimes[dev]))
 		}
 	}
 

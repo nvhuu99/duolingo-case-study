@@ -12,6 +12,7 @@ type SendPushNotification struct {
 
 	LogData struct {
 		Message       *model.InputMessage `json:"message"`
+		Success       bool                `json:"success"`
 		SuccessCount  int                 `json:"success_count"`
 		FailureCount  int                 `json:"failure_count"`
 		FailureTokens []string            `json:"failure_tokens"`
@@ -29,6 +30,7 @@ func SendPushNotiDetail(eventData *ed.SendPushNotification, trace *lc.TraceSpan)
 		},
 		"data": map[string]any{
 			"message":        eventData.PushNoti.InputMessage,
+			"success":        eventData.Result.Success,
 			"success_count":  eventData.Result.SuccessCount,
 			"failure_count":  eventData.Result.FailureCount,
 			"failure_tokens": eventData.Result.FailureTokens,

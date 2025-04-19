@@ -105,6 +105,15 @@ func (d *RedisDistributor) WorkloadExists(workloadName string) (bool, error) {
 }
 
 func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
+	// Skip if the workload has already registered
+	exist, err := d.WorkloadExists(workload.Name)
+	if err != nil {
+		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_CREATION], err)
+	}
+	if exist {
+		return nil
+	}
+
 	if workload.DistributionSize == 0 {
 		workload.DistributionSize = d.opts.DistributionSize
 	}
@@ -117,14 +126,6 @@ func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
 	}
 	defer d.releaseLock(lockVal, "workloads")
 
-	// Skip if the workload has already registered
-	exist, err := d.WorkloadExists(workload.Name)
-	if err != nil {
-		return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_WORKLOAD_CREATION], err)
-	}
-	if exist {
-		return nil
-	}
 	// Register the workload
 	str, _ := json.Marshal(workload)
 	err = d.rdb.HSet(d.ctx, d.key("workloads"), workload.Name, string(str)).Err()

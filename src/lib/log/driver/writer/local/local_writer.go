@@ -158,14 +158,19 @@ func (writer *LocalWriter) rotate() {
 
 func (writer *LocalWriter) writeLines(filepath string, lines [][]byte) {
 	os.MkdirAll(path.Dir(filepath), 0755)
-	file, _ := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
 	defer file.Close()
 
 	wr := bufio.NewWriter(file)
 	defer wr.Flush()
 
 	for _, line := range lines {
-		wr.Write(append(line, '\n'))
+		if _, err := wr.Write(append(line, '\n')); err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	writer.mu.Lock()
