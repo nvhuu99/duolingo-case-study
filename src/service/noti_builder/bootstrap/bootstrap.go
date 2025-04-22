@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"time"
 
 	cnst "duolingo/constant"
@@ -59,20 +60,21 @@ func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
 	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
-		rotation := time.Duration(conf.GetInt("noti_builder.log.rotation", 86400)) * time.Second
-		flush := time.Duration(conf.GetInt("noti_builder.log.flush", 300)) * time.Second
+		rotation := time.Duration(conf.GetInt("noti_builder.log.rotation_seconds", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("noti_builder.log.flush_seconds", 300)) * time.Second
+		flushGrace := time.Duration(conf.GetInt("noti_builder.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("noti_builder.log.buffer.size", 2)
 		bufferCount := conf.GetInt("noti_builder.log.buffer.max_count", 1000)
 
+		uri := strings.Join([]string{ "service", cnst.ServiceTypes[cnst.SV_NOTI_BUILDER], cnst.SV_NOTI_BUILDER }, "/")
 		return log.NewLoggerBuilder(ctx).
 			SetLogLevel(log.LevelAll).
-			UseNamespace("service", cnst.ServiceTypes[cnst.SV_NOTI_BUILDER], cnst.SV_NOTI_BUILDER).
+			SetURI(uri).
 			UseJsonFormat().
-			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_NOTI_BUILDER, "storage", "log")).
-			WithFilePrefix(cnst.SV_NOTI_BUILDER).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
-			WithFlushInterval(flush).
+			WithFlushInterval(flush, flushGrace).
+			WithLocalFileOutput(filepath.Join(dir, "service", cnst.SV_NOTI_BUILDER, "storage", "log")).
 			Get()
 	})
 }

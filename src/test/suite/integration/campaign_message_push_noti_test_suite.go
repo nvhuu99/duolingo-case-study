@@ -346,7 +346,6 @@ func (s *CampaignMessagePushNotiTestSuite) logQuery(service string) *lq.LocalRea
 		service,
 		"storage", "log", "service",
 		cnst.ServiceTypes[service],
-		service,
 	)
 
 	return lq.LogQuery(dir, from, to)

@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	cnst "duolingo/constant"
 	eh "duolingo/event/event_handler"
@@ -57,20 +58,21 @@ func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
 	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
-		rotation := time.Duration(conf.GetInt("push_noti_sender.log.rotation", 86400)) * time.Second
-		flush := time.Duration(conf.GetInt("push_noti_sender.log.flush", 300)) * time.Second
+		rotation := time.Duration(conf.GetInt("push_noti_sender.log.rotation_seconds", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("push_noti_sender.log.flush_seconds", 300)) * time.Second
+		flushGrace := time.Duration(conf.GetInt("push_noti_sender.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("push_noti_sender.log.buffer.size", 1)
 		bufferCount := conf.GetInt("push_noti_sender.log.buffer.max_count", 1000)
 
+		uri := strings.Join([]string{ "service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER }, "/")
 		return log.NewLoggerBuilder(ctx).
 			SetLogLevel(log.LevelAll).
-			UseNamespace("service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER).
+			SetURI(uri).
 			UseJsonFormat().
-			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_PUSH_SENDER, "storage", "log")).
-			WithFilePrefix(cnst.SV_PUSH_SENDER).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
-			WithFlushInterval(flush).
+			WithFlushInterval(flush, flushGrace).
+			WithLocalFileOutput(filepath.Join(dir, "service", cnst.SV_PUSH_SENDER, "storage", "log")).
 			Get()
 	})
 }

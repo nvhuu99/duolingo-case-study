@@ -13,6 +13,7 @@ import (
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -57,20 +58,21 @@ func bindLogger() {
 	conf := container.Resolve("config").(config.ConfigReader)
 	container.BindSingleton("server.logger", func() any {
 		dir, _ := filepath.Abs(".")
-		rotation := time.Duration(conf.GetInt("input_message_api.log.rotation", 86400)) * time.Second
-		flush := time.Duration(conf.GetInt("input_message_api.log.flush", 300)) * time.Second
+		rotation := time.Duration(conf.GetInt("input_message_api.log.rotation_seconds", 86400)) * time.Second
+		flush := time.Duration(conf.GetInt("input_message_api.log.flush_seconds", 300)) * time.Second
+		flushGrace := time.Duration(conf.GetInt("input_message_api.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("input_message_api.log.buffer.size", 2)
 		bufferCount := conf.GetInt("input_message_api.log.buffer.max_count", 1000)
 
+		uri := strings.Join([]string{ "service", cnst.ServiceTypes[cnst.SV_INP_MESG], cnst.SV_INP_MESG }, "/")
 		return log.NewLoggerBuilder(ctx).
 			SetLogLevel(log.LevelAll).
-			UseNamespace("service", cnst.ServiceTypes[cnst.SV_INP_MESG], cnst.SV_INP_MESG).
+			SetURI(uri).
 			UseJsonFormat().
-			UseLocalWriter(filepath.Join(dir, "service", cnst.SV_INP_MESG, "storage", "log")).
-			WithFilePrefix(cnst.SV_INP_MESG).
 			WithBuffering(bufferSize, bufferCount).
 			WithRotation(rotation).
-			WithFlushInterval(flush).
+			WithFlushInterval(flush, flushGrace).
+			WithLocalFileOutput(filepath.Join(dir, "service", cnst.SV_INP_MESG, "storage", "log")).
 			Get()
 	})
 }

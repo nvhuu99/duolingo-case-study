@@ -1,7 +1,8 @@
 {
     "log": {
-        "rotation": 86400,
-        "flush": 300,
+        "rotation_seconds": 86400,
+        "flush_seconds": 1,
+        "flush_grace_ms": 300,
         "buffer": {
             "size": 1,
             "max_count": 1

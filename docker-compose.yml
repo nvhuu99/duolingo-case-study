@@ -1,15 +1,15 @@
 version: "3.9"
 
-x-server-context: &server-context
-  build:
-    context: .
-    dockerfile: ./dockerfile
-    args:
-      APP_DIR: /var/duolingo
-      APP_SRC: /var/duolingo/src
+# x-server-context: &server-context
+#   build:
+#     context: .
+#     dockerfile: ./dockerfile
+#     args:
+#       APP_DIR: /var/duolingo
+#       APP_SRC: /var/duolingo/src
 
-x-server-volume: &server-volume
-  ./:/var/duolingo/
+# x-server-volume: &server-volume
+#   ./:/var/duolingo/
 
 services:
   campaign-db:
@@ -24,7 +24,7 @@ services:
     networks:
       - duolingo
     volumes:
-      - campaign-db:/data/db
+      - duolingo-campaign-db:/data/db
 
   redis:
     image: redis:7.4.2-alpine
@@ -32,7 +32,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - duolingo-redis-data:/data
     networks:
       - duolingo
   
@@ -47,29 +47,29 @@ services:
       RABBITMQ_DEFAULT_USER: root
       RABBITMQ_DEFAULT_PASS: root@1234
     volumes:
-      - message-queue-data:/var/lib/rabbitmq
+      - duolingo-mq-data:/var/lib/rabbitmq
     networks:
       - duolingo
 
-  message-api:
-    <<: *server-context
-    container_name: message-api
-    depends_on:
-      - message-queue
-    environment:
-      SERVICE_SRC: /var/duolingo/src/message-api
-    ports:
-      - 80:80
-    networks:
-      - duolingo
-    volumes:
-      - *server-volume 
+  # message-api:
+  #   <<: *server-context
+  #   container_name: message-api
+  #   depends_on:
+  #     - message-queue
+  #   environment:
+  #     SERVICE_SRC: /var/duolingo/src/message-api
+  #   ports:
+  #     - 80:80
+  #   networks:
+  #     - duolingo
+  #   volumes:
+  #     - *server-volume 
 
 networks:
   duolingo:
     driver: bridge
 
 volumes:
-  campaign-db:
-  redis-data:
-  message-queue-data:
+  duolingo-campaign-db:
+  duolingo-redis-data:
+  duolingo-mq-data:

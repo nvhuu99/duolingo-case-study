@@ -158,9 +158,6 @@ func (reader *LocalReader) listFiles() ([]string, error) {
 		}
 
 		fileName := parts[len(parts)-1]
-		if reader.filePrefix != "" && !strings.HasPrefix(fileName, reader.filePrefix) {
-			return nil
-		}
 		if reader.level != "" && !strings.HasSuffix(fileName, "."+reader.level) {
 			return nil
 		}

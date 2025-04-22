@@ -2,7 +2,8 @@ package log
 
 import (
 	jf "duolingo/lib/log/driver/formatter/json"
-	lw "duolingo/lib/log/driver/writer/local"
+	lf "duolingo/lib/log/driver/writer/local_file"
+	lw "duolingo/lib/log/writer"
 	"time"
 
 	"context"
@@ -13,11 +14,12 @@ type LoggerBuilder struct {
 }
 
 func NewLoggerBuilder(ctx context.Context) *LoggerBuilder {
-	logger := new(Logger)
-	logger.ctx = ctx
-	logger.formatter = new(jf.JsonFormatter)
 	return &LoggerBuilder{
-		logger: logger,
+		logger: &Logger{
+			ctx: ctx,
+			formatter: new(jf.JsonFormatter),
+			writer: lw.NewLogWriter(ctx),
+		},
 	}
 }
 
@@ -30,8 +32,8 @@ func (builder *LoggerBuilder) SetLogLevel(level LogLevel) *LoggerBuilder {
 	return builder
 }
 
-func (builder *LoggerBuilder) UseNamespace(parts ...string) *LoggerBuilder {
-	builder.logger.Namespace = Namespace(parts...)
+func (builder *LoggerBuilder) SetURI(uri string) *LoggerBuilder {
+	builder.logger.uri = uri
 	return builder
 }
 
@@ -40,14 +42,8 @@ func (builder *LoggerBuilder) UseJsonFormat() *LoggerBuilder {
 	return builder
 }
 
-func (builder *LoggerBuilder) UseLocalWriter(path string) *LoggerBuilder {
-	writer := lw.NewLocalWriter(builder.logger.ctx, path)
-	builder.logger.writer = writer
-	return builder
-}
-
-func (builder *LoggerBuilder) WithFilePrefix(prefix string) *LoggerBuilder {
-	builder.logger.FilePrefix = prefix
+func (builder *LoggerBuilder) WithLocalFileOutput(dir string) *LoggerBuilder {
+	builder.logger.writer.AddLogOutput(lf.NewLocalFileOutPut(dir))
 	return builder
 }
 
@@ -61,7 +57,7 @@ func (builder *LoggerBuilder) WithRotation(interval time.Duration) *LoggerBuilde
 	return builder
 }
 
-func (builder *LoggerBuilder) WithFlushInterval(interval time.Duration) *LoggerBuilder {
-	builder.logger.writer.WithFlushInterval(interval)
+func (builder *LoggerBuilder) WithFlushInterval(interval time.Duration, grace time.Duration) *LoggerBuilder {
+	builder.logger.writer.WithFlushInterval(interval, grace)
 	return builder
 }
