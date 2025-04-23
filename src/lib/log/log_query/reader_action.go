@@ -1,4 +1,4 @@
-package local
+package log_query
 
 type LoopAction string
 

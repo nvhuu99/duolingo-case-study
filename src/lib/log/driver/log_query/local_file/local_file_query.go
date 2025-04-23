@@ -1,10 +1,9 @@
-package local
+package local_file
 
 import (
 	"bufio"
 	"duolingo/lib/log"
-	jf "duolingo/lib/log/driver/formatter/json"
-	formatter "duolingo/lib/log/formatter"
+	lq "duolingo/lib/log/log_query"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,76 +14,76 @@ import (
 	"time"
 )
 
-type LocalReader struct {
+type LocalFileQuery struct {
 	path        string
 	dateFrom    time.Time
 	dateTo      time.Time
 	level       string
 	filePrefix  string
 	filter      map[string]any
-	formatter   formatter.Formatter
 	parsedFiles []string
 }
 
-func LogQuery(path string, dateFrom time.Time, dateTo time.Time) *LocalReader {
-	reader := &LocalReader{
+func FileQuery(path string, dateFrom time.Time, dateTo time.Time) *LocalFileQuery {
+	reader := &LocalFileQuery{
 		path:        path,
 		dateFrom:    dateFrom,
 		dateTo:      dateTo,
 		filter:      make(map[string]any),
-		formatter:   new(jf.JsonFormatter),
 		parsedFiles: []string{},
 	}
 	return reader
 }
 
-func (reader *LocalReader) ExpectJson() *LocalReader {
-	reader.formatter = new(jf.JsonFormatter)
-	return reader
-}
-
-func (reader *LocalReader) Info() *LocalReader {
+func (reader *LocalFileQuery) Info() lq.LogQuery {
 	reader.level = string(log.LogLevelAsString[log.LevelInfo])
 	return reader
 }
 
-func (reader *LocalReader) Error() *LocalReader {
+func (reader *LocalFileQuery) Error() lq.LogQuery {
 	reader.level = string(log.LogLevelAsString[log.LevelError])
 	return reader
 }
 
-func (reader *LocalReader) Debug() *LocalReader {
+func (reader *LocalFileQuery) Debug() lq.LogQuery {
 	reader.level = string(log.LogLevelAsString[log.LevelDebug])
 	return reader
 }
 
-func (reader *LocalReader) FilePrefix(prefix string) *LocalReader {
-	reader.filePrefix = prefix
-	return reader
-}
-
-func (reader *LocalReader) Filter(conditions map[string]any) *LocalReader {
+func (reader *LocalFileQuery) Filters(conditions map[string]any) lq.LogQuery {
 	reader.filter = conditions
 	return reader
 }
 
-func (reader *LocalReader) Sum(extractFunc func(map[string]any) int64) (int64, error) {
-	var accumulation int64
-	err := reader.loop(func(log map[string]any) LoopAction {
-		accumulation += extractFunc(log)
-		return LoopContinue
+func (reader *LocalFileQuery) First(filter func(*log.Log) bool) (*log.Log, error) {
+	var first *log.Log
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
+		if filter == nil || filter(log) {
+			first = log
+			return lq.LoopCancel
+		}
+		return lq.LoopContinue
+	})
+	return first, err
+}
+
+func (reader *LocalFileQuery) Sum(extractor func(*log.Log) float64) (float64, error) {
+	var accumulation float64
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
+		accumulation += extractor(log)
+		return lq.LoopContinue
 	})
 	return accumulation, err
 }
 
-func (reader *LocalReader) Avg(extractFunc func(map[string]any) int64) (float64, error) {
-	var accumulation int64
+func (reader *LocalFileQuery) Avg(extractor func(*log.Log) float64) (float64, error) {
+	var accumulation float64
 	var count int64
 
-	err := reader.loop(func(log map[string]any) LoopAction {
-		accumulation += extractFunc(log)
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
+		accumulation += extractor(log)
 		count++
-		return LoopContinue
+		return lq.LoopContinue
 	})
 	if count == 0 {
 		return 0, nil
@@ -94,54 +93,50 @@ func (reader *LocalReader) Avg(extractFunc func(map[string]any) int64) (float64,
 	return average, err
 }
 
-func (reader *LocalReader) Count() (int, error) {
+func (reader *LocalFileQuery) Count(filter func(*log.Log) bool) (int, error) {
 	count := 0
-	err := reader.loop(func(log map[string]any) LoopAction {
-		count++
-		return LoopContinue
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
+		if filter == nil || filter(log) {
+			count++
+		}
+		return lq.LoopContinue
 	})
 	return count, err
 }
 
-func (reader *LocalReader) All() ([]map[string]any, error) {
-	logs := []map[string]any{}
-	err := reader.loop(func(log map[string]any) LoopAction {
+func (reader *LocalFileQuery) All() ([]*log.Log, error) {
+	logs := []*log.Log{}
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
 		logs = append(logs, log)
-		return LoopContinue
+		return lq.LoopContinue
 	})
 	return logs, err
 }
 
-func (reader *LocalReader) Each(callback func(map[string]any) LoopAction) error {
-	err := reader.loop(func(log map[string]any) LoopAction {
+func (reader *LocalFileQuery) Each(callback func(*log.Log) lq.LoopAction) error {
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
 		return callback(log)
 	})
 	return err
 }
 
-func (reader *LocalReader) Any() (bool, error) {
+func (reader *LocalFileQuery) Any(filter func(*log.Log) bool) (bool, error) {
 	var calledOnce bool
-	err := reader.loop(func(log map[string]any) LoopAction {
-		calledOnce = true
-		return LoopCancel
+	err := reader.loop(func(log *log.Log) lq.LoopAction {
+		if filter == nil || filter(log) {
+			calledOnce = true
+			return lq.LoopCancel
+		}
+		return lq.LoopContinue
 	})
 	return calledOnce, err
 }
 
-func (reader *LocalReader) First() (map[string]any, error) {
-	var firstLog map[string]any
-	err := reader.loop(func(log map[string]any) LoopAction {
-		firstLog = log
-		return LoopCancel
-	})
-	return firstLog, err
-}
-
-func (reader *LocalReader) ParsedFiles() []string {
+func (reader *LocalFileQuery) ParsedFiles() []string {
 	return reader.parsedFiles
 }
 
-func (reader *LocalReader) listFiles() ([]string, error) {
+func (reader *LocalFileQuery) listFiles() ([]string, error) {
 	files := []string{}
 	err := filepath.WalkDir(reader.path, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -181,23 +176,21 @@ func (reader *LocalReader) listFiles() ([]string, error) {
 }
 
 // ignore unmarshal error
-func (reader *LocalReader) loop(callback func(map[string]any) LoopAction) error {
+func (reader *LocalFileQuery) loop(callback func(*log.Log) lq.LoopAction) error {
 	files, err := reader.listFiles()
 	if err != nil {
 		return err
 	}
-
 	for _, path := range files {
 		reader.parsedFiles = append(reader.parsedFiles, path)
 		if err := reader.readLines(path, callback); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-func (reader *LocalReader) readLines(path string, callback func(map[string]any) LoopAction) error {
+func (reader *LocalFileQuery) readLines(path string, callback func(*log.Log) lq.LoopAction) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -206,25 +199,31 @@ func (reader *LocalReader) readLines(path string, callback func(map[string]any) 
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		var raw map[string]any
-		if err = json.Unmarshal(scanner.Bytes(), &raw); err != nil {
+		bytes := scanner.Bytes()
+		var asMap map[string]any
+		if err = json.Unmarshal(bytes, &asMap); err != nil {
+			return err
+		}
+		if !matchFilters(asMap, reader.filter) {
 			continue
 		}
-		if match(raw, reader.filter) {
-			if loopAction := callback(raw); loopAction == LoopCancel {
-				return nil
-			}
+		asLog := new(log.Log)
+		if err := json.Unmarshal(bytes, asLog); err != nil {
+			return err
+		}
+		if loopAction := callback(asLog); loopAction == lq.LoopCancel {
+			return nil
 		}
 	}
 
 	return nil
 }
 
-func match(log map[string]any, condition map[string]any) bool {
+func matchFilters(log map[string]any, conditions map[string]any) bool {
 	cdStack := []map[string]any{}
 	lgStack := []map[string]any{}
 
-	cdIterator := condition
+	cdIterator := conditions
 	lgIterator := log
 
 	for {
