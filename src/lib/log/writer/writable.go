@@ -1,7 +1,7 @@
 package writer
 
 type Writable struct {
-	URI     string
-	Rotation string
-	Content []byte
+	URI      string `json:"uri"`
+	Rotation string `json:"rotation"`
+	Content  []byte `json:"content"`
 }

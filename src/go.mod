@@ -13,6 +13,8 @@ require (
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	google.golang.org/api v0.226.0
+	google.golang.org/grpc v1.71.0
+	google.golang.org/protobuf v1.36.5
 )
 
 require (
@@ -82,7 +84,5 @@ require (
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb // indirect
-	google.golang.org/grpc v1.71.0 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

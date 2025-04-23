@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package logger;
+option go_package = "./logger;logger";
+
+service Logger {
+  rpc PushStream(stream PushStreamRequest) returns (PushStreamResponse) {}
+}
+
+message PushStreamRequest {
+  bytes line = 1;
+}
+
+message PushStreamResponse {}

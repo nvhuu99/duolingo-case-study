@@ -108,7 +108,7 @@ func (writer *LogWriter) flush() {
 		items[i] = writable
 	}
 
-	writer.writeAll(items)
+	writer.output(items)
 
 	time.Sleep(writer.FlushGraceTO)
 }
@@ -147,7 +147,7 @@ func (writer *LogWriter) rotate() {
 	writer.rotationDeadline = time.After(writer.Rotation)
 }
 
-func (writer *LogWriter) writeAll(items []*Writable) {
+func (writer *LogWriter) output(items []*Writable) {
 	for _, opt := range writer.outputs {
 		if err := opt.Flush(items); err != nil {
 			fmt.Println(err)

@@ -2,6 +2,7 @@ package log
 
 import (
 	jf "duolingo/lib/log/driver/formatter/json"
+	grpc "duolingo/lib/log/driver/writer/grpc_service"
 	lf "duolingo/lib/log/driver/writer/local_file"
 	lw "duolingo/lib/log/writer"
 	"time"
@@ -11,20 +12,24 @@ import (
 
 type LoggerBuilder struct {
 	logger *Logger
+	err    error
 }
 
 func NewLoggerBuilder(ctx context.Context) *LoggerBuilder {
 	return &LoggerBuilder{
 		logger: &Logger{
-			ctx: ctx,
+			ctx:       ctx,
 			formatter: new(jf.JsonFormatter),
-			writer: lw.NewLogWriter(ctx),
+			writer:    lw.NewLogWriter(ctx),
 		},
 	}
 }
 
-func (builder *LoggerBuilder) Get() *Logger {
-	return builder.logger
+func (builder *LoggerBuilder) Get() (*Logger, error) {
+	if builder.err != nil {
+		return nil, builder.err
+	}
+	return builder.logger, nil
 }
 
 func (builder *LoggerBuilder) SetLogLevel(level LogLevel) *LoggerBuilder {
@@ -44,6 +49,16 @@ func (builder *LoggerBuilder) UseJsonFormat() *LoggerBuilder {
 
 func (builder *LoggerBuilder) WithLocalFileOutput(dir string) *LoggerBuilder {
 	builder.logger.writer.AddLogOutput(lf.NewLocalFileOutPut(dir))
+	return builder
+}
+
+func (builder *LoggerBuilder) WithGRPCServiceOutput(addr string) *LoggerBuilder {
+	opt, err := grpc.NewGRPCServiceOutput(builder.logger.ctx, addr)
+	if err != nil {
+		builder.err = err
+	} else {
+		builder.logger.writer.AddLogOutput(opt)
+	}
 	return builder
 }
 
