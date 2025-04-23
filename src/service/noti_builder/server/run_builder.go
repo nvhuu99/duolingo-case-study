@@ -39,7 +39,7 @@ func main() {
 	bootstrap.Run()
 
 	container = sv.GetContainer()
-	ctx = context.Background()
+	ctx = container.Resolve("server.ctx").(context.Context)
 	conf = container.Resolve("config").(cf.ConfigReader)
 	repo = container.Resolve("repo.campaign_user").(*db.UserRepo)
 	distributor = container.Resolve("distributor").(wd.Distributor)

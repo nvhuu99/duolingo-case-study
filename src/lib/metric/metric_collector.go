@@ -79,7 +79,7 @@ func (c *MetricCollector) Fetch() (*Datapoint, error) {
 		return nil, err
 	}
 
-	to := time.After(c.datapointInterval + 200 * time.Millisecond)
+	to := time.After(c.datapointInterval + 200*time.Millisecond)
 	select {
 	case datapoint := <-dpChan:
 		return datapoint, nil

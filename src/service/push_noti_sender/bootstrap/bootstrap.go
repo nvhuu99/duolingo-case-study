@@ -63,9 +63,10 @@ func bindLogger() {
 		flushGrace := time.Duration(conf.GetInt("push_noti_sender.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("push_noti_sender.log.buffer.size", 1)
 		bufferCount := conf.GetInt("push_noti_sender.log.buffer.max_count", 1000)
+		gRPCServerAddress := conf.Get("log_service.server.address", ":8003")
 
-		uri := strings.Join([]string{ "service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER }, "/")
-		return log.NewLoggerBuilder(ctx).
+		uri := strings.Join([]string{"service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER}, "/")
+		logger, err := log.NewLoggerBuilder(ctx).
 			SetLogLevel(log.LevelAll).
 			SetURI(uri).
 			UseJsonFormat().
@@ -73,7 +74,14 @@ func bindLogger() {
 			WithRotation(rotation).
 			WithFlushInterval(flush, flushGrace).
 			WithLocalFileOutput(filepath.Join(dir, "service", cnst.SV_PUSH_SENDER, "storage", "log")).
+			WithGRPCServiceOutput(gRPCServerAddress).
 			Get()
+
+		if err != nil {
+			panic(err)
+		}
+
+		return logger
 	})
 }
 
