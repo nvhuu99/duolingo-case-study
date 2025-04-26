@@ -67,7 +67,10 @@ func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 	defer event.Notify(nil, eh.RELAY_INP_MESG_END, relayEvent)
 
 	// Register a new workload
-	count, err := repo.CountUsers(pushNoti.InputMessage.Campaign)
+	count, err := repo.CountCampaignMsgReceivers(
+		pushNoti.InputMessage.Campaign, 
+		pushNoti.InputMessage.CreatedAt,
+	)
 	if err != nil {
 		relayEvent.Error = err
 		return mq.ConsumerRequeue
@@ -124,7 +127,6 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 	var workload *wd.Workload
 	var assignment *wd.Assignment
 	var assignments []*wd.Assignment
-	var users []*md.CampaignUser
 
 	wg := new(sync.WaitGroup)
 	buildEvent := &ed.BuildPushNotiMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
@@ -161,17 +163,16 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 		}
 		assignments = append(assignments, assignment)
 
-		users, err = repo.UsersList(&db.ListUserOptions{
-			Campaign: pushNoti.InputMessage.Campaign,
-			Skip:     assignment.Start - 1,
-			Limit:    assignment.End - assignment.Start + 1,
-		})
+		deviceTokens, err := repo.ListCampaignMsgReceiverTokens(
+			pushNoti.InputMessage.Campaign,
+			pushNoti.InputMessage.CreatedAt,
+			&db.QueryOptions{
+				Skip:     int64(assignment.Start - 1),
+				Limit:    int64(assignment.End - assignment.Start + 1),
+			},
+		)
 		if err != nil {
 			return mq.ConsumerRequeue
-		}
-		deviceTokens := make([]string, len(users))
-		for i, user := range users {
-			deviceTokens[i] = user.DeviceToken
 		}
 
 		trace := container.Resolve("events.data.sv_opt_trace." + buildEvent.OptId).(*ed.ServiceOperationTrace)

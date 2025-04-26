@@ -63,14 +63,6 @@ func (repo *UserRepo) CountCampaignMsgReceivers(campaign string, timestamp time.
 	return int(count), err
 }
 
-func (repo *UserRepo) campaignMsgReceiversQuery(campaign string, timestamp time.Time) bson.M {
-	primitiveTime := primitive.NewDateTimeFromTime(timestamp)
-	return bson.M{
-		"campaign":    campaign,
-		"verified_at": bson.M{"$lte": primitiveTime},
-	}
-}
-
 func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp time.Time, opts *QueryOptions) ([]string, error) {
 	filter := repo.campaignMsgReceiversQuery(campaign, timestamp)
 	opt := options.Find()
@@ -117,4 +109,12 @@ func (repo *UserRepo) InsertUsers(users []*model.CampaignUser) ([]any, error) {
 	}
 
 	return result.InsertedIDs, nil
+}
+
+func (repo *UserRepo) campaignMsgReceiversQuery(campaign string, timestamp time.Time) bson.M {
+	primitiveTime := primitive.NewDateTimeFromTime(timestamp)
+	return bson.M{
+		"campaign":    campaign,
+		"verified_at": bson.M{"$lte": primitiveTime},
+	}
 }
