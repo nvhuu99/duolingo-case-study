@@ -1,0 +1,4 @@
+{
+  "dropIndexes": "campaign_users",
+  "index": "*"
+}

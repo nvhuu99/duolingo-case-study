@@ -1,0 +1,13 @@
+{
+  "createIndexes": "campaign_users",
+  "indexes": [
+    {
+      "key": { "campaign": 1, "verified_at": 1 },
+      "name": "idx_campaign_verified_at"
+    },
+    {
+      "key": { "sort_value": 1 },
+      "name": "idx_sort_value_desc"
+    }
+  ]
+}

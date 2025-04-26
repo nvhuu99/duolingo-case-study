@@ -9,7 +9,9 @@
                 "firstname",
                 "device_token",
                 "native_language",
-                "membership"
+                "membership",
+                "verified_at",
+                "sort_value"
             ],
             "properties": {
                 "campaign": {
@@ -35,6 +37,12 @@
                 "membership": {
                     "bsonType": "string",
                     "maxLength": 50
+                },
+                "verified_at": {
+                    "bsonType": "date"
+                },
+                "sort_value": {
+                    "bsonType": "int"
                 }
             }
         }
