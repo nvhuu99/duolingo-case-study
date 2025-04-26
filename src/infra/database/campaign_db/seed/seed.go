@@ -4,56 +4,88 @@ import (
 	"context"
 	config "duolingo/lib/config_reader/driver/reader/json"
 	"duolingo/model"
-	campaigndb "duolingo/repository/campaign_db"
+	"duolingo/repository/campaign_db"
+	"flag"
 	"log"
+	"math"
 	"path/filepath"
+	"time"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 )
 
 func main() {
+	// Read config
 	conf := config.NewJsonReader(filepath.Join(".", "config"))
 
+	total := flag.Int("total", 100, "total users to insert")
+	campaign := flag.String("campaign", "", "campaign name")
+	flag.Parse()
+	if *campaign == "" {
+		panic("campaign name must not be empty")
+	}
+
+	// Setup DB connection
 	userRepo := campaigndb.NewUserRepo(
 		context.Background(),
 		conf.Get("db.campaign.name", ""),
 	)
-	userRepo.SetConnection(
+	err := userRepo.SetConnection(
 		conf.Get("db.campaign.host", ""),
 		conf.Get("db.campaign.port", ""),
 		conf.Get("db.campaign.user", ""),
 		conf.Get("db.campaign.password", ""),
 	)
-
-	users := make([]*model.CampaignUser, 100)
-	for i := 0; i < 50; i++ {
-		users[i] = &model.CampaignUser{
-			Campaign:       "superbowl",
-			LastName:       "John",
-			FirstName:      "Doe",
-			DeviceToken:    uuid.New().String(),
-			NativeLanguage: "EN",
-			Membership:     model.Premium,
-			SortValue:      "1",
-		}
-	}
-
-	for i := 50; i < 100; i++ {
-		users[i] = &model.CampaignUser{
-			Campaign:       "superbowl",
-			LastName:       "John",
-			FirstName:      "Doe",
-			DeviceToken:    uuid.New().String(),
-			NativeLanguage: "EN",
-			Membership:     model.FreeTier,
-			SortValue:      "2",
-		}
-	}
-
-	_, err := userRepo.InsertUsers(users)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 
-	log.Println("seeder run successfully")
+	batchSize := 1000
+	numBatch := int(math.Ceil(float64(*total) / float64(batchSize)))
+
+	// Initialize faker
+	gofakeit.Seed(0)
+
+	for i := range numBatch {
+		count := batchSize
+		if (i+1)*batchSize > *total {
+			count = *total - i*batchSize
+		}
+
+		users := make([]*model.CampaignUser, count)
+
+		for j := range count {
+			membership, index := randomMembership()
+
+			users[j] = &model.CampaignUser{
+				Campaign:       *campaign,
+				LastName:       gofakeit.LastName(),
+				FirstName:      gofakeit.FirstName(),
+				DeviceToken:    uuid.New().String(),
+				NativeLanguage: gofakeit.LanguageAbbreviation(),
+				Membership:     membership,
+				SortValue:      int8(index),
+				VerifiedAt:     time.Now().Add(-time.Duration(gofakeit.Number(10, 30)) * 24 * time.Hour),
+			}
+		}
+
+		_, err := userRepo.InsertUsers(users)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
+	log.Printf("successfully created %v users for campaign %v", *total, *campaign)
+}
+
+// randomMembership returns a membership value and its index
+func randomMembership() (model.Membership, int) {
+	memberships := []model.Membership{
+		model.Premium,
+		model.Subscriber,
+		model.FreeTier,
+	}
+	index := gofakeit.Number(0, len(memberships)-1)
+	return memberships[index], index
 }
