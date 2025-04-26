@@ -10,6 +10,7 @@ import (
 	model "duolingo/model"
 	lc "duolingo/model/log/context"
 	"duolingo/service/input_message_api/bootstrap"
+	"time"
 
 	"log"
 
@@ -59,6 +60,7 @@ func input(request *rest.Request, response *rest.Response) {
 		Campaign:  campaign,
 		Title:     title,
 		Content:   content,
+		CreatedAt: time.Now(),
 	}
 	inputEvent.PushNoti.InputMessage = message
 

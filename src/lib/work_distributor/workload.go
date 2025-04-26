@@ -14,6 +14,5 @@ func (workload *Workload) NumOfAssignments() int {
 
 func (workload *Workload) ValidAttributes() bool {
 	return workload.NumOfUnits > 0 &&
-		workload.DistributionSize > 0 &&
-		workload.NumOfUnits >= workload.DistributionSize
+		workload.DistributionSize > 0
 }

@@ -117,6 +117,9 @@ func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
 	if workload.DistributionSize == 0 {
 		workload.DistributionSize = d.opts.DistributionSize
 	}
+	if workload.DistributionSize > workload.NumOfUnits {
+		workload.DistributionSize = workload.NumOfUnits
+	}
 	if !workload.ValidAttributes() {
 		return errors.New(wd.ErrMessages[wd.ERR_WORKLOAD_ATTRIBUTES_INVALID])
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -20,6 +21,7 @@ const (
 type UserRepo struct {
 	uri      string
 	database string
+	client   *mongo.Client
 	ctx      context.Context
 }
 
@@ -31,7 +33,7 @@ func NewUserRepo(ctx context.Context, database string) *UserRepo {
 	return &repo
 }
 
-func (repo *UserRepo) SetConnection(host string, port string, usr string, pwd string) {
+func (repo *UserRepo) SetConnection(host string, port string, usr string, pwd string) error {
 	repo.uri = fmt.Sprintf(
 		"mongodb://%v:%v@%v:%v/",
 		url.QueryEscape(usr),
@@ -39,103 +41,80 @@ func (repo *UserRepo) SetConnection(host string, port string, usr string, pwd st
 		host,
 		port,
 	)
-}
 
-func (repo *UserRepo) CountUsers(campaign string) (int, error) {
-	client, err := repo.connect()
-	defer client.Disconnect(repo.ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	filter := bson.D{
-		{Key: "campaign", Value: campaign},
-	}
-	count, err := client.Database(repo.database).
-		Collection("campaign_users").
-		CountDocuments(repo.ctx, filter)
-
-	return int(count), err
-}
-
-func (repo *UserRepo) UsersList(args *ListUserOptions) ([]*model.CampaignUser, error) {
-	client, err := repo.connect()
-	defer client.Disconnect(repo.ctx)
-	if err != nil {
-		return []*model.CampaignUser{}, err
-	}
-
-	filter := bson.D{}
-	if args.Campaign != "" {
-		filter = append(filter, bson.E{Key: "campaign", Value: args.Campaign})
-	}
-
-	opt := options.Find()
-	if args.Skip >= 0 {
-		opt.SetSkip(int64(args.Skip))
-	}
-	if args.Limit > 0 {
-		opt.SetLimit(int64(args.Limit))
-	}
-
-	collection := client.Database(repo.database).Collection("campaign_users")
-	cursor, err := collection.Find(repo.ctx, filter, opt)
-	if err != nil {
-		return []*model.CampaignUser{}, err
-	}
-	defer cursor.Close(repo.ctx)
-
-	var users []*model.CampaignUser
-	for cursor.Next(repo.ctx) {
-		var user model.CampaignUser
-		if err := cursor.Decode(&user); err != nil {
-			return []*model.CampaignUser{}, err
-		}
-		if !args.CursorMode {
-			users = append(users, &user)
-		} else {
-			flag := args.CursorFunc(&user)
-			if !flag {
-				return []*model.CampaignUser{}, nil
-			}
-		}
-	}
-
-	if err := cursor.Err(); err != nil {
-		return []*model.CampaignUser{}, err
-	}
-
-	return users, nil
-}
-
-func (repo *UserRepo) InsertUsers(users []*model.CampaignUser) ([]any, error) {
-	client, err := repo.connect()
-	defer client.Disconnect(repo.ctx)
-	if err != nil {
-		return []any{}, err
-	}
-
-	bsonData := make([]interface{}, len(users)) // Use interface{} for MongoDB compatibility
-	for i, usr := range users {
-		bsonData[i] = usr // Directly assign the struct
-	}
-
-	collection := client.Database(repo.database).Collection("campaign_users")
-	result, err := collection.InsertMany(repo.ctx, bsonData)
-	if err != nil {
-		return []any{}, err
-	}
-
-	return result.InsertedIDs, nil
-}
-
-func (repo *UserRepo) connect() (*mongo.Client, error) {
 	opts := options.Client()
 	opts.SetConnectTimeout(connectionTimeOut)
 	opts.SetSocketTimeout(defaultTimeOut)
 	opts.ApplyURI(repo.uri)
 
 	client, err := mongo.Connect(repo.ctx, opts)
+	if err != nil {
+		return err
+	}
+	repo.client = client
 
-	return client, err
+	return nil
+}
+
+func (repo *UserRepo) CountCampaignMsgReceivers(campaign string, timestamp time.Time) (int, error) {
+	filter := repo.campaignMsgReceiversQuery(campaign, timestamp)
+	coll := repo.client.Database(repo.database).Collection("campaign_users")
+	count, err := coll.CountDocuments(repo.ctx, filter)
+	return int(count), err
+}
+
+func (repo *UserRepo) campaignMsgReceiversQuery(campaign string, timestamp time.Time) bson.M {
+	primitiveTime := primitive.NewDateTimeFromTime(timestamp)
+	return bson.M{
+		"campaign":    campaign,
+		"verified_at": bson.M{"$lte": primitiveTime},
+	}
+}
+
+func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp time.Time, opts *QueryOptions) ([]string, error) {
+	filter := repo.campaignMsgReceiversQuery(campaign, timestamp)
+	opt := options.Find()
+	if opts.Skip >= 0 {
+		opt.SetSkip(opts.Skip)
+	}
+	if opts.Limit > 0 {
+		opt.SetLimit(opts.Limit)
+	}
+	collection := repo.client.Database(repo.database).Collection("campaign_users")
+
+	cursor, err := collection.Find(repo.ctx, filter, opt)
+	if err != nil {
+		return []string{}, err
+	}
+	defer cursor.Close(repo.ctx)
+
+	tokens := []string{}
+	for cursor.Next(repo.ctx) {
+		user := new(model.CampaignUser)
+		if err := cursor.Decode(user); err != nil {
+			return []string{}, err
+		}
+		tokens = append(tokens, user.DeviceToken)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return []string{}, err
+	}
+
+	return tokens, nil
+}
+
+func (repo *UserRepo) InsertUsers(users []*model.CampaignUser) ([]any, error) {
+	bsonData := make([]interface{}, len(users))
+	for i, usr := range users {
+		bsonData[i] = usr
+	}
+
+	collection := repo.client.Database(repo.database).Collection("campaign_users")
+	result, err := collection.InsertMany(repo.ctx, bsonData)
+	if err != nil {
+		return []any{}, err
+	}
+
+	return result.InsertedIDs, nil
 }

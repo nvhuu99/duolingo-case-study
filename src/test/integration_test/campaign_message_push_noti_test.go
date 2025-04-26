@@ -18,6 +18,6 @@ func TestCampaignMessagePushNotification(t *testing.T) {
 	suite.Run(t, &its.CampaignMessagePushNotiTestSuite{
 		ServiceDir:   servicesDir,
 		ConfigReader: config.NewJsonReader(configDir),
-		Campaign:     "superbowl",
+		Campaign:     "test_campaign",
 	})
 }

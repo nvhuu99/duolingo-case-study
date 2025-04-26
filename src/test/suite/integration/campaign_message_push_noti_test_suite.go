@@ -50,14 +50,17 @@ type CampaignMessagePushNotiTestSuite struct {
 func (s *CampaignMessagePushNotiTestSuite) SetupSuite() {
 	ctx := context.Background()
 	repo := db.NewUserRepo(ctx, s.ConfigReader.Get("db.campaign.name", ""))
-	repo.SetConnection(
+	err := repo.SetConnection(
 		s.ConfigReader.Get("db.campaign.host", ""),
 		s.ConfigReader.Get("db.campaign.port", ""),
 		s.ConfigReader.Get("db.campaign.user", ""),
 		s.ConfigReader.Get("db.campaign.password", ""),
 	)
+	if err != nil {
+		panic(err)
+	}
 
-	s.userCount, _ = repo.CountUsers(s.Campaign)
+	s.userCount, _ = repo.CountCampaignMsgReceivers(s.Campaign, time.Now())
 
 	s.manager = rabbitmq.NewRabbitMQManager(ctx)
 	s.manager.
@@ -100,9 +103,8 @@ func (s *CampaignMessagePushNotiTestSuite) TearDownSuite() {
 func (s *CampaignMessagePushNotiTestSuite) TestStep01MessageInputAPI() {
 	s.waitForMessageQueueReady(10*time.Second, graceTimeOut)
 
-	campaign := "superbowl"
 	addr := s.ConfigReader.Get("input_message_api.server.address", "")
-	api := fmt.Sprintf("http://%v/campaign/%v/message", addr, campaign)
+	api := fmt.Sprintf("http://%v/campaign/%v/message", addr, s.Campaign)
 	requestBody := `{ "title": "test_title", "content": "test_content" }`
 
 	// Verify API status
@@ -123,7 +125,7 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep01MessageInputAPI() {
 	// Verify message properties
 	s.Require().Equal("test_title", s.inputMessage.Title, "Returned title must match input")
 	s.Require().Equal("test_content", s.inputMessage.Content, "Returned content must match input")
-	s.Require().Equal(campaign, s.inputMessage.Campaign, "Returned campaign must match input")
+	s.Require().Equal(s.Campaign, s.inputMessage.Campaign, "Returned campaign must match input")
 
 	// Query input message request log
 	logQuery := s.logQuery(cnst.SV_INP_MESG).
@@ -216,7 +218,7 @@ func (s *CampaignMessagePushNotiTestSuite) TestStep03BuildPushNotiForAllUsers() 
 		totalOperations++
 		raw, _ := item.GetRaw("data.assignments")
 		assignments, ok := raw.([]any)
-		if ok && len(assignments) == 0 {
+		if !ok || len(assignments) == 0 {
 			return log_query.LoopContinue
 		}
 		for _, raw := range assignments {

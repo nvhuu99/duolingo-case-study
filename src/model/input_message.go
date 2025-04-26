@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"time"
 )
 
 type InputMessage struct {
@@ -9,6 +10,7 @@ type InputMessage struct {
 	Title     string `json:"title"`
 	Content   string `json:"content"`
 	Campaign  string `json:"campaign"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (msg *InputMessage) Serialize() string {
