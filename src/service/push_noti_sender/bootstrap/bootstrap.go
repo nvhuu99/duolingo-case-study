@@ -63,7 +63,7 @@ func bindLogger() {
 		flushGrace := time.Duration(conf.GetInt("push_noti_sender.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("push_noti_sender.log.buffer.size", 1)
 		bufferCount := conf.GetInt("push_noti_sender.log.buffer.max_count", 1000)
-		gRPCServerAddress := conf.Get("log_service.server.address", ":8003")
+		gRPCServerAddress := conf.Get("log_service.server.address", ":8002")
 
 		uri := strings.Join([]string{"service", cnst.ServiceTypes[cnst.SV_PUSH_SENDER], cnst.SV_PUSH_SENDER}, "/")
 		logger, err := log.NewLoggerBuilder(ctx).

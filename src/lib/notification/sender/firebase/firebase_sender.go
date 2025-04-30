@@ -88,3 +88,8 @@ func (sender *FirebaseSender) SendAll(title string, content string, deviceTokens
 		FailureTokens: failedTokens,
 	}
 }
+
+func (sender *FirebaseSender) GetTokenLimit() int {
+	const fireBaseTokenLimit = 500
+	return fireBaseTokenLimit
+}

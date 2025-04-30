@@ -17,6 +17,6 @@ type CampaignUser struct {
 	DeviceToken    string     `json:"device_token" bson:"device_token"`
 	NativeLanguage string     `json:"native_language" bson:"native_language"`
 	Membership     Membership `json:"membership" bson:"membership"`
-	SortValue      int8     `json:"sort_value" bson:"sort_value"`
-	VerifiedAt     time.Time     `json:"verified_at" bson:"verified_at"`
+	SortValue      int8       `json:"sort_value" bson:"sort_value"`
+	VerifiedAt     time.Time  `json:"verified_at" bson:"verified_at"`
 }

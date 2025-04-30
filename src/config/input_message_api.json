@@ -1,6 +1,8 @@
 {
     "server": {
-        "address": "localhost:8002"
+        "host": "input-message-api",
+        "port": "8001",
+        "address": "input-message-api:8001"
     },
     "log": {
         "rotation_seconds": 86400,

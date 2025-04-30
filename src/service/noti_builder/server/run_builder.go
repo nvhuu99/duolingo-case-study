@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 
 	ed "duolingo/event/event_data"
 	eh "duolingo/event/event_handler"
@@ -61,10 +60,9 @@ func main() {
 }
 
 func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
-	wg := new(sync.WaitGroup)
 	relayEvent := &ed.RelayInputMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(wg, eh.RELAY_INP_MESG_BEGIN, relayEvent)
-	defer event.Notify(nil, eh.RELAY_INP_MESG_END, relayEvent)
+	event.Notify(true, eh.RELAY_INP_MESG_BEGIN, relayEvent)
+	defer event.Notify(true, eh.RELAY_INP_MESG_END, relayEvent)
 
 	// Register a new workload
 	count, err := repo.CountCampaignMsgReceivers(
@@ -89,7 +87,6 @@ func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 		return mq.ConsumerRequeue
 	}
 	// Build relay the message
-	wg.Wait()
 	trace := container.Resolve("events.data.sv_opt_trace." + relayEvent.OptId).(*ed.ServiceOperationTrace)
 	numOfBuilders := conf.GetInt("noti_builder.server.num_of_builders", 1)
 	batch := make([]string, numOfBuilders)
@@ -128,10 +125,9 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 	var assignment *wd.Assignment
 	var assignments []*wd.Assignment
 
-	wg := new(sync.WaitGroup)
 	buildEvent := &ed.BuildPushNotiMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(wg, eh.BUILD_PUSH_NOTI_MESG_BEGIN, buildEvent)
-	defer event.Notify(nil, eh.BUILD_PUSH_NOTI_MESG_END, buildEvent)
+	event.Notify(true, eh.BUILD_PUSH_NOTI_MESG_BEGIN, buildEvent)
+	defer event.Notify(true, eh.BUILD_PUSH_NOTI_MESG_END, buildEvent)
 	defer func() {
 		buildEvent.Assignments = assignments
 		buildEvent.Workload = workload
@@ -144,8 +140,6 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 		return mq.ConsumerRequeue
 	}
 
-	wg.Wait()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -155,8 +149,10 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 
 		assignment, err = distributor.Next()
 		if err != nil {
+			// empty assignment error indicates operations success
 			if assignment == nil {
 				allSuccess = true
+				err = nil
 				return mq.ConsumerAccept
 			}
 			return mq.ConsumerRequeue

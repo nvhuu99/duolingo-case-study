@@ -1,5 +1,7 @@
 {
     "server": {
-        "address": "localhost:8003"
+        "host": "log-service",
+        "port": "8002",
+        "address": "log-service:8002"
     }
 }

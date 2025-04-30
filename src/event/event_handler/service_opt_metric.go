@@ -2,6 +2,7 @@ package event_handler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	ed "duolingo/event/event_data"

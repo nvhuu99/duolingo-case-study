@@ -1,7 +1,7 @@
 package event_handler
 
 import (
-	"sync"
+	"fmt"
 
 	cnst "duolingo/constant"
 	ed "duolingo/event/event_data"
@@ -50,16 +50,14 @@ func (e *SendPushNotification) Notified(topic string, data any) {
 
 func (e *SendPushNotification) handleSendPushNotiBegin(data any) {
 	evtData := data.(*ed.SendPushNotification)
-
-	e.events.Notify(nil, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
+	e.events.Notify(true, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
 		ServiceName: cnst.SV_PUSH_SENDER,
 		ServiceType: cnst.ServiceTypes[cnst.SV_PUSH_SENDER],
 		ServiceOpt:  cnst.SEND_PUSH_NOTI,
 		OptId:       evtData.OptId,
 		ParentSpan:  evtData.PushNoti.Trace,
 	})
-
-	e.events.Notify(nil, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
+	e.events.Notify(true, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
 		ServiceName: cnst.SV_PUSH_SENDER,
 		ServiceType: cnst.ServiceTypes[cnst.SV_PUSH_SENDER],
 		ServiceOpt:  cnst.SEND_PUSH_NOTI,
@@ -72,10 +70,8 @@ func (e *SendPushNotification) handleSendPushNotiEnd(data any) {
 	traceEvtData := e.container.Resolve("events.data.sv_opt_trace." + evtData.OptId).(*ed.ServiceOperationTrace)
 	metricEvtData := e.container.Resolve("events.data.sv_opt_metric." + evtData.OptId).(*ed.ServiceOperationMetric)
 
-	wg := new(sync.WaitGroup)
-	e.events.Notify(wg, SERVICE_OPERATION_TRACE_END, traceEvtData)
-	e.events.Notify(wg, SERVICE_OPERATION_METRIC_END, metricEvtData)
-	wg.Wait()
+	e.events.Notify(true, SERVICE_OPERATION_TRACE_END, traceEvtData)
+	e.events.Notify(true, SERVICE_OPERATION_METRIC_END, metricEvtData)
 
 	trace := traceEvtData.Span
 	if evtData.Result.Success {
@@ -87,4 +83,11 @@ func (e *SendPushNotification) handleSendPushNotiEnd(data any) {
 	if metric != nil {
 		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
 	}
+
+	fmt.Printf("push_noti_sent - has_err: %v - id: %v - title: %v - trace: %v\n", 
+		evtData.Result.Error,
+		evtData.PushNoti.InputMessage.MessageId, 
+		evtData.PushNoti.InputMessage.Title, 
+		trace.TraceId,
+	)
 }

@@ -36,8 +36,8 @@ func input(request *rest.Request, response *rest.Response) {
 		Request:  request,
 		Response: response,
 	}
-	event.Notify(nil, eh.INP_MSG_REQUEST_BEGIN, inputEvent)
-	defer event.Notify(nil, eh.INP_MSG_REQUEST_END, inputEvent)
+	event.Notify(true, eh.INP_MSG_REQUEST_BEGIN, inputEvent)
+	defer event.Notify(true, eh.INP_MSG_REQUEST_END, inputEvent)
 
 	campaign := request.Path("campaign").Str()
 	title := request.Input("title").Str()

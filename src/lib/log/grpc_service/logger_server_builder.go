@@ -2,7 +2,7 @@ package grpc_service
 
 import (
 	"context"
-	mongo "duolingo/lib/log/driver/grpc_service/mongo"
+	"duolingo/lib/log/driver/grpc_service/mongo"
 )
 
 type LoggerGRPCServerBuilder struct {

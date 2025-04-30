@@ -1,0 +1,122 @@
+version: "3.9"
+
+services:
+  campaign-db:
+    image: mongo:8.0.4
+    container_name: campaign-db
+    command: ["--wiredTigerCacheSizeGB", "1.5"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root@1234
+    ports:
+      - "27017:27017"
+    networks:
+      - duolingo
+    volumes:
+      - duolingo-campaign-db:/data/db
+    restart: always
+    stop_grace_period: 5s
+
+  redis:
+    image: redis:7.4.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - duolingo-redis-data:/data
+    networks:
+      - duolingo
+    restart: always
+    stop_grace_period: 5s
+
+  message-queue:
+    image: rabbitmq:3-management
+    container_name: message-queue
+    hostname: message-queue
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: root@1234
+    volumes:
+      - duolingo-mq-data:/var/lib/rabbitmq
+    networks:
+      - duolingo
+    restart: always
+    stop_grace_period: 5s
+
+  input-message-api:
+    container_name: input-message-api
+    build:
+      context: ../
+      dockerfile: docker/dockerfile.dev
+      args:
+        SERVICE_MAIN: service/input_message_api/server/serve_api.go
+    ports:
+      - "8001:8001"
+    networks:
+      - duolingo
+    volumes:
+      - ../:/var/duolingo/
+    restart: always
+    stop_grace_period: 5s
+
+  noti-builder:
+    container_name: noti-builder
+    build:
+      context: ../
+      dockerfile: docker/dockerfile.dev
+      args:
+        SERVICE_MAIN: service/noti_builder/server/run_builder.go
+    networks:
+      - duolingo
+    volumes:
+      - ../:/var/duolingo/
+    restart: always
+    stop_grace_period: 5s
+    mem_limit: 500m
+    cpus: 2
+  
+  push-noti-sender:
+    container_name: push-noti-sender
+    build:
+      context: ../
+      dockerfile: docker/dockerfile.dev
+      args:
+        SERVICE_MAIN: service/push_noti_sender/server/sender.go
+    networks:
+      - duolingo
+    volumes:
+      - ../:/var/duolingo/
+    restart: always
+    stop_grace_period: 5s
+    mem_limit: 500m
+    cpus: 2
+
+  log-service:
+    container_name: log-service
+    build:
+      context: ../
+      dockerfile: docker/dockerfile.dev
+      args:
+        SERVICE_MAIN: service/log_service/server/run_log_server.go
+    networks:
+      - duolingo
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../:/var/duolingo/
+    restart: always
+    stop_grace_period: 5s
+    mem_limit: 500m
+    cpus: 0.5
+
+networks:
+  duolingo:
+    driver: bridge
+
+volumes:
+  duolingo-campaign-db:
+  duolingo-redis-data:
+  duolingo-mq-data:

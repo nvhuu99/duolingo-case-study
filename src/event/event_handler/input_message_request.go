@@ -7,7 +7,6 @@ import (
 	"duolingo/lib/log"
 	sv "duolingo/lib/service_container"
 	ldt "duolingo/model/log/detail"
-	"sync"
 
 	"github.com/google/uuid"
 )
@@ -49,16 +48,14 @@ func (e *InputMessageRequest) Notified(topic string, data any) {
 
 func (e *InputMessageRequest) handleRequestBegin(data any) {
 	evtData := data.(*ed.InputMessageRequest)
-
-	e.events.Notify(nil, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
+	e.events.Notify(true, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
 		ServiceName: cnst.SV_INP_MESG,
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
 		OptId:       evtData.OptId,
 		ParentSpan:  evtData.PushNoti.Trace,
 	})
-
-	e.events.Notify(nil, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
+	e.events.Notify(true, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
 		ServiceName: cnst.SV_INP_MESG,
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
@@ -71,10 +68,8 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	traceEvtData := e.container.Resolve("events.data.sv_opt_trace." + evtData.OptId).(*ed.ServiceOperationTrace)
 	metricEvtData := e.container.Resolve("events.data.sv_opt_metric." + evtData.OptId).(*ed.ServiceOperationMetric)
 
-	wg := new(sync.WaitGroup)
-	e.events.Notify(wg, SERVICE_OPERATION_TRACE_END, traceEvtData)
-	e.events.Notify(wg, SERVICE_OPERATION_METRIC_END, metricEvtData)
-	wg.Wait()
+	e.events.Notify(true, SERVICE_OPERATION_TRACE_END, traceEvtData)
+	e.events.Notify(true, SERVICE_OPERATION_METRIC_END, metricEvtData)
 
 	trace := traceEvtData.Span
 	if evtData.Success {

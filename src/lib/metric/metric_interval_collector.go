@@ -50,7 +50,7 @@ func (c *MetricIntervalCollector) capturing(flag CaptureFlag, callback func(*Dat
 	}
 	defer c.collector.CaptureEnd()
 
-	dataPointChan, err := c.collector.DatapointChannel()
+	dataPointChan, err := c.collector.datapointChannel()
 	if err != nil {
 		return
 	}

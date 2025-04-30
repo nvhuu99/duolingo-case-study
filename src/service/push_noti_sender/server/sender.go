@@ -40,23 +40,31 @@ func main() {
 }
 
 func send(pushNoti *model.PushNotiMessage) mq.ConsumerAction {
-	var result *noti.Result
-
+	result := &noti.Result{ Success:  true }
 	sendEvent := &ed.SendPushNotification{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(nil, eh.SEND_PUSH_NOTI_BEGIN, sendEvent)
-	defer event.Notify(nil, eh.SEND_PUSH_NOTI_END, sendEvent)
+	event.Notify(true, eh.SEND_PUSH_NOTI_BEGIN, sendEvent)
+	defer event.Notify(true, eh.SEND_PUSH_NOTI_END, sendEvent)
 	defer func() {
 		sendEvent.Result = result
 	}()
 
-	result = sender.SendAll(
-		pushNoti.InputMessage.Title,
-		pushNoti.InputMessage.Content,
-		pushNoti.DeviceTokens,
-	)
-
-	if !result.Success {
-		return mq.ConsumerRequeue
+	tokenLimit := sender.GetTokenLimit()
+	for i := 0; i < len(pushNoti.DeviceTokens); i += tokenLimit {
+		end := min(i + tokenLimit, len(pushNoti.DeviceTokens))
+		tokens := pushNoti.DeviceTokens[i:end]
+		batchResult := sender.SendAll(
+			pushNoti.InputMessage.Title,
+			pushNoti.InputMessage.Content,
+			tokens,
+		)
+		if !batchResult.Success {
+			result.Success = false
+			result.Error = batchResult.Error
+			return mq.ConsumerRequeue
+		} else {
+			result.SuccessCount += batchResult.SuccessCount
+			result.FailureCount += batchResult.FailureCount
+		}
 	}
 	return mq.ConsumerAccept
 }

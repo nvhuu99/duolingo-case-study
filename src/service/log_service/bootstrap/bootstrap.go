@@ -41,7 +41,7 @@ func bindConfigReader() {
 
 func bindLogServer() {
 	conf := container.Resolve("config").(config.ConfigReader)
-	logSrvAddr := conf.Get("log_service.server.address", ":8003")
+	logSrvAddr := fmt.Sprintf("0.0.0.0:%v", conf.Get("log_service.server.port", "8002"))
 	dbName := conf.Get("db.campaign.name", "")
 	mongoUri := fmt.Sprintf("mongodb://%v:%v@%v:%v/",
 		url.QueryEscape(conf.Get("db.campaign.user", "")),

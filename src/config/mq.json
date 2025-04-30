@@ -1,5 +1,5 @@
 {
-    "host": "localhost",
+    "host": "message-queue",
     "port": "5672",
     "user": "root",
     "pwd": "root@1234"

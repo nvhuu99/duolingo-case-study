@@ -16,7 +16,7 @@ type Log struct {
 	LogErrors  any       `json:"errors"`
 	LogContext any       `json:"context"`
 
-	ready chan bool
+	ready chan bool `json:"-"`
 }
 
 func NewLog(level LogLevel, message string) (*Log, <-chan bool) {

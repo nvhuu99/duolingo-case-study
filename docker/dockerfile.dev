@@ -1,0 +1,17 @@
+FROM golang:1.23
+
+ARG SERVICE_MAIN=""
+ENV APP_DIR=/var/duolingo
+ENV APP_SRC=/var/duolingo/src
+ENV SERVICE_MAIN=${SERVICE_MAIN}
+
+RUN apt-get update && \
+    apt-get install -y vim
+
+WORKDIR ${APP_SRC}
+
+COPY src/go.mod src/go.sum ./
+
+RUN go mod download
+
+CMD ["sh", "-c", "go run ${SERVICE_MAIN}"]

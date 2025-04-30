@@ -88,24 +88,29 @@ func (p *EventPublisher) UnSubcribe(topic Pattern, sub Subcriber) error {
 	return nil
 }
 
-func (p *EventPublisher) Notify(wg *sync.WaitGroup, topic string, data any) {
+func (p *EventPublisher) Notify(wait bool, topic string, data any) {
+	var wg sync.WaitGroup
+	defer func() {
+		if wait {
+			wg.Wait()
+		}
+	}()
 	for id, subscriber := range p.subscribers {
 		matches := slices.Contains(p.strTopics[id], topic) || slices.ContainsFunc(p.regexTopics[id],
 			func(rt *RegexPattern) bool { return rt.Match(topic) },
 		)
 		if matches {
-			if wg != nil {
+			if wait {
 				wg.Add(1)
 			}
 			go func() {
 				defer func() {
-					if wg != nil {
+					if wait {
 						wg.Done()
 					}
 				}()
-
 				subscriber.Notified(topic, data)
 			}()
 		}
-	}
+	}	
 }

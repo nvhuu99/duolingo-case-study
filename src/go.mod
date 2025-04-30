@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	firebase.google.com/go/v4 v4.15.2
+	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.10.0

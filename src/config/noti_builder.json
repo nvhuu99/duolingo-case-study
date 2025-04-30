@@ -1,6 +1,6 @@
 {
     "server": {
-        "num_of_builders": 3
+        "num_of_builders": 1
     },
     "log": {
         "rotation_seconds": 86400,

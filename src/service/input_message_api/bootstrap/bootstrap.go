@@ -12,6 +12,7 @@ import (
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func bindLogger() {
 		flushGrace := time.Duration(conf.GetInt("input_message_api.log.flush_grace_ms", 300)) * time.Millisecond
 		bufferSize := conf.GetInt("input_message_api.log.buffer.size", 2)
 		bufferCount := conf.GetInt("input_message_api.log.buffer.max_count", 1000)
-		gRPCServerAddress := conf.Get("log_service.server.address", ":8003")
+		gRPCServerAddress := conf.Get("log_service.server.address", ":8002")
 
 		uri := strings.Join([]string{"service", cnst.ServiceTypes[cnst.SV_INP_MESG], cnst.SV_INP_MESG}, "/")
 		logger, err := log.NewLoggerBuilder(ctx).
@@ -98,7 +99,7 @@ func bindRestHttp() {
 
 	container.BindSingleton("rest.server", func() any {
 		server := rest.
-			NewServer(conf.Get("input_message_api.server.address", ":80"))
+			NewServer(fmt.Sprintf("0.0.0.0:%v", conf.Get("input_message_api.server.port", "8001")))
 			// WithMiddlewares("request", new(md.RequestBegin)).
 			// WithMiddlewares("response", new(md.RequestEnd))
 
