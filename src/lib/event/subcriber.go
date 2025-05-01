@@ -1,6 +1,6 @@
 package event
 
 type Subcriber interface {
-	SubcriberId() string
+	SubscriberId() string
 	Notified(string, any)
 }

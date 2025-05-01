@@ -2,103 +2,137 @@ package event
 
 import (
 	"fmt"
-	"slices"
 	"sync"
 )
 
 type EventPublisher struct {
 	subscribers map[string]Subcriber
-	strTopics   map[string][]string // subscriber topics mapped by subscriber ids
-	regexTopics map[string][]*RegexPattern
+	strTopics   map[string][]*strTopicSubscription
+	regexTopics map[string][]*regexTopicSubscription
 }
 
 func NewEventPublisher() *EventPublisher {
 	return &EventPublisher{
 		subscribers: make(map[string]Subcriber),
-		strTopics:   make(map[string][]string),
-		regexTopics: make(map[string][]*RegexPattern),
+		strTopics:   make(map[string][]*strTopicSubscription),
+		regexTopics: make(map[string][]*regexTopicSubscription),
 	}
 }
 
-func (p *EventPublisher) Subscribe(topic string, sub Subcriber) error {
+func (p *EventPublisher) Subscribe(wait bool, topic string, sub Subcriber) error {
 	if topic == "" {
 		return fmt.Errorf(ErrorMessages[ERR_EMPTY_PATTERN])
 	}
 
-	id := sub.SubcriberId()
+	id := sub.SubscriberId()
 	if id == "" {
 		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
 	}
 
 	if _, exists := p.subscribers[id]; !exists {
 		p.subscribers[id] = sub
-		p.strTopics[id] = []string{}
+		p.strTopics[id] = []*strTopicSubscription{}
 	}
 
-	if slices.Contains(p.strTopics[id], topic) {
-		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_TOPIC_EXISTED], topic)
+	for _, strTopic := range p.strTopics[id] {
+		if strTopic.topic == topic {
+			return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_TOPIC_EXISTED], topic)
+		}
 	}
 
-	p.strTopics[id] = append(p.strTopics[id], topic)
+	p.strTopics[id] = append(p.strTopics[id], &strTopicSubscription{
+		topic: topic,
+		wait:  wait,
+	})
 
 	return nil
 }
 
-func (p *EventPublisher) SubscribeRegex(regex string, sub Subcriber) error {
-	regexPattern, err := NewRegexPattern(regex)
+func (p *EventPublisher) SubscribeRegex(wait bool, regex string, sub Subcriber) error {
+	regexPattern, err := newRegexPattern(regex)
 	if err != nil {
 		return err
 	}
 
-	if regexPattern.IsEmptyPattern() {
+	if regexPattern.isEmptyPattern() {
 		return fmt.Errorf(ErrorMessages[ERR_EMPTY_PATTERN])
 	}
 
-	id := sub.SubcriberId()
+	id := sub.SubscriberId()
 	if id == "" {
 		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
 	}
 
 	if _, exists := p.subscribers[id]; !exists {
 		p.subscribers[id] = sub
-		p.regexTopics[id] = []*RegexPattern{}
+		p.regexTopics[id] = []*regexTopicSubscription{}
 	}
 
 	for _, rt := range p.regexTopics[id] {
-		if rt.Equal(regexPattern) {
+		if rt.regex.equal(regexPattern) {
 			return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_TOPIC_EXISTED], regex)
 		}
 	}
 
-	p.regexTopics[id] = append(p.regexTopics[id], regexPattern)
+	p.regexTopics[id] = append(p.regexTopics[id], &regexTopicSubscription{
+		regex: regexPattern,
+		wait:  wait,
+	})
 
 	return nil
 }
 
-func (p *EventPublisher) UnSubcribe(topic Pattern, sub Subcriber) error {
-	id := sub.SubcriberId()
+func (p *EventPublisher) UnSubscribe(topic string, sub Subcriber) error {
+	id := sub.SubscriberId()
 	if _, exists := p.subscribers[id]; !exists {
 		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_NOT_EXIST])
 	}
 
-	delete(p.subscribers, id)
-	delete(p.strTopics, id)
-	delete(p.regexTopics, id)
+	strTopics := []*strTopicSubscription{}
+	regexTopics := []*regexTopicSubscription{}
+	for _, str := range p.strTopics[id] {
+		if str.topic != topic {
+			strTopics = append(strTopics, str)
+		}
+	}
+	for _, reg := range p.regexTopics[id] {
+		if !reg.regex.match(topic) {
+			regexTopics = append(regexTopics, reg)
+		}
+	}
+
+	if len(strTopics) == 0 && len(regexTopics) == 0 {
+		delete(p.subscribers, id)
+	} else {
+		p.strTopics[id] = strTopics
+		p.regexTopics[id] = regexTopics
+	}
 
 	return nil
 }
 
-func (p *EventPublisher) Notify(wait bool, topic string, data any) {
+func (p *EventPublisher) Notify(topic string, data any) {
 	var wg sync.WaitGroup
-	defer func() {
-		if wait {
-			wg.Wait()
-		}
-	}()
+	defer wg.Wait()
 	for id, subscriber := range p.subscribers {
-		matches := slices.Contains(p.strTopics[id], topic) || slices.ContainsFunc(p.regexTopics[id],
-			func(rt *RegexPattern) bool { return rt.Match(topic) },
-		)
+		matches := false
+		wait := false
+		for _, st := range p.strTopics[id] {
+			if st.topic == topic {
+				matches = true
+				wait = st.wait
+				break
+			}
+		}
+		if !matches {
+			for _, rt := range p.regexTopics[id] {
+				if rt.regex.match(topic) {
+					matches = true
+					wait = rt.wait
+					break
+				}
+			}
+		}
 		if matches {
 			if wait {
 				wg.Add(1)
@@ -112,5 +146,5 @@ func (p *EventPublisher) Notify(wait bool, topic string, data any) {
 				subscriber.Notified(topic, data)
 			}()
 		}
-	}	
+	}
 }

@@ -4,27 +4,27 @@ import (
 	"regexp"
 )
 
-type RegexPattern struct {
+type regexPattern struct {
 	raw   string
 	regex *regexp.Regexp
 }
 
-func NewRegexPattern(r string) (*RegexPattern, error) {
+func newRegexPattern(r string) (*regexPattern, error) {
 	compiled, err := regexp.Compile(r)
 	if err != nil {
 		return nil, err
 	}
-	return &RegexPattern{raw: r, regex: compiled}, nil
+	return &regexPattern{raw: r, regex: compiled}, nil
 }
 
-func (p *RegexPattern) IsEmptyPattern() bool {
+func (p *regexPattern) isEmptyPattern() bool {
 	return p.raw == ""
 }
 
-func (p *RegexPattern) Match(target string) bool {
+func (p *regexPattern) match(target string) bool {
 	return p.regex.MatchString(target)
 }
 
-func (p *RegexPattern) Equal(target *RegexPattern) bool {
+func (p *regexPattern) equal(target *regexPattern) bool {
 	return p.raw == target.raw
 }
