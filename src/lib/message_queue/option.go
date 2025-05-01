@@ -1,12 +1,16 @@
-package messagequeue
+package message_queue
 
-import "time"
+import (
+	"time"
+	"duolingo/lib/event"
+)
 
 type ManagerOptions struct {
 	GraceTimeOut      time.Duration
 	ConnectionTimeOut time.Duration
 	HearBeat          time.Duration
 	KeepAlive         bool
+	EventPublisher event.Publisher
 }
 
 type TopologyOptions struct {
@@ -36,6 +40,7 @@ func DefaultManagerOptions() *ManagerOptions {
 		ConnectionTimeOut: 60 * time.Second,
 		HearBeat:          10 * time.Second,
 		KeepAlive:         true,
+		EventPublisher: event.NewEventPublisher(),
 	}
 }
 
@@ -56,6 +61,11 @@ func (opt *ManagerOptions) WithHearBeat(duration time.Duration) *ManagerOptions 
 
 func (opt *ManagerOptions) WithKeepAlive(flag bool) *ManagerOptions {
 	opt.KeepAlive = flag
+	return opt
+}
+
+func (opt *ManagerOptions) WithEventPublisher(p event.Publisher) *ManagerOptions {
+	opt.EventPublisher = p
 	return opt
 }
 

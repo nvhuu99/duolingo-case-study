@@ -1,4 +1,4 @@
-package messagequeue
+package message_queue
 
 type Manager interface {
 	Connect() error

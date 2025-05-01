@@ -22,7 +22,6 @@ type RabbitMQTopology struct {
 	cancel context.CancelFunc
 	mu     sync.RWMutex
 
-	errChan chan error
 	isReady bool
 }
 
@@ -46,14 +45,7 @@ func (client *RabbitMQTopology) WithOptions(opts *mq.TopologyOptions) *mq.Topolo
 	return client.opts
 }
 
-func (client *RabbitMQTopology) OnConnectionFailure(err error) {
-}
-
-func (client *RabbitMQTopology) OnClientFatalError(err error) {
-	// client.terminate(err)
-}
-
-func (client *RabbitMQTopology) OnReConnected() {
+func (client *RabbitMQTopology) ResetConnection() {
 	client.Declare()
 }
 
@@ -71,11 +63,6 @@ func (client *RabbitMQTopology) Topic(name string) *Topic {
 	}
 
 	return client.topics[name]
-}
-
-func (client *RabbitMQTopology) NotifyError(ch chan error) chan error {
-	client.errChan = ch
-	return ch
 }
 
 func (client *RabbitMQTopology) IsReady() bool {
@@ -257,18 +244,6 @@ func (client *RabbitMQTopology) declareQos(ch *amqp.Channel) error {
 
 	return nil
 }
-
-// func (client *RabbitMQTopology) notifyErr(err error) {
-// 	if client.errChan != nil {
-// 		client.errChan <- err
-// 	}
-// }
-
-// func (client *RabbitMQTopology) terminate(err error) {
-// 	client.notifyErr(err)
-// 	client.cancel()
-// 	client.manager.UnRegisterClient(client.id)
-// }
 
 func (client *RabbitMQTopology) getChannel() *amqp.Channel {
 	ch, _ := client.manager.GetClientConnection(client.id)

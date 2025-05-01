@@ -1,4 +1,4 @@
-package messagequeue
+package message_queue
 
 type Dispatcher interface {
 	// return the routing key for the publisher

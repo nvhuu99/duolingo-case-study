@@ -119,7 +119,6 @@ func (s *RabbitMQTestSuite) TestManagerAutoReconnect() {
 	for _, client := range clients {
 		conn, _ := s.manager.GetClientConnection(client.Id)
 		s.Require().Nil(conn, "all client channel must be nil")
-		s.Require().True(client.ConnectionFailureTriggered, "manager should call all clients OnConnectionFailure()")
 	}
 
 	s.manager.UseConnection(s.Host, s.Port, s.User, s.Password)

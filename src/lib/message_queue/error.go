@@ -1,4 +1,4 @@
-package messagequeue
+package message_queue
 
 const (
 	ERR_CONNECTION_FAILURE      = 501

@@ -46,7 +46,7 @@ func (m *RabbitMQManager) WithOptions(opts *mq.ManagerOptions) *mq.ManagerOption
 	if opts == nil {
 		opts = mq.DefaultManagerOptions()
 	}
-	if m.opts != nil {
+	if m.opts == nil {
 		m.opts = opts
 	}
 	return m.opts
@@ -227,11 +227,7 @@ func (m *RabbitMQManager) handleReconnect() {
 			if conn, err = m.connect(); conn == nil || err != nil {
 				// Inform the client of the issue.
 				if firstTry {
-					m.mu.RLock()
-					for _, info := range m.clients {
-						go info.client.OnConnectionFailure(err)
-					}
-					m.mu.RUnlock()
+					m.opts.EventPublisher.Notify(EVT_CONNECTION_FAILURE, &ConnectionFailureEvent{err})
 				}
 				firstTry = false
 				// Stop this operation according to the "keep alive" option.
@@ -246,7 +242,7 @@ func (m *RabbitMQManager) handleReconnect() {
 			m.mu.Lock()
 			m.conn = conn
 			for _, info := range m.clients {
-				go info.client.OnReConnected()
+				go info.client.ResetConnection()
 			}
 			closedNotifications = m.conn.NotifyClose(make(chan *amqp.Error, 1))
 			m.mu.Unlock()

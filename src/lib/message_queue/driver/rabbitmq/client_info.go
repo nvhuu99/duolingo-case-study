@@ -77,9 +77,9 @@ func (c *clientInfo) handleClientChannel() {
 			if ch, err = c.makeChannel(); ch == nil || err != nil {
 				// Inform the client of the issue.
 				if firstTry {
-					go c.client.OnConnectionFailure(err)
-					firstTry = false
+					c.manager.opts.EventPublisher.Notify(EVT_CONNECTION_FAILURE, &ConnectionFailureEvent{err})
 				}
+				firstTry = false
 				continue
 			}
 			// Client channel is ready.
@@ -100,11 +100,13 @@ func (c *clientInfo) handleClientChannel() {
 			// Received a channel error (the channel has just closed).
 			// Gracefully wait for the connection status to be set by the manager first.
 			time.Sleep(50 * time.Millisecond)
-			// If it was not a connection err, and it was actually from the client side,
-			// then the client must be informed.
-			// It's up to the client to unregister and terminate itself.
+			// If it was not a connection err, then it was actually from the client side
 			if !c.manager.IsReConnecting() {
-				go c.client.OnClientFatalError(fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CLIENT_FATAL_ERROR], chanErr))
+				c.manager.opts.EventPublisher.Notify(EVT_CLIENT_FATAL_ERR, &ClientFatalErr{
+					Id: c.id,
+					ClientName: c.name,
+					Error: fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CLIENT_FATAL_ERROR], chanErr),
+				})
 			}
 			// Trigger resetting clients connections.
 			go c.triggerReset()

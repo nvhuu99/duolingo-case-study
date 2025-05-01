@@ -1,4 +1,4 @@
-package messagequeue
+package message_queue
 
 type Topology interface {
 	Declare() error

@@ -20,7 +20,6 @@ type RabbitMQPublisher struct {
 	chanId      string
 	confirm     chan amqp.Confirmation
 	deliveryTag uint64
-	errChan     chan error
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -44,19 +43,7 @@ func (client *RabbitMQPublisher) WithOptions(opts *mq.PublisherOptions) *mq.Publ
 	return client.opts
 }
 
-func (client *RabbitMQPublisher) OnReConnected() {
-}
-
-func (client *RabbitMQPublisher) OnConnectionFailure(err error) {
-}
-
-func (client *RabbitMQPublisher) OnClientFatalError(err error) {
-	// client.terminate(err)
-}
-
-func (client *RabbitMQPublisher) NotifyError(ch chan error) chan error {
-	client.errChan = ch
-	return ch
+func (client *RabbitMQPublisher) ResetConnection() {
 }
 
 func (client *RabbitMQPublisher) UseManager(manager mq.Manager) {
@@ -70,6 +57,19 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 	routingKey := client.opts.Dispatcher.Dispatch(mssg)
 	writeDeadline := time.After(client.opts.WriteTimeOut)
 	firstTry := true
+
+	defer func() {
+		if publishErr == nil {
+			if manager, ok := client.manager.(*RabbitMQManager); ok {
+				manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
+					ClientName: client.name,
+					QueueName: client.opts.Topic,
+					Action: PublisherPublished,
+				})
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-client.ctx.Done():
@@ -150,15 +150,3 @@ func (client *RabbitMQPublisher) getChannel() *amqp.Channel {
 
 	return channel
 }
-
-// func (client *RabbitMQPublisher) sendErr(err error) {
-// 	if client.errChan != nil {
-// 		client.errChan <- err
-// 	}
-// }
-
-// func (client *RabbitMQPublisher) terminate(err error) {
-// 	go client.manager.UnRegisterClient(client.id)
-// 	client.sendErr(err)
-// 	client.cancel()
-// }

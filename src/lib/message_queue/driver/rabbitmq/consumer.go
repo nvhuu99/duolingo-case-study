@@ -17,7 +17,6 @@ type RabbitMQConsumer struct {
 
 	id      string
 	name    string
-	errChan chan error
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -43,19 +42,7 @@ func (client *RabbitMQConsumer) WithOptions(opts *mq.ConsumerOptions) *mq.Consum
 	return client.opts
 }
 
-func (client *RabbitMQConsumer) OnConnectionFailure(err error) {
-}
-
-func (client *RabbitMQConsumer) OnClientFatalError(err error) {
-	// client.terminate(err)
-}
-
-func (client *RabbitMQConsumer) NotifyError(ch chan error) chan error {
-	client.errChan = ch
-	return ch
-}
-
-func (client *RabbitMQConsumer) OnReConnected() {
+func (client *RabbitMQConsumer) ResetConnection() {
 	client.reset <- true
 }
 
@@ -180,25 +167,26 @@ func (client *RabbitMQConsumer) resetDeliveries() {
 
 func (client *RabbitMQConsumer) action(d amqp.Delivery, act mq.ConsumerAction) (bool, error) {
 	var err error
+	var clientAct ClientAction
 	switch act {
 	case mq.ConsumerRequeue:
 		err = d.Reject(true)
+		clientAct = ConsumerRequeue
 	case mq.ConsumerReject:
 		err = d.Reject(false)
+		clientAct = ConsumerReject
 	default:
 		err = d.Ack(false)
+		clientAct = ConsumerAccept
+	}
+	if err == nil {
+		if manager, ok := client.manager.(*RabbitMQManager); ok {
+			manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
+				ClientName: client.name,
+				QueueName: client.opts.Queue,
+				Action: clientAct,
+			})
+		}
 	}
 	return err == nil, err
 }
-
-// func (client *RabbitMQConsumer) sendErr(err error) {
-// 	if client.errChan != nil {
-// 		client.errChan <- err
-// 	}
-// }
-
-// func (client *RabbitMQConsumer) terminate(err error) {
-// 	go client.manager.UnRegisterClient(client.id)
-// 	client.sendErr(err)
-// 	client.cancel()
-// }
