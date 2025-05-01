@@ -3,10 +3,14 @@ package bootstrap
 import (
 	"context"
 	cnst "duolingo/constant"
-	eh "duolingo/event/event_handler"
+	sm "duolingo/event/event_handler/service_metric"
+	so "duolingo/event/event_handler/service_opt"
+	st "duolingo/event/event_handler/service_opt_trace"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
+	"duolingo/lib/event"
 	ep "duolingo/lib/event"
+	collector "duolingo/event/event_handler/service_metric/stats_collector"
 	log "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
@@ -37,9 +41,9 @@ func Run() {
 	bindContext()
 	bindConfigReader()
 	bindLogger()
+	bindEvents()
 	bindRestHttp()
 	bindMessageQueue()
-	bindEvents()
 }
 
 func bindContext() {
@@ -89,9 +93,14 @@ func bindLogger() {
 func bindEvents() {
 	evt := ep.NewEventPublisher()
 	container.BindSingleton("event.publisher", func() any { return evt })
-	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-	evt.SubscribeRegex("input_message_request.+", eh.NewInputMessage())
+
+	rabbitmqStats := collector.NewRabbitMQStatsCollector()
+	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
+
+	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
+	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
+	evt.SubscribeRegex(true, "input_message_request.+", so.NewInputMessage())
 }
 
 func bindRestHttp() {
@@ -108,11 +117,8 @@ func bindRestHttp() {
 }
 
 func bindMessageQueue() {
+	evt := container.Resolve("event.publisher").(*event.EventPublisher)
 	conf := container.Resolve("config").(config.ConfigReader)
-
-	container.BindSingleton("mq.err_chan", func() any {
-		return make(chan error, 2)
-	})
 
 	container.BindSingleton("mq.manager", func() any {
 		manager := rabbitmq.NewRabbitMQManager(ctx)
@@ -121,7 +127,8 @@ func bindMessageQueue() {
 			WithGraceTimeOut(graceTimeOut).
 			WithConnectionTimeOut(connTimeOut).
 			WithHearBeat(heartBeat).
-			WithKeepAlive(true)
+			WithKeepAlive(true).
+			WithEventPublisher(evt)
 		manager.
 			UseConnection(
 				conf.Get("mq.host", ""),
@@ -137,14 +144,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.topology", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("mq.err_chan").(chan error)
 
 		topology := rabbitmq.
 			NewRabbitMQTopology("campaign_messages_topology", ctx)
 		topology.
 			UseManager(manager)
-		topology.
-			NotifyError(errChan)
 		topology.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
@@ -158,14 +162,10 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.publisher", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("mq.err_chan").(chan error)
-
 		publisher := rabbitmq.
 			NewPublisher("input_messages_publisher", ctx)
 		publisher.
 			UseManager(manager)
-		publisher.
-			NotifyError(errChan)
 		publisher.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).

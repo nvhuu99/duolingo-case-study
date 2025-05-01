@@ -14,11 +14,11 @@ type ServiceOperationMetric struct {
 	} `json:"context"`
 
 	LogData struct {
-		Metric *metric.Datapoint `json:"metric"`
+		Metric *metric.DataPoint `json:"metric"`
 	} `json:"data"`
 }
 
-func SvOptMetricDetail(trace *lc.TraceSpan, metric *metric.Datapoint) map[string]any {
+func SvOptMetricDetail(trace *lc.TraceSpan, metric *metric.DataPoint) map[string]any {
 	return map[string]any{
 		"context": map[string]any{
 			"trace": trace,

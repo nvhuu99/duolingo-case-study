@@ -7,7 +7,7 @@ import (
 	"log"
 
 	ed "duolingo/event/event_data"
-	eh "duolingo/event/event_handler"
+	eh "duolingo/event/event_handler/service_opt"
 	cf "duolingo/lib/config_reader"
 	ep "duolingo/lib/event"
 	mq "duolingo/lib/message_queue"
@@ -61,8 +61,8 @@ func main() {
 
 func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 	relayEvent := &ed.RelayInputMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(true, eh.RELAY_INP_MESG_BEGIN, relayEvent)
-	defer event.Notify(true, eh.RELAY_INP_MESG_END, relayEvent)
+	event.Notify(eh.RELAY_INP_MESG_BEGIN, relayEvent)
+	defer event.Notify(eh.RELAY_INP_MESG_END, relayEvent)
 
 	// Register a new workload
 	count, err := repo.CountCampaignMsgReceivers(
@@ -126,8 +126,8 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 	var assignments []*wd.Assignment
 
 	buildEvent := &ed.BuildPushNotiMessage{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(true, eh.BUILD_PUSH_NOTI_MESG_BEGIN, buildEvent)
-	defer event.Notify(true, eh.BUILD_PUSH_NOTI_MESG_END, buildEvent)
+	event.Notify(eh.BUILD_PUSH_NOTI_MESG_BEGIN, buildEvent)
+	defer event.Notify(eh.BUILD_PUSH_NOTI_MESG_END, buildEvent)
 	defer func() {
 		buildEvent.Assignments = assignments
 		buildEvent.Workload = workload

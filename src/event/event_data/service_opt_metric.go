@@ -7,5 +7,5 @@ type ServiceOperationMetric struct {
 	ServiceOpt  string
 	ServiceName string
 	ServiceType string
-	Collector   *metric.MetricCollector
+	Metric   *metric.Metric
 }

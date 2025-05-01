@@ -7,11 +7,14 @@ import (
 	"time"
 
 	cnst "duolingo/constant"
-	eh "duolingo/event/event_handler"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
 	ep "duolingo/lib/event"
+	st "duolingo/event/event_handler/service_opt_trace"
+	sm "duolingo/event/event_handler/service_metric"
+	so "duolingo/event/event_handler/service_opt"
 	"duolingo/lib/log"
+	collector "duolingo/event/event_handler/service_metric/stats_collector"
 	mq "duolingo/lib/message_queue"
 	rabbitmq "duolingo/lib/message_queue/driver/rabbitmq"
 	sv "duolingo/lib/service_container"
@@ -38,10 +41,10 @@ func Run() {
 	bindContext()
 	bindConfigReader()
 	bindLogger()
+	bindEvents()
 	bindRepository()
 	bindWorkDistributor()
 	bindMessageQueue()
-	bindEvents()
 }
 
 func bindContext() {
@@ -90,10 +93,15 @@ func bindLogger() {
 func bindEvents() {
 	evt := ep.NewEventPublisher()
 	container.BindSingleton("event.publisher", func() any { return evt })
-	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-	evt.SubscribeRegex("relay_input_message_.+", eh.NewRelayInpMsg())
-	evt.SubscribeRegex("build_push_notification_message.+", eh.NewBuildPushNotiMsg())
+
+	rabbitmqStats := collector.NewRabbitMQStatsCollector()
+	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
+
+	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
+	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
+	evt.SubscribeRegex(true, "relay_input_message_.+", so.NewRelayInpMsg())
+	evt.SubscribeRegex(true, "build_push_notification_message.+", so.NewBuildPushNotiMsg())
 }
 
 func bindRepository() {
@@ -134,11 +142,7 @@ func bindWorkDistributor() {
 
 func bindMessageQueue() {
 	conf := container.Resolve("config").(config.ConfigReader)
-
-	container.BindSingleton("err_chan", func() any {
-		return make(chan error, 10)
-	})
-
+	evtPublisher := container.Resolve("event.publisher").(*ep.EventPublisher)
 	container.BindSingleton("mq.manager", func() any {
 		manager := rabbitmq.NewRabbitMQManager(ctx)
 		manager.
@@ -146,7 +150,8 @@ func bindMessageQueue() {
 			WithGraceTimeOut(graceTimeOut).
 			WithConnectionTimeOut(connTimeOut).
 			WithHearBeat(heartBeat).
-			WithKeepAlive(true)
+			WithKeepAlive(true).
+			WithEventPublisher(evtPublisher)
 		manager.
 			UseConnection(
 				conf.Get("mq.host", ""),
@@ -162,14 +167,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.topology", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("err_chan").(chan error)
 
 		topology := rabbitmq.
 			NewRabbitMQTopology("campaign_messages_topology", ctx)
 		topology.
 			UseManager(manager)
-		topology.
-			NotifyError(errChan)
 		topology.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
@@ -185,14 +187,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.publisher.input_messages", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("err_chan").(chan error)
 
 		publisher := rabbitmq.
 			NewPublisher("input_messages_publisher", ctx)
 		publisher.
 			UseManager(manager)
-		publisher.
-			NotifyError(errChan)
 		publisher.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
@@ -205,14 +204,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.publisher.push_noti_messages", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("err_chan").(chan error)
 
 		publisher := rabbitmq.
 			NewPublisher("push_noti_messages_publisher", ctx)
 		publisher.
 			UseManager(manager)
-		publisher.
-			NotifyError(errChan)
 		publisher.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
@@ -225,14 +221,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.consumer.input_messages", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("err_chan").(chan error)
 
 		consumer := rabbitmq.
 			NewConsumer("input_messages_consumer", context.Background())
 		consumer.
 			UseManager(manager)
-		consumer.
-			NotifyError(errChan)
 		consumer.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).

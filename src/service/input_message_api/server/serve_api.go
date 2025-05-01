@@ -2,7 +2,7 @@ package main
 
 import (
 	ed "duolingo/event/event_data"
-	eh "duolingo/event/event_handler"
+	eh "duolingo/event/event_handler/service_opt"
 	ep "duolingo/lib/event"
 	mq "duolingo/lib/message_queue"
 	rest "duolingo/lib/rest_http"
@@ -36,8 +36,8 @@ func input(request *rest.Request, response *rest.Response) {
 		Request:  request,
 		Response: response,
 	}
-	event.Notify(true, eh.INP_MSG_REQUEST_BEGIN, inputEvent)
-	defer event.Notify(true, eh.INP_MSG_REQUEST_END, inputEvent)
+	event.Notify(eh.INP_MSG_REQUEST_BEGIN, inputEvent)
+	defer event.Notify(eh.INP_MSG_REQUEST_END, inputEvent)
 
 	campaign := request.Path("campaign").Str()
 	title := request.Input("title").Str()

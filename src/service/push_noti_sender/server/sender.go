@@ -2,7 +2,7 @@ package main
 
 import (
 	ed "duolingo/event/event_data"
-	eh "duolingo/event/event_handler"
+	eh "duolingo/event/event_handler/service_opt"
 	ep "duolingo/lib/event"
 	mq "duolingo/lib/message_queue"
 	noti "duolingo/lib/notification"
@@ -42,8 +42,8 @@ func main() {
 func send(pushNoti *model.PushNotiMessage) mq.ConsumerAction {
 	result := &noti.Result{ Success:  true }
 	sendEvent := &ed.SendPushNotification{OptId: uuid.NewString(), PushNoti: pushNoti}
-	event.Notify(true, eh.SEND_PUSH_NOTI_BEGIN, sendEvent)
-	defer event.Notify(true, eh.SEND_PUSH_NOTI_END, sendEvent)
+	event.Notify(eh.SEND_PUSH_NOTI_BEGIN, sendEvent)
+	defer event.Notify(eh.SEND_PUSH_NOTI_END, sendEvent)
 	defer func() {
 		sendEvent.Result = result
 	}()

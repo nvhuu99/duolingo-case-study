@@ -6,10 +6,13 @@ import (
 	"strings"
 
 	cnst "duolingo/constant"
-	eh "duolingo/event/event_handler"
+	st "duolingo/event/event_handler/service_opt_trace"
+	sm "duolingo/event/event_handler/service_metric"
+	so "duolingo/event/event_handler/service_opt"
 	config "duolingo/lib/config_reader"
 	jr "duolingo/lib/config_reader/driver/reader/json"
 	ep "duolingo/lib/event"
+	collector "duolingo/event/event_handler/service_metric/stats_collector"
 	log "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
@@ -40,6 +43,7 @@ func Run() {
 	bindLogger()
 	bindEvents()
 	bindMessageQueue()
+	bindPushNotiService()
 }
 
 func bindContext() {
@@ -88,32 +92,19 @@ func bindLogger() {
 func bindEvents() {
 	evt := ep.NewEventPublisher()
 	container.BindSingleton("event.publisher", func() any { return evt })
-	evt.SubscribeRegex("service_operation_trace_.+", eh.NewSvOptTrace())
-	evt.SubscribeRegex("service_operation_metric_.+", eh.NewSvOptMetric())
-	evt.SubscribeRegex("send_push_notification_.+", eh.NewSendPushNoti())
+
+	rabbitmqStats := collector.NewRabbitMQStatsCollector()
+	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
+
+	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
+	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
+	evt.SubscribeRegex(true, "send_push_notification_.+", so.NewSendPushNoti())
 }
 
 func bindMessageQueue() {
 	conf := container.Resolve("config").(config.ConfigReader)
-
-	container.BindSingleton("err_chan", func() any {
-		return make(chan error, 2)
-	})
-
-	container.BindSingleton("noti.sender", func() any {
-		credentialsPath := filepath.Join("config", "firebase_service_account_key.json")
-		credentials, err := os.ReadFile(credentialsPath)
-		if err != nil {
-			panic(err)
-		}
-		sender := noti.NewFirebaseSender(context.Background())
-		err = sender.WithJsonCredentials(string(credentials))
-		if err != nil {
-			panic(err)
-		}
-
-		return sender
-	})
+	evtPublisher := container.Resolve("event.publisher").(*ep.EventPublisher)
 
 	container.BindSingleton("mq.manager", func() any {
 		manager := rabbitmq.NewRabbitMQManager(ctx)
@@ -122,7 +113,8 @@ func bindMessageQueue() {
 			WithGraceTimeOut(graceTimeOut).
 			WithConnectionTimeOut(connTimeOut).
 			WithHearBeat(heartBeat).
-			WithKeepAlive(true)
+			WithKeepAlive(true).
+			WithEventPublisher(evtPublisher)
 		manager.
 			UseConnection(
 				conf.Get("mq.host", ""),
@@ -138,14 +130,11 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.topology", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("mq.err_chan").(chan error)
 
 		topology := rabbitmq.
 			NewRabbitMQTopology("campaign_messages_topology", ctx)
 		topology.
 			UseManager(manager)
-		topology.
-			NotifyError(errChan)
 		topology.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
@@ -159,19 +148,33 @@ func bindMessageQueue() {
 
 	container.BindSingleton("mq.consumer", func() any {
 		manager, _ := container.Resolve("mq.manager").(mq.Manager)
-		errChan, _ := container.Resolve("err_chan").(chan error)
 
 		consumer := rabbitmq.
 			NewConsumer("push_noti_messages_consumer", context.Background())
 		consumer.
 			UseManager(manager)
 		consumer.
-			NotifyError(errChan)
-		consumer.
 			WithOptions(nil).
 			WithGraceTimeOut(graceTimeOut).
 			WithQueue("push_noti_messages")
 
 		return consumer
+	})
+}
+
+func bindPushNotiService() {
+	container.BindSingleton("noti.sender", func() any {
+		credentialsPath := filepath.Join("config", "firebase_service_account_key.json")
+		credentials, err := os.ReadFile(credentialsPath)
+		if err != nil {
+			panic(err)
+		}
+		sender := noti.NewFirebaseSender(context.Background())
+		err = sender.WithJsonCredentials(string(credentials))
+		if err != nil {
+			panic(err)
+		}
+
+		return sender
 	})
 }

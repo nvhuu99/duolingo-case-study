@@ -3,6 +3,8 @@ package event_handler
 import (
 	cnst "duolingo/constant"
 	ed "duolingo/event/event_data"
+	sm "duolingo/event/event_handler/service_metric"
+	st "duolingo/event/event_handler/service_opt_trace"
 	"duolingo/lib/event"
 	"duolingo/lib/log"
 	sv "duolingo/lib/service_container"
@@ -33,7 +35,7 @@ func NewInputMessage() *InputMessageRequest {
 	}
 }
 
-func (e *InputMessageRequest) SubcriberId() string {
+func (e *InputMessageRequest) SubscriberId() string {
 	return e.id
 }
 
@@ -48,14 +50,14 @@ func (e *InputMessageRequest) Notified(topic string, data any) {
 
 func (e *InputMessageRequest) handleRequestBegin(data any) {
 	evtData := data.(*ed.InputMessageRequest)
-	e.events.Notify(true, SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
+	e.events.Notify(st.SERVICE_OPERATION_TRACE_BEGIN, &ed.ServiceOperationTrace{
 		ServiceName: cnst.SV_INP_MESG,
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
 		OptId:       evtData.OptId,
 		ParentSpan:  evtData.PushNoti.Trace,
 	})
-	e.events.Notify(true, SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
+	e.events.Notify(sm.SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
 		ServiceName: cnst.SV_INP_MESG,
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
@@ -68,8 +70,8 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	traceEvtData := e.container.Resolve("events.data.sv_opt_trace." + evtData.OptId).(*ed.ServiceOperationTrace)
 	metricEvtData := e.container.Resolve("events.data.sv_opt_metric." + evtData.OptId).(*ed.ServiceOperationMetric)
 
-	e.events.Notify(true, SERVICE_OPERATION_TRACE_END, traceEvtData)
-	e.events.Notify(true, SERVICE_OPERATION_METRIC_END, metricEvtData)
+	e.events.Notify(st.SERVICE_OPERATION_TRACE_END, traceEvtData)
+	e.events.Notify(sm.SERVICE_OPERATION_METRIC_END, metricEvtData)
 
 	trace := traceEvtData.Span
 	if evtData.Success {
@@ -77,7 +79,7 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	} else {
 		e.logger.Error("", evtData.Error).Detail(ldt.InpMsgRequestDetail(evtData, trace)).Write()
 	}
-	metric, _ := metricEvtData.Collector.Fetch()
+	metric, _ := metricEvtData.Metric.Fetch()
 	if metric != nil {
 		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
 	}

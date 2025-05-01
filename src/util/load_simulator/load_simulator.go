@@ -21,7 +21,11 @@ func main() {
 	
 	for range *numReq {
 		message := []byte(fmt.Sprintf("{ \"title\": \"%v\", \"content\": \"%v\" }", *campaign, *campaign))
-		http.Post(fmt.Sprintf("http://input-message-api:8001/campaign/%v/message", *campaign), "application/json", bytes.NewBuffer(message))
+		res, err := http.Post(fmt.Sprintf("http://input-message-api:8001/campaign/%v/message", *campaign), "application/json", bytes.NewBuffer(message))
+		if err != nil || res.StatusCode != http.StatusCreated {
+			log.Println("abort api error", err)
+			return
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	

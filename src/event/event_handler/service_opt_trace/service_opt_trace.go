@@ -27,7 +27,7 @@ func NewSvOptTrace() *ServiceOperationTrace {
 	}
 }
 
-func (e *ServiceOperationTrace) SubcriberId() string {
+func (e *ServiceOperationTrace) SubscriberId() string {
 	return e.id
 }
 
