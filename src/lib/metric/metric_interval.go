@@ -6,32 +6,32 @@ import (
 	"time"
 )
 
-type MetricIntervalCollector struct {
-	collector         *MetricCollector
+type MetricInterval struct {
+	collector         *Metric
 	datapointInterval time.Duration
 	snapshotTick      time.Duration
 	ctx               context.Context
 	cancel            context.CancelFunc
 }
 
-func NewMetricIntervalCollector(ctx context.Context, interval time.Duration, tick time.Duration) *MetricIntervalCollector {
-	m := new(MetricIntervalCollector)
+func NewMetricInterval(ctx context.Context, interval time.Duration, tick time.Duration) *MetricInterval {
+	m := new(MetricInterval)
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	m.datapointInterval = interval
 	m.snapshotTick = tick
 	return m
 }
 
-func (c *MetricIntervalCollector) StartInterval(flag CaptureFlag, callback func(*Datapoint)) {
+func (c *MetricInterval) StartInterval(callback func(*DataPoint)) {
 	if c.collector != nil {
 		c.collector.CaptureEnd()
 	}
-	c.collector = NewCollector(c.ctx, c.datapointInterval, c.snapshotTick)
+	c.collector = NewMetric(c.ctx, c.datapointInterval, c.snapshotTick)
 
-	go c.capturing(flag, callback)
+	go c.capturing(callback)
 }
 
-func (c *MetricIntervalCollector) StopInterval() error {
+func (c *MetricInterval) StopInterval() error {
 	if c.collector == nil || c.collector.captureStatus != CaptureStatusStarted {
 		return errors.New(ErrMessages[ERR_CAPTURE_HAS_NOT_STARTED])
 	}
@@ -44,8 +44,8 @@ func (c *MetricIntervalCollector) StopInterval() error {
 	return nil
 }
 
-func (c *MetricIntervalCollector) capturing(flag CaptureFlag, callback func(*Datapoint)) {
-	if err := c.collector.CaptureStart(flag); err != nil {
+func (c *MetricInterval) capturing(callback func(*DataPoint)) {
+	if err := c.collector.CaptureStart(); err != nil {
 		return
 	}
 	defer c.collector.CaptureEnd()
