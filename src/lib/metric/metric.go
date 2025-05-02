@@ -108,6 +108,7 @@ func (m *Metric) capturing() {
 
 	start := time.Now()
 	snapshots := make(map[string][]any)
+	count := 0
 
 	buffer := func() {
 		if len(snapshots) == 0 {
@@ -118,11 +119,12 @@ func (m *Metric) capturing() {
 			EndTime: time.Now(),
 			DurationMs: uint64(time.Since(start).Milliseconds()),
 			IncrMs: uint64(m.snapshotTick.Milliseconds()),
-			Count: uint16(len(snapshots)),
-			Stats: snapshots,
+			Count: uint8(count),
+			Snapshots: snapshots,
 		} 
 		m.datapointsChan <- datapoint
 		snapshots = make(map[string][]any)
+		count = 0
 	}
 
 	for {
@@ -137,6 +139,7 @@ func (m *Metric) capturing() {
 			for name, collector := range m.collectors {
 				snapshots[name] = append(snapshots[name], collector.Capture())
 			}
+			count++
 		}
 	}
 }

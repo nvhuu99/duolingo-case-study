@@ -7,6 +7,6 @@ type DataPoint struct {
 	EndTime time.Time `json:"end_time"`
 	DurationMs  uint64    `json:"duration_ms"`
 	IncrMs uint64 `json:"incr_ms"`
-	Count     uint16    `json:"count"`
-	Stats map[string][]any     `json:"stats"`
+	Count     uint8    `json:"count"`
+	Snapshots map[string][]any     `json:"snapshots"`
 }
