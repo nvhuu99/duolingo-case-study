@@ -13,6 +13,7 @@ import (
 	jr "duolingo/lib/config_reader/driver/reader/json"
 	ep "duolingo/lib/event"
 	collector "duolingo/event/event_handler/service_metric/stats_collector"
+	distributor "duolingo/lib/work_distributor/driver/redis"
 	log "duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
@@ -96,7 +97,12 @@ func bindEvents() {
 	rabbitmqStats := collector.NewRabbitMQStatsCollector()
 	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
 
+	redisStats := collector.NewRedisStatsCollector()
+	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
+
 	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
 	evt.SubscribeRegex(true, "send_push_notification_.+", so.NewSendPushNoti())

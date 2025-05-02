@@ -86,7 +86,8 @@ func (e *RelayInputMessage) handleRelayEnd(data any) {
 		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
 	}
 
-	fmt.Printf("message_relayed - relayed_count: %v - title: %v - id: %v - trace: %v\n",
+	fmt.Printf("message_relayed - err: %v - relayed_count: %v - title: %v - id: %v - trace: %v\n",
+		evtData.Error,	
 		evtData.RelayedCount,
 		evtData.PushNoti.InputMessage.Title,
 		evtData.PushNoti.InputMessage.MessageId,

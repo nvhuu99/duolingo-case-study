@@ -60,15 +60,18 @@ func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 	e.container.Bind("events.data.sv_opt_metric."+evtData.OptId, func() any { return evtData })
 	
 	rabbitmqStats := e.container.Resolve("metric.rabbitmq_stats_collector").(*collector.RabbitMQStatsCollector)
+	redisStats := e.container.Resolve("metric.redis_stats_collector").(*collector.RedisStatsCollector)
 	dpInterval := e.conf.GetInt(evtData.ServiceName+".metric.datapoint_interval_ms", 15000)
 	sInterval := e.conf.GetInt(evtData.ServiceName+".metric.snapshot_interval_ms", 100)
 	evtData.Metric = mtr.NewMetric(e.ctx, 
 		time.Duration(dpInterval)*time.Millisecond, 
 		time.Duration(sInterval)*time.Millisecond,
 	)
-	evtData.Metric.WithCollector("system_stats", new(collector.SystemStatsCollector))
-	evtData.Metric.WithCollector("message_queue_stats", rabbitmqStats)
-	evtData.Metric.CaptureStart()
+	evtData.Metric.
+		WithCollector("system_stats", new(collector.SystemStatsCollector)).
+		WithCollector("message_queue_stats", rabbitmqStats).
+		WithCollector("redis_stats", redisStats).
+		CaptureStart()
 }
 
 func (e *ServiceOperationMetric) handleServiceOperationEnd(data any) {

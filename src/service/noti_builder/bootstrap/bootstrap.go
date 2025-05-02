@@ -42,8 +42,8 @@ func Run() {
 	bindConfigReader()
 	bindLogger()
 	bindEvents()
-	bindRepository()
 	bindWorkDistributor()
+	bindRepository()
 	bindMessageQueue()
 }
 
@@ -97,7 +97,12 @@ func bindEvents() {
 	rabbitmqStats := collector.NewRabbitMQStatsCollector()
 	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
 
+	redisStats := collector.NewRedisStatsCollector()
+	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
+
 	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
 	evt.SubscribeRegex(true, "relay_input_message_.+", so.NewRelayInpMsg())
@@ -123,13 +128,15 @@ func bindRepository() {
 
 func bindWorkDistributor() {
 	conf := container.Resolve("config").(config.ConfigReader)
+	evtPublisher := container.Resolve("event.publisher").(*ep.EventPublisher)
 	container.BindSingleton("distributor", func() any {
 		size := conf.GetInt("distributor.campaign_users.distribution_size", 1000)
 		distributor, _ := distributor.NewRedisDistributor(ctx, "campaign_users")
 		distributor.
 			WithOptions(nil).
 			WithLockTimeOut(100 * time.Second).
-			WithDistributionSize(size)
+			WithDistributionSize(size).
+			WithEventPublisher(evtPublisher)
 
 		err := distributor.SetConnection(conf.Get("redis.host", ""), conf.Get("redis.port", ""))
 		if err != nil {

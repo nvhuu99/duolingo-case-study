@@ -43,5 +43,9 @@ func (c *RabbitMQStatsCollector) Notified(event string, data any) {
 }
 
 func (c *RabbitMQStatsCollector) Capture() any {
-	return c.stats
+	stats := make(map[string]RabbitMQStats)
+	for q, s := range c.stats {
+		stats[q] = *s
+	}
+	return stats
 }

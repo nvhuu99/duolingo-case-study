@@ -16,6 +16,7 @@ import (
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
+	distributor "duolingo/lib/work_distributor/driver/redis"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -97,7 +98,12 @@ func bindEvents() {
 	rabbitmqStats := collector.NewRabbitMQStatsCollector()
 	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
 
+	redisStats := collector.NewRedisStatsCollector()
+	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
+
 	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
+	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
 	evt.SubscribeRegex(true, "input_message_request.+", so.NewInputMessage())
