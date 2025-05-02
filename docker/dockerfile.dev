@@ -14,4 +14,4 @@ COPY src/go.mod src/go.sum ./
 
 RUN go mod download
 
-CMD ["sh", "-c", "go run ${SERVICE_MAIN}"]
+ENTRYPOINT ["go", "run"]
