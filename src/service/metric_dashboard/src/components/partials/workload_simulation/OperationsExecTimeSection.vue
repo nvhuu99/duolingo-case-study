@@ -10,6 +10,7 @@ import {
   Title
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
+import IconHourGlass from '@/components/icons/IconHourGlass.vue'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Title, ChartDataLabels)
 
@@ -21,8 +22,6 @@ const tasks = [
   { label: 'Build Notification Messages', start: 200, duration: 500 },
   { label: 'Send Push Notifications', start: 0, duration: 600 }
 ]
-
-const colors = ['#7A99FF', '#7A99FF', '#7A99FF']
 
 onMounted(() => {
   const ctx = chartCanvas.value.getContext('2d')
@@ -42,7 +41,7 @@ onMounted(() => {
         {
           label: 'Duration',
           data: tasks.map(t => t.duration),
-          backgroundColor: colors,
+          backgroundColor: 'rgba(17, 19, 68, 1)',
           stack: 'gantt',
         }
       ]
@@ -83,9 +82,11 @@ onMounted(() => {
 
 <template>
   <div id="operations-execution-time-section">
-    <div class="card shadow-sm p-4">
+    <div class="card shadow-md p-4">
       <div class="mb-4 d-flex align-items-center">
-        <h5 class="m-0 me-4" style="font-size: 16px"> Service Operations Execution Time </h5>
+        <h5 class="m-0 me-4 fs-6 d-flex align-items-center">
+          <IconHourGlass class="me-2" width="24" fill="black" /> Service Operations Execution Time
+        </h5>
         <div class="form-group d-flex align-items-center" style="width: 200px;">
           <label class="form-label m-0 me-2"><span style="font-size: 14px;">Aggregation:</span></label>
           <select name="" id="" class="form-select form-select-sm">
@@ -97,16 +98,14 @@ onMounted(() => {
           </select>
         </div>
       </div>
-      <div class="px-4">
-        <div id="gantt-wrapper" class="d-flex">
-          <div id="chart-labels">
-            <div class="label-box label-0"><span>Input Message API</span></div>
-            <div class="label-box label-1"><span>Build Notification Messages</span></div>
-            <div class="label-box label-2"><span>Send Push Notifications</span></div>
-          </div>
-          <div id="canvas-container">
-            <canvas ref="chartCanvas"></canvas>
-          </div>
+      <div id="gantt-wrapper" class="d-flex">
+        <div id="chart-labels">
+          <div class="label-box label-0"><span>Input Message API</span></div>
+          <div class="label-box label-1"><span>Build Notification Messages</span></div>
+          <div class="label-box label-2"><span>Send Push Notifications</span></div>
+        </div>
+        <div id="canvas-container">
+          <canvas ref="chartCanvas"></canvas>
         </div>
       </div>
     </div>

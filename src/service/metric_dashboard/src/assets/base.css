@@ -1,9 +1,16 @@
 :root {
 }
 
+body {
+  background-color: #00000003;
+}
+
 #app {
   max-width: 1100px;
   min-height: 100vh;
   margin: 0 auto;
   padding: 0;
 }
+
+
+

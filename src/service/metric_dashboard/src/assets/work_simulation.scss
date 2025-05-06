@@ -1,50 +1,94 @@
 @import './base.css';
 
-#gantt-wrapper {
-  max-width: 100%;
-  display: flex;
+#workload-generate-form-section {
 
-  #canvas-container {
-    flex: 1;
-    transform: translateX(-6px);
-    canvas {
-      cursor: default;
-      height: 300px !important;
+  table {
+    tr.link {
+      td {
+        color: rgb(178, 178, 178);
+      }
+      &:hover {
+        td {
+          cursor: pointer;
+          color: rgb(0, 0, 0);
+        }
+      }
+    }
+    tr.link-active {
+      td {
+        color: rgb(0, 0, 0);
+      }
     }
   }
+}
 
-  #chart-labels {
-    z-index: 1;
-    height: 250px;
+#operations-execution-time-section {
+  #gantt-wrapper {
+    max-width: 100%;
     display: flex;
-    flex-direction: column;
-    font-family: sans-serif;
-    font-size: 14px;
-    min-width: 200px;
-    transform: translateY(-1px);
 
-    .label-box {
+    #canvas-container {
       flex: 1;
-      align-items: center;
-      height: 24px;
-      padding: 4px;
-      display: flex;
-      justify-content: start;
-      background-color: white;
-      border-top: 1px solid #e5e5e5;
-      border-left: 1px solid #e5e5e5;
-      padding: 14px;
-      font-size: 14px;
+      transform: translateX(-6px);
+      canvas {
+        cursor: default;
+        height: 300px !important;
+      }
     }
 
-    .label-box:last-of-type {
-      border-bottom: 1px solid #e5e5e5;
+    #chart-labels {
+      z-index: 1;
+      height: 250px;
+      display: flex;
+      flex-direction: column;
+      font-family: sans-serif;
+      font-size: 14px;
+      min-width: 200px;
+
+      .label-box {
+        flex: 1;
+        align-items: center;
+        height: 24px;
+        padding: 4px;
+        display: flex;
+        justify-content: start;
+        background-color: white;
+        border-top: 1px solid #e5e5e5;
+        border-left: 1px solid #e5e5e5;
+        padding: 14px;
+        font-size: 14px;
+      }
+
+      .label-box:last-of-type {
+        border-bottom: 1px solid #e5e5e5;
+      }
     }
   }
 }
 
 #services-metric-section {
   #service-metric-aggregations {
+    .aggregations {
+      width: max-content;
+    }
+    table {
+      width: max-content;
+    }
+    table th, table td {
+      background-color: transparent;
+    }
+  }
+}
+
+
+#infra-metric-section {
+  #infra-metric-aggregations {
+    .aggregations {
+      width: max-content;
+    }
+    table {
+      width: max-content;
+    }
     table th, table td {
       background-color: transparent;
     }
