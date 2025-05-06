@@ -29,12 +29,11 @@ package main
 // 			return log_query.LoopContinue
 // 		}
 
-
 // 		buildSize := item.GetInt("data.workload.num_of_units")
 
 // 		for _, size := range sizes {
 // 			if buildSize%size == 0 {
-				
+
 // 				break
 // 			}
 // 		}

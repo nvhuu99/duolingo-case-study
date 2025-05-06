@@ -1,11 +1,11 @@
 package event
 
 type strTopicSubscription struct {
-	wait bool
+	wait  bool
 	topic string
 }
 
 type regexTopicSubscription struct {
-	wait bool
+	wait  bool
 	regex *regexPattern
 }

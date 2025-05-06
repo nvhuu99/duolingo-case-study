@@ -66,7 +66,7 @@ func relay(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 
 	// Register a new workload
 	count, err := repo.CountCampaignMsgReceivers(
-		pushNoti.InputMessage.Campaign, 
+		pushNoti.InputMessage.Campaign,
 		pushNoti.InputMessage.CreatedAt,
 	)
 	if err != nil {
@@ -163,8 +163,8 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 			pushNoti.InputMessage.Campaign,
 			pushNoti.InputMessage.CreatedAt,
 			&db.QueryOptions{
-				Skip:     int64(assignment.Start - 1),
-				Limit:    int64(assignment.End - assignment.Start + 1),
+				Skip:  int64(assignment.Start - 1),
+				Limit: int64(assignment.End - assignment.Start + 1),
 			},
 		)
 		if err != nil {

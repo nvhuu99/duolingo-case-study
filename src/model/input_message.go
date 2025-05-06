@@ -6,10 +6,10 @@ import (
 )
 
 type InputMessage struct {
-	MessageId string `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	Campaign  string `json:"campaign"`
+	MessageId string    `json:"id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Campaign  string    `json:"campaign"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

@@ -6,11 +6,11 @@ import (
 
 	ed "duolingo/event/event_data"
 
+	collector "duolingo/event/event_handler/service_metric/stats_collector"
 	config "duolingo/lib/config_reader"
 	"duolingo/lib/event"
 	mtr "duolingo/lib/metric"
 	sv "duolingo/lib/service_container"
-	collector "duolingo/event/event_handler/service_metric/stats_collector"
 
 	"github.com/google/uuid"
 )
@@ -23,9 +23,9 @@ const (
 type ServiceOperationMetric struct {
 	id        string
 	container *sv.ServiceContainer
-	ctx context.Context
-	conf config.ConfigReader
-	events *event.EventPublisher
+	ctx       context.Context
+	conf      config.ConfigReader
+	events    *event.EventPublisher
 }
 
 func NewSvOptMetric() *ServiceOperationMetric {
@@ -36,9 +36,9 @@ func NewSvOptMetric() *ServiceOperationMetric {
 	return &ServiceOperationMetric{
 		id:        uuid.New().String(),
 		container: container,
-		conf: conf,
-		ctx: ctx,
-		events: eventPublisher,
+		conf:      conf,
+		ctx:       ctx,
+		events:    eventPublisher,
 	}
 }
 
@@ -55,16 +55,16 @@ func (e *ServiceOperationMetric) Notified(topic string, data any) {
 	}
 }
 
-func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {	
+func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 	evtData := data.(*ed.ServiceOperationMetric)
 	e.container.Bind("events.data.sv_opt_metric."+evtData.OptId, func() any { return evtData })
-	
+
 	rabbitmqStats := e.container.Resolve("metric.rabbitmq_stats_collector").(*collector.RabbitMQStatsCollector)
 	redisStats := e.container.Resolve("metric.redis_stats_collector").(*collector.RedisStatsCollector)
 	dpInterval := e.conf.GetInt(evtData.ServiceName+".metric.datapoint_interval_ms", 15000)
 	sInterval := e.conf.GetInt(evtData.ServiceName+".metric.snapshot_interval_ms", 100)
-	evtData.Metric = mtr.NewMetric(e.ctx, 
-		time.Duration(dpInterval)*time.Millisecond, 
+	evtData.Metric = mtr.NewMetric(e.ctx,
+		time.Duration(dpInterval)*time.Millisecond,
 		time.Duration(sInterval)*time.Millisecond,
 	)
 	evtData.Metric.

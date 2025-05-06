@@ -69,7 +69,7 @@ func (d *RedisDistributor) PurgeData() error {
 		if _, err := d.SwitchToWorkload(name); err != nil {
 			return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_PURGE_FAILURE], err)
 		}
-		lockVal, _,  _, err := d.acquireLock("assignments", "assignment_index", "available")
+		lockVal, _, _, err := d.acquireLock("assignments", "assignment_index", "available")
 		if err != nil {
 			return fmt.Errorf("%v - %w", wd.ErrMessages[wd.ERR_LOCK], err)
 		}
@@ -95,8 +95,8 @@ func (d *RedisDistributor) WorkloadExists(workloadName string) (bool, error) {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "workloads")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 1 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 1})
 	}()
 
 	exist, err := d.rdb.HExists(d.ctx, d.key("workloads"), workloadName).Result()
@@ -134,8 +134,8 @@ func (d *RedisDistributor) RegisterWorkLoad(workload *wd.Workload) error {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "workloads")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 1 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 1})
 	}()
 
 	// Register the workload
@@ -155,8 +155,8 @@ func (d *RedisDistributor) SwitchToWorkload(name string) (*wd.Workload, error) {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "workloads")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 1 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 1})
 	}()
 
 	result, err := d.rdb.HGet(d.ctx, d.key("workloads"), name).Result()
@@ -208,8 +208,8 @@ func (d *RedisDistributor) Progress(assignmentId string, newVal int) error {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "assignments")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 2 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 2})
 	}()
 
 	var assignment wd.Assignment
@@ -236,8 +236,8 @@ func (d *RedisDistributor) Commit(assignmentId string) error {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "assignments")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 1 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 1})
 	}()
 
 	err = d.rdb.HDel(d.ctx, d.key("assignments"), assignmentId).Err()
@@ -256,8 +256,8 @@ func (d *RedisDistributor) RollBack(assignmentId string) error {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "assignment_index", "available", "assignments")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 5 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 5})
 	}()
 
 	var assignment wd.Assignment
@@ -320,8 +320,8 @@ func (d *RedisDistributor) available() ([2]int, error) {
 	}
 	defer func() {
 		held := d.releaseLock(lockVal, start, "assignment_index", "available")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 4 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 4})
 	}()
 
 	var result [2]int
@@ -377,8 +377,8 @@ func (d *RedisDistributor) assign(s int, e int) (*wd.Assignment, error) {
 	defer d.releaseLock(lockVal, start, "")
 	defer func() {
 		held := d.releaseLock(lockVal, start, "assignments")
-		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{ waited, held })
-		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{ Count: 2 })
+		d.opts.Events.Notify(EVT_REDIS_LOCK_RELEASED, &RedisLockReleasedEvent{waited, held})
+		d.opts.Events.Notify(EVT_REDIS_COMMANDS_EXEC, &RedisCommandExecutedEvent{Count: 2})
 	}()
 
 	var assignment wd.Assignment
@@ -412,7 +412,7 @@ func (d *RedisDistributor) acquireLock(keys ...string) (string, int64, int64, er
 	for i, k := range keys {
 		redisKeys[i] = d.lock(k)
 	}
-	
+
 	lock := uuid.NewString()
 	s := time.Now().UnixMilli()
 	err := acquireLock(d.ctx, d.rdb, d.opts.LockTimeOut, lock, redisKeys...)

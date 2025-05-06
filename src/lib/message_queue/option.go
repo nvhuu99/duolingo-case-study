@@ -1,8 +1,8 @@
 package message_queue
 
 import (
-	"time"
 	"duolingo/lib/event"
+	"time"
 )
 
 type ManagerOptions struct {
@@ -10,7 +10,7 @@ type ManagerOptions struct {
 	ConnectionTimeOut time.Duration
 	HearBeat          time.Duration
 	KeepAlive         bool
-	EventPublisher event.Publisher
+	EventPublisher    event.Publisher
 }
 
 type TopologyOptions struct {
@@ -40,7 +40,7 @@ func DefaultManagerOptions() *ManagerOptions {
 		ConnectionTimeOut: 60 * time.Second,
 		HearBeat:          10 * time.Second,
 		KeepAlive:         true,
-		EventPublisher: event.NewEventPublisher(),
+		EventPublisher:    event.NewEventPublisher(),
 	}
 }
 

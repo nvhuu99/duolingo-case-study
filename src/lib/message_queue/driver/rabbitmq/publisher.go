@@ -63,8 +63,8 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 			if manager, ok := client.manager.(*RabbitMQManager); ok {
 				manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
 					ClientName: client.name,
-					QueueName: client.opts.Topic,
-					Action: PublisherPublished,
+					QueueName:  client.opts.Topic,
+					Action:     PublisherPublished,
 				})
 			}
 		}

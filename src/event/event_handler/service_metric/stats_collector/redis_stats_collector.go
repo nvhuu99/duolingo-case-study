@@ -11,16 +11,16 @@ type RedisCommandStats struct {
 
 type RedisLockStats struct {
 	WaitedMs int64 `json:"waited_ms"`
-	HeldMs int64 `json:"held_ms"`
+	HeldMs   int64 `json:"held_ms"`
 }
 
 type RedisStats struct {
-	LockStats []*RedisLockStats `json:"lock_stats"`
+	LockStats    []*RedisLockStats  `json:"lock_stats"`
 	CommandStats *RedisCommandStats `json:"command_stats"`
 }
 
 type RedisStatsCollector struct {
-	id string
+	id    string
 	stats *RedisStats
 }
 
@@ -28,7 +28,7 @@ func NewRedisStatsCollector() *RedisStatsCollector {
 	c := new(RedisStatsCollector)
 	c.id = uuid.NewString()
 	c.stats = &RedisStats{
-		LockStats: []*RedisLockStats{},
+		LockStats:    []*RedisLockStats{},
 		CommandStats: new(RedisCommandStats),
 	}
 	return c
@@ -46,9 +46,9 @@ func (c *RedisStatsCollector) Notified(event string, data any) {
 		}
 	case redis.EVT_REDIS_LOCK_RELEASED:
 		if evt, ok := data.(*redis.RedisLockReleasedEvent); ok {
-			c.stats.LockStats = append(c.stats.LockStats, &RedisLockStats{ 
+			c.stats.LockStats = append(c.stats.LockStats, &RedisLockStats{
 				WaitedMs: evt.WaitedTimeMs,
-				HeldMs: evt.HeldTimeMs,
+				HeldMs:   evt.HeldTimeMs,
 			})
 		}
 	}

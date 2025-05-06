@@ -103,9 +103,9 @@ func (c *clientInfo) handleClientChannel() {
 			// If it was not a connection err, then it was actually from the client side
 			if !c.manager.IsReConnecting() {
 				c.manager.opts.EventPublisher.Notify(EVT_CLIENT_FATAL_ERR, &ClientFatalErr{
-					Id: c.id,
+					Id:         c.id,
 					ClientName: c.name,
-					Error: fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CLIENT_FATAL_ERROR], chanErr),
+					Error:      fmt.Errorf("%v - %w", mq.ErrMessages[mq.ERR_CLIENT_FATAL_ERROR], chanErr),
 				})
 			}
 			// Trigger resetting clients connections.

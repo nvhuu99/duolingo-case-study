@@ -9,8 +9,8 @@ import (
 type ClientMock struct {
 	mock.Mock
 
-	Id                         string
-	ReConnectedTriggered       bool
+	Id                   string
+	ReConnectedTriggered bool
 
 	manager mq.Manager
 }

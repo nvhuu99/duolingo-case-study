@@ -40,7 +40,7 @@ func main() {
 }
 
 func send(pushNoti *model.PushNotiMessage) mq.ConsumerAction {
-	result := &noti.Result{ Success:  true }
+	result := &noti.Result{Success: true}
 	sendEvent := &ed.SendPushNotification{OptId: uuid.NewString(), PushNoti: pushNoti}
 	event.Notify(eh.SEND_PUSH_NOTI_BEGIN, sendEvent)
 	defer event.Notify(eh.SEND_PUSH_NOTI_END, sendEvent)
@@ -50,7 +50,7 @@ func send(pushNoti *model.PushNotiMessage) mq.ConsumerAction {
 
 	tokenLimit := sender.GetTokenLimit()
 	for i := 0; i < len(pushNoti.DeviceTokens); i += tokenLimit {
-		end := min(i + tokenLimit, len(pushNoti.DeviceTokens))
+		end := min(i+tokenLimit, len(pushNoti.DeviceTokens))
 		tokens := pushNoti.DeviceTokens[i:end]
 		batchResult := sender.SendAll(
 			pushNoti.InputMessage.Title,

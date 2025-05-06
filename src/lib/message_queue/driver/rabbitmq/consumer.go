@@ -15,8 +15,8 @@ type RabbitMQConsumer struct {
 	deliveries <-chan amqp.Delivery
 	reset      chan bool
 
-	id      string
-	name    string
+	id   string
+	name string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -183,8 +183,8 @@ func (client *RabbitMQConsumer) action(d amqp.Delivery, act mq.ConsumerAction) (
 		if manager, ok := client.manager.(*RabbitMQManager); ok {
 			manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
 				ClientName: client.name,
-				QueueName: client.opts.Queue,
-				Action: clientAct,
+				QueueName:  client.opts.Queue,
+				Action:     clientAct,
 			})
 		}
 	}

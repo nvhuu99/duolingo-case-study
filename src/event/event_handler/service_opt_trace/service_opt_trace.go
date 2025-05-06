@@ -64,8 +64,8 @@ func (e *ServiceOperationTrace) handleServiceOperationBegin(data any) {
 		ServiceOperation: evtData.ServiceOpt,
 		ServiceType:      evtData.ServiceType,
 		StartTime:        time.Now(),
-		InstanceId: hostname,
-		InstanceAddress: instanceAddr,
+		InstanceId:       hostname,
+		InstanceAddress:  instanceAddr,
 	}
 	e.container.BindSingleton("events.data.sv_opt_trace."+evtData.OptId, func() any {
 		return evtData

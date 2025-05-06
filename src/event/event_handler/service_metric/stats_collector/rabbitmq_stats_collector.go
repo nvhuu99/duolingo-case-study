@@ -11,7 +11,7 @@ type RabbitMQStats struct {
 }
 
 type RabbitMQStatsCollector struct {
-	id string
+	id    string
 	stats map[string]*RabbitMQStats
 }
 

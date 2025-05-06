@@ -19,13 +19,13 @@ type MemoryStats struct {
 }
 
 type DiskIOStats struct {
-	Device   string  `json:"device"`
-	IOTimeMs uint64  `json:"io_time_ms"`
+	Device   string `json:"device"`
+	IOTimeMs uint64 `json:"io_time_ms"`
 }
 
 type SystemStats struct {
-	CPU     *CPUStats               `json:"cpu"`
-	Memory  *MemoryStats            `json:"memory"`
+	CPU    *CPUStats               `json:"cpu"`
+	Memory *MemoryStats            `json:"memory"`
 	DiskIO map[string]*DiskIOStats `json:"disk_io"`
 }
 
@@ -34,7 +34,7 @@ type SystemStatsCollector struct {
 
 func (c *SystemStatsCollector) Capture() any {
 	systemStats := new(SystemStats)
-	
+
 	cpuPercents, _ := cpu.Percent(0, false)
 	cpuTimes, _ := cpu.Times(false)
 	if len(cpuPercents) > 0 && len(cpuTimes) > 0 {

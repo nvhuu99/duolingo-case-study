@@ -8,14 +8,14 @@ import (
 type DistributorOptions struct {
 	LockTimeOut      time.Duration
 	DistributionSize int
-	Events event.Publisher
+	Events           event.Publisher
 }
 
 func DefaultDistributorOptions() *DistributorOptions {
 	return &DistributorOptions{
 		LockTimeOut:      10 * time.Second,
 		DistributionSize: 100,
-		Events: event.NewEventPublisher(),
+		Events:           event.NewEventPublisher(),
 	}
 }
 

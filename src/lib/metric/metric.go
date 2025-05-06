@@ -27,12 +27,12 @@ func NewMetric(ctx context.Context, interval time.Duration, tick time.Duration) 
 		parentCtx:         ctx,
 		snapshotTick:      tick,
 		datapointInterval: interval,
-		collectors: make(map[string]Collector),
+		collectors:        make(map[string]Collector),
 	}
 	return collector
 }
 
-func (m *Metric) WithCollector(name string, c Collector) *Metric {	
+func (m *Metric) WithCollector(name string, c Collector) *Metric {
 	m.collectors[name] = c
 	return m
 }
@@ -115,13 +115,13 @@ func (m *Metric) capturing() {
 			return
 		}
 		datapoint := &DataPoint{
-			StartTime: start,
-			EndTime: time.Now(),
+			StartTime:  start,
+			EndTime:    time.Now(),
 			DurationMs: uint64(time.Since(start).Milliseconds()),
-			IncrMs: uint64(m.snapshotTick.Milliseconds()),
-			Count: uint8(count),
-			Snapshots: snapshots,
-		} 
+			IncrMs:     uint64(m.snapshotTick.Milliseconds()),
+			Count:      uint8(count),
+			Snapshots:  snapshots,
+		}
 		m.datapointsChan <- datapoint
 		snapshots = make(map[string][]any)
 		count = 0

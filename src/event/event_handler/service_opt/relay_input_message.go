@@ -87,7 +87,7 @@ func (e *RelayInputMessage) handleRelayEnd(data any) {
 	}
 
 	fmt.Printf("message_relayed - err: %v - relayed_count: %v - title: %v - id: %v - trace: %v\n",
-		evtData.Error,	
+		evtData.Error,
 		evtData.RelayedCount,
 		evtData.PushNoti.InputMessage.Title,
 		evtData.PushNoti.InputMessage.MessageId,

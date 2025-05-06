@@ -11,5 +11,5 @@ type RedisCommandExecutedEvent struct {
 
 type RedisLockReleasedEvent struct {
 	WaitedTimeMs int64
-	HeldTimeMs int64
+	HeldTimeMs   int64
 }
