@@ -19,7 +19,7 @@ import (
 	"duolingo/lib/log/log_query"
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	"duolingo/model"
-	db "duolingo/repository/campaign_db"
+	usr_repo "duolingo/repository/campaign_user"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -49,7 +49,7 @@ type CampaignMessagePushNotiTestSuite struct {
 // SetupSuite initializes DB connections, RabbitMQ manager, and topology before tests
 func (s *CampaignMessagePushNotiTestSuite) SetupSuite() {
 	ctx := context.Background()
-	repo := db.NewUserRepo(ctx, s.ConfigReader.Get("db.campaign.name", ""))
+	repo := usr_repo.NewUserRepo(ctx, s.ConfigReader.Get("db.campaign.name", ""))
 	err := repo.SetConnection(
 		s.ConfigReader.Get("db.campaign.host", ""),
 		s.ConfigReader.Get("db.campaign.port", ""),

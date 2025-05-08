@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	config "duolingo/lib/config_reader/driver/reader/json"
-	"duolingo/model"
-	"duolingo/repository/campaign_db"
+	usr_repo "duolingo/repository/campaign_user"
 	"flag"
 	"log"
 	"math"
@@ -27,7 +26,7 @@ func main() {
 	}
 
 	// Setup DB connection
-	userRepo := campaigndb.NewUserRepo(
+	userRepo := usr_repo.NewUserRepo(
 		context.Background(),
 		conf.Get("db.campaign.name", ""),
 	)
@@ -53,12 +52,12 @@ func main() {
 			count = *total - i*batchSize
 		}
 
-		users := make([]*model.CampaignUser, count)
+		users := make([]*usr_repo.CampaignUser, count)
 
 		for j := range count {
 			membership, index := randomMembership()
 
-			users[j] = &model.CampaignUser{
+			users[j] = &usr_repo.CampaignUser{
 				Campaign:       *campaign,
 				LastName:       gofakeit.LastName(),
 				FirstName:      gofakeit.FirstName(),
@@ -80,11 +79,11 @@ func main() {
 }
 
 // randomMembership returns a membership value and its index
-func randomMembership() (model.Membership, int) {
-	memberships := []model.Membership{
-		model.Premium,
-		model.Subscriber,
-		model.FreeTier,
+func randomMembership() (usr_repo.Membership, int) {
+	memberships := []usr_repo.Membership{
+		usr_repo.Premium,
+		usr_repo.Subscriber,
+		usr_repo.FreeTier,
 	}
 	index := gofakeit.Number(0, len(memberships)-1)
 	return memberships[index], index

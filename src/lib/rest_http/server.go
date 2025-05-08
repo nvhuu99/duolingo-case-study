@@ -89,6 +89,6 @@ func (server *Server) panicHandler(request *Request, response *Response) {
 				errors.New(ErrMessages[ERR_SERVER_PANIC]),
 			}
 		}
-		server.SendResponse(request, response.ServerErr(""))
+		server.SendResponse(request, response.ServerErr("", nil))
 	}
 }

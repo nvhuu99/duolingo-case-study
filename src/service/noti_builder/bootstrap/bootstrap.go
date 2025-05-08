@@ -19,7 +19,7 @@ import (
 	rabbitmq "duolingo/lib/message_queue/driver/rabbitmq"
 	sv "duolingo/lib/service_container"
 	distributor "duolingo/lib/work_distributor/driver/redis"
-	db "duolingo/repository/campaign_db"
+	usr_repo "duolingo/repository/campaign_user"
 )
 
 var (
@@ -112,7 +112,7 @@ func bindEvents() {
 func bindRepository() {
 	conf := container.Resolve("config").(config.ConfigReader)
 	container.BindSingleton("repo.campaign_user", func() any {
-		repo := db.NewUserRepo(ctx, conf.Get("db.campaign.name", ""))
+		repo := usr_repo.NewUserRepo(ctx, conf.Get("db.campaign.name", ""))
 		err := repo.SetConnection(
 			conf.Get("db.campaign.host", ""),
 			conf.Get("db.campaign.port", ""),

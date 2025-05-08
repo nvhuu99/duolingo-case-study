@@ -59,10 +59,13 @@ func (response *Response) InvalidRequest(message string, errs any) *Response {
 	return response
 }
 
-func (response *Response) ServerErr(message string) *Response {
+func (response *Response) ServerErr(message string, errs any) *Response {
 	response.Status = STATUS_SERVER_ERR
 	response.Success = true
 	response.Message = message
+	if errs != nil {
+		response.Errors = errs
+	}
 	return response
 }
 

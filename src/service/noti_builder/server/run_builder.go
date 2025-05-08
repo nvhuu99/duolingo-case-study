@@ -14,7 +14,7 @@ import (
 	sv "duolingo/lib/service_container"
 	wd "duolingo/lib/work_distributor"
 	md "duolingo/model"
-	db "duolingo/repository/campaign_db"
+	usr_repo "duolingo/repository/campaign_user"
 	"duolingo/service/noti_builder/bootstrap"
 
 	"github.com/google/uuid"
@@ -25,7 +25,7 @@ var (
 	container *sv.ServiceContainer
 	conf      cf.ConfigReader
 
-	repo        *db.UserRepo
+	repo        *usr_repo.UserRepo
 	distributor wd.Distributor
 	event       *ep.EventPublisher
 
@@ -40,7 +40,7 @@ func main() {
 	container = sv.GetContainer()
 	ctx = container.Resolve("server.ctx").(context.Context)
 	conf = container.Resolve("config").(cf.ConfigReader)
-	repo = container.Resolve("repo.campaign_user").(*db.UserRepo)
+	repo = container.Resolve("repo.campaign_user").(*usr_repo.UserRepo)
 	distributor = container.Resolve("distributor").(wd.Distributor)
 	consumer = container.Resolve("mq.consumer.input_messages").(mq.Consumer)
 	event = container.Resolve("event.publisher").(*ep.EventPublisher)
@@ -162,7 +162,7 @@ func build(pushNoti *md.PushNotiMessage) mq.ConsumerAction {
 		deviceTokens, err := repo.ListCampaignMsgReceiverTokens(
 			pushNoti.InputMessage.Campaign,
 			pushNoti.InputMessage.CreatedAt,
-			&db.QueryOptions{
+			&usr_repo.QueryOptions{
 				Skip:  int64(assignment.Start - 1),
 				Limit: int64(assignment.End - assignment.Start + 1),
 			},

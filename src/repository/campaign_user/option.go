@@ -1,4 +1,4 @@
-package campaigndb
+package campaign_user
 
 type QueryOptions struct {
 	Skip  int64

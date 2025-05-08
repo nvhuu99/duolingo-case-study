@@ -8,7 +8,6 @@ import (
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
 	model "duolingo/model"
-	lc "duolingo/model/log/context"
 	"duolingo/service/input_message_api/bootstrap"
 	"time"
 
@@ -29,9 +28,6 @@ func input(request *rest.Request, response *rest.Response) {
 		OptId: uuid.NewString(),
 		PushNoti: &model.PushNotiMessage{
 			RelayFlag: model.ShouldRelay,
-			Trace: &lc.TraceSpan{
-				TraceId: uuid.NewString(),
-			},
 		},
 		Request:  request,
 		Response: response,
@@ -66,7 +62,7 @@ func input(request *rest.Request, response *rest.Response) {
 
 	err := publisher.Publish(inputEvent.PushNoti.Serialize())
 	if err != nil {
-		response.ServerErr("Failed to publish to message queue")
+		response.ServerErr("Failed to publish to message queue", nil)
 		return
 	}
 

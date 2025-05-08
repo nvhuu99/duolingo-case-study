@@ -56,6 +56,12 @@ func (e *ServiceOperationTrace) handleServiceOperationBegin(data any) {
 		}
 	}
 	evtData := data.(*ed.ServiceOperationTrace)
+	if evtData.ParentSpan == nil {
+		evtData.ParentSpan = &lc.TraceSpan{
+			TraceId: uuid.NewString(),
+			SpanId: "",
+		}
+	}
 	evtData.Span = &lc.TraceSpan{
 		TraceId:          evtData.ParentSpan.TraceId,
 		ParentSpanId:     evtData.ParentSpan.SpanId,

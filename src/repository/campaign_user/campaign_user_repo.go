@@ -1,8 +1,7 @@
-package campaigndb
+package campaign_user
 
 import (
 	"context"
-	"duolingo/model"
 	"fmt"
 	"net/url"
 	"time"
@@ -82,7 +81,7 @@ func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp t
 
 	tokens := []string{}
 	for cursor.Next(repo.ctx) {
-		user := new(model.CampaignUser)
+		user := new(CampaignUser)
 		if err := cursor.Decode(user); err != nil {
 			return []string{}, err
 		}
@@ -96,7 +95,7 @@ func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp t
 	return tokens, nil
 }
 
-func (repo *UserRepo) InsertUsers(users []*model.CampaignUser) ([]any, error) {
+func (repo *UserRepo) InsertUsers(users []*CampaignUser) ([]any, error) {
 	bsonData := make([]interface{}, len(users))
 	for i, usr := range users {
 		bsonData[i] = usr

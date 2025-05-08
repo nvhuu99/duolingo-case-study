@@ -55,7 +55,7 @@ func (e *InputMessageRequest) handleRequestBegin(data any) {
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
 		OptId:       evtData.OptId,
-		ParentSpan:  evtData.PushNoti.Trace,
+		ParentSpan:  nil,
 	})
 	e.events.Notify(sm.SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
 		ServiceName: cnst.SV_INP_MESG,
@@ -74,6 +74,7 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	e.events.Notify(sm.SERVICE_OPERATION_METRIC_END, metricEvtData)
 
 	trace := traceEvtData.Span
+	evtData.PushNoti.Trace = trace
 	if evtData.Success {
 		e.logger.Info("").Detail(ldt.InpMsgRequestDetail(evtData, trace)).Write()
 	} else {
