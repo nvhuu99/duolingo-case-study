@@ -6,7 +6,7 @@ import WorkloadGenerateFormSection from '../components/partials/workload_simulat
 import ServicesMetricSection from '../components/partials/workload_simulation/ServicesMetricSection.vue'
 import InfraMetricSection from '../components/partials/workload_simulation/InfraMetricSection.vue'
 
-const workloadId = ref(null)
+const traceId = ref('dcb763f3-96fe-45e5-8154-de372e7448dd')
 
 </script>
 
@@ -22,7 +22,7 @@ const workloadId = ref(null)
   </div>
 
   <section class="container pb-4">
-    <OperationsExecTimeSection />
+    <OperationsExecTimeSection :trace-id="traceId"/>
   </section>
 
   <section class="container pb-4">
