@@ -1,7 +1,6 @@
 @import './base.css';
 
 #workload-generate-form-section {
-
   table {
     tr.link {
       td {
@@ -17,18 +16,6 @@
     tr.link-active {
       td {
         color: rgb(0, 0, 0);
-      }
-    }
-  }
-}
-
-#operations-execution-time-section {
-  #gantt-wrapper {
-    display: flex;
-    #canvas-container {
-      flex: 1;
-      canvas {
-        width: 100%;
       }
     }
   }

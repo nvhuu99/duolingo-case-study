@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, reactive, onBeforeMount, onUpdated } from 'vue'
+import { ref, onMounted, watch, toRef, computed } from 'vue'
 import {
   Chart,
   BarController,
@@ -14,86 +14,57 @@ import IconHourGlass from '@/components/icons/IconHourGlass.vue'
 import axios from 'axios'
 
 const props = defineProps(['traceId'])
-const reportData = ref(null)
+const traceId = toRef(props.traceId);
 const chartInstance = ref(null)
 
-const labels = {
-  'input_message_request': 'Input Message API',
-  'relay_input_message': 'Relay Input Message',
-  'build_push_notification_message': 'Build Notification Messages',
-  'send_push_notification': 'Send Push Notifications',
+const isChartReady = computed(() => chartInstance.value != null)
+
+const destroyChart = async function() {
+  if (chartInstance.value != null) await chartInstance.value.destroy()
+  chartInstance.value = null
 }
 
-const queryExecTimeSpansReport = async function() {
-  try {
-    const report = {}
-    var listRequest = await axios.get(`http://localhost:8003/metric/workload/${props.traceId}/operations`)
-    var timeSpansRequest = await axios.get(`http://localhost:8003/metric/workload/${props.traceId}/operations/report-execution-time-spans`)
-    listRequest.data.data.forEach(opt => {
-      if (report[opt.service_name] == undefined) {
-        report[opt.service_name] = {}
-      }
-      report[opt.service_name][opt.service_operation] = {
-        start_latency_ms: 0,
-        duration_ms: 1,
-      }
-    })
-    timeSpansRequest.data.data.forEach(opt => {
-      var start = opt.operation_start_latency_ms
-      var end = opt.operation_end_latency_ms
-      var duration = end - start
-      report[opt.service_name][opt.service_operation].start_latency_ms = start
-      report[opt.service_name][opt.service_operation].duration_ms = duration
-    })
-    return report
-  }
-  catch (err) {
-    console.log('Failed to query services operation execution time report.')
-    console.log(err?.response?.data ?? err)
-    return null
-  }
-}
+const renderChart = async function() {
+  const report = await buildOperationExecTimeSpansReport()
+  if (report == null) return
 
-const renderGanttChart = function() {
-  const data = reportData.value
-  const tasks = []
-  const chartCanvas = document.getElementById('chart-canvas')
-
-  if (data == null) {
-    return
+  // Build chart data
+  const OPERATION_LABELS = {
+    'input_message_request': 'Input Message API',
+    'relay_input_message': 'Relay Input Message',
+    'build_push_notification_message': 'Build Notification Messages',
+    'send_push_notification': 'Send Push Notifications',
   }
-  for (const svName in data) {
-    for (const optName in data[svName]) {
-      tasks.push({
-        label: labels[optName],
-        start: data[svName][optName]['start_latency_ms'],
-        duration: data[svName][optName]['duration_ms'],
+  const chartData = []
+  for (const svName in report) {
+    for (const optName in report[svName]) {
+      chartData.push({
+        label: OPERATION_LABELS[optName] ?? "Unknown Operation",
+        start: report[svName][optName]['start_latency_ms'],
+        duration: report[svName][optName]['duration_ms'],
       })
     }
   }
-  if (chartInstance.value != null) {
-    chartInstance.value.destroy()
-  }
-  const barHeight = 30
-  const tickHeight = 75
-  const barMargin = 10
-  chartCanvas.height = tickHeight + tasks.length * (barHeight + 2 * barMargin)
 
+  // Config and render chart
+  const chartCanvas = document.getElementById('chart-canvas')
+  chartCanvas.width = document.getElementById('gantt-wrapper').clientWidth
+  chartCanvas.height = 75 + chartData.length * 50 // tick-height + bar-heights (margin included)
   chartInstance.value = new Chart(chartCanvas.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: tasks.map(t => t.label),
+      labels: chartData.map(t => t.label),
       datasets: [
         {
           label: 'Offset',
-          data: tasks.map(t => t.start),
+          data: chartData.map(t => t.start),
           backgroundColor: 'transparent',
           stack: 'gantt',
           datalabels: { display: false },
         },
         {
           label: 'Duration',
-          data: tasks.map(t => t.duration),
+          data: chartData.map(t => t.duration),
           backgroundColor: 'rgba(0, 0, 0, 1)',
           stack: 'gantt',
         }
@@ -114,12 +85,7 @@ const renderGanttChart = function() {
         y: {
           ticks: {
             crossAlign: "far",
-            // display: false
           },
-          grid: {
-            // drawTicks: false,
-            // drawOnChartArea: true
-          }
         }
       },
       plugins: {
@@ -144,17 +110,39 @@ const renderGanttChart = function() {
   })
 }
 
-onMounted(async () => {
+onMounted(() => {
   Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Title, ChartDataLabels)
-  reportData.value = await queryExecTimeSpansReport()
-  renderGanttChart()
+  renderChart()
 })
 
-onUpdated(async () => {
-  reportData.value = await queryExecTimeSpansReport()
-  renderGanttChart()
-})
+watch(traceId, async () => {
+  await destroyChart()
+  renderChart()
+});
 
+const buildOperationExecTimeSpansReport = async function() {
+  try {
+    // Fetch the list of services operation, and set default time span values
+    const report = {}
+    var listRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/operations`)
+    listRequest.data.data.forEach(opt => {
+      if (!report[opt.service_name]) report[opt.service_name] = {}
+      report[opt.service_name][opt.service_operation] = { start_latency_ms: 0, duration_ms: 1 }
+    })
+    // Fetch and merge the time spans into the report
+    var timeSpansRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/operations/report-execution-time-spans`)
+    timeSpansRequest.data.data.forEach(opt => report[opt.service_name][opt.service_operation] = {
+      start_latency_ms: opt.operation_start_latency_ms,
+      duration_ms: opt.operation_end_latency_ms - opt.operation_start_latency_ms
+    })
+    return report
+  }
+  catch (err) {
+    console.log('Failed to query services operation execution time report.')
+    console.log(err?.response?.data ?? err)
+    return null
+  }
+}
 </script>
 
 <template>
@@ -163,9 +151,9 @@ onUpdated(async () => {
       <h5 class="mb-4 fs-6 d-flex align-items-center">
         <IconHourGlass class="me-2" width="24" fill="black" /> Service Operations Execution Time
       </h5>
-      <!-- <p v-if="operations.length == 0" class="text-center text-secondary">No service operations found</p> -->
-      <div id="gantt-wrapper" class="d-flex">
-        <div id="canvas-container">
+      <p v-show="!isChartReady" class="text-center text-secondary">Failed to query services operation execution time report.</p>
+      <div id="gantt-wrapper">
+        <div id="chart-container" :class="isChartReady ? '' : 'd-none'">
           <canvas id="chart-canvas"></canvas>
         </div>
       </div>

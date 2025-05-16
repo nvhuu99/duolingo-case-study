@@ -26,7 +26,8 @@ func aggregateWorkloadOptsExecTime(request *rest.Request, response *rest.Respons
 
 	report, err := repo.GetWorkloadOptsExecTimeSpans(traceId)
 	if err != nil {
-		response.ServerErr("", err)
+		response.ServerErr("", err.Error())
+		log.Println(err)
 		return
 	}
 
