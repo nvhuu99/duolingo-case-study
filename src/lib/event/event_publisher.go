@@ -6,27 +6,27 @@ import (
 )
 
 type EventPublisher struct {
-	subscribers map[string]Subcriber
+	subscribers map[string]Subscriber
 	strTopics   map[string][]*strTopicSubscription
 	regexTopics map[string][]*regexTopicSubscription
 }
 
 func NewEventPublisher() *EventPublisher {
 	return &EventPublisher{
-		subscribers: make(map[string]Subcriber),
+		subscribers: make(map[string]Subscriber),
 		strTopics:   make(map[string][]*strTopicSubscription),
 		regexTopics: make(map[string][]*regexTopicSubscription),
 	}
 }
 
-func (p *EventPublisher) Subscribe(wait bool, topic string, sub Subcriber) error {
+func (p *EventPublisher) Subscribe(wait bool, topic string, sub Subscriber) error {
 	if topic == "" {
 		return fmt.Errorf(ErrorMessages[ERR_EMPTY_PATTERN])
 	}
 
 	id := sub.SubscriberId()
 	if id == "" {
-		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
+		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_ID_EMPTY])
 	}
 
 	if _, exists := p.subscribers[id]; !exists {
@@ -48,7 +48,7 @@ func (p *EventPublisher) Subscribe(wait bool, topic string, sub Subcriber) error
 	return nil
 }
 
-func (p *EventPublisher) SubscribeRegex(wait bool, regex string, sub Subcriber) error {
+func (p *EventPublisher) SubscribeRegex(wait bool, regex string, sub Subscriber) error {
 	regexPattern, err := newRegexPattern(regex)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func (p *EventPublisher) SubscribeRegex(wait bool, regex string, sub Subcriber) 
 
 	id := sub.SubscriberId()
 	if id == "" {
-		return fmt.Errorf(ErrorMessages[ERR_SUBCRIBER_ID_EMPTY])
+		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_ID_EMPTY])
 	}
 
 	if _, exists := p.subscribers[id]; !exists {
@@ -82,7 +82,7 @@ func (p *EventPublisher) SubscribeRegex(wait bool, regex string, sub Subcriber) 
 	return nil
 }
 
-func (p *EventPublisher) UnSubscribe(topic string, sub Subcriber) error {
+func (p *EventPublisher) UnSubscribe(topic string, sub Subscriber) error {
 	id := sub.SubscriberId()
 	if _, exists := p.subscribers[id]; !exists {
 		return fmt.Errorf(ErrorMessages[ERR_SUBSCRIBER_NOT_EXIST])
