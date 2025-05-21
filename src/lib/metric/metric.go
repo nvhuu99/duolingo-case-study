@@ -3,6 +3,7 @@ package metric
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 )
@@ -13,7 +14,7 @@ type Metric struct {
 	datapointInterval time.Duration
 	captureStatus     CaptureStatus
 
-	collectors map[string]Collector
+	collectors []Collector
 
 	parentCtx context.Context
 	ctx       context.Context
@@ -23,17 +24,15 @@ type Metric struct {
 }
 
 func NewMetric(ctx context.Context, interval time.Duration, tick time.Duration) *Metric {
-	collector := &Metric{
+	return &Metric{
 		parentCtx:         ctx,
 		snapshotTick:      tick,
 		datapointInterval: interval,
-		collectors:        make(map[string]Collector),
 	}
-	return collector
 }
 
-func (m *Metric) WithCollector(name string, c Collector) *Metric {
-	m.collectors[name] = c
+func (m *Metric) AddCollector(c Collector) *Metric {
+	m.collectors = append(m.collectors, c)
 	return m
 }
 
@@ -70,22 +69,7 @@ func (m *Metric) CaptureEnd() error {
 	return nil
 }
 
-func (m *Metric) Fetch() (*DataPoint, error) {
-	dpChan, err := m.datapointChannel()
-	if err != nil {
-		return nil, err
-	}
-
-	to := time.After(m.datapointInterval + 200*time.Millisecond)
-	select {
-	case datapoint := <-dpChan:
-		return datapoint, nil
-	case <-to:
-		return nil, errors.New(ErrMessages[ERR_NO_DATA_POINT_YET])
-	}
-}
-
-func (m *Metric) datapointChannel() (<-chan *DataPoint, error) {
+func (m *Metric) DataPointChannel() (<-chan *DataPoint, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -106,25 +90,30 @@ func (m *Metric) capturing() {
 	timer := time.NewTimer(m.datapointInterval)
 	defer timer.Stop()
 
-	start := time.Now()
-	snapshots := make(map[string][]any)
-	count := 0
-
 	buffer := func() {
-		if len(snapshots) == 0 {
-			return
+		for _, collector := range m.collectors {
+			rawDatapoints := collector.Collect()
+			for _, raw := range rawDatapoints {
+				if len(raw.Snapshots) == 0 {
+					continue
+				}
+				sort.Slice(raw.Snapshots, func(i, j int) bool {
+					return raw.Snapshots[i].Timestamp.Before(raw.Snapshots[j].Timestamp)
+				})
+				end := raw.Snapshots[len(raw.Snapshots) - 1].Timestamp
+				duration := m.snapshotTick * time.Duration(len(raw.Snapshots) - 1)
+				dp := &DataPoint{
+					EndTime: end,
+					StartTime: end.Add(-duration),
+					DurationMs: duration.Milliseconds(),
+					IncrMs: m.snapshotTick.Milliseconds(),
+					Count: len(raw.Snapshots),
+					Snapshots: raw.Snapshots,
+					Tags: raw.Tags,
+				}
+				m.datapointsChan <- dp
+			}
 		}
-		datapoint := &DataPoint{
-			StartTime:  start,
-			EndTime:    time.Now(),
-			DurationMs: uint64(time.Since(start).Milliseconds()),
-			IncrMs:     uint64(m.snapshotTick.Milliseconds()),
-			Count:      uint8(count),
-			Snapshots:  snapshots,
-		}
-		m.datapointsChan <- datapoint
-		snapshots = make(map[string][]any)
-		count = 0
 	}
 
 	for {
@@ -136,10 +125,9 @@ func (m *Metric) capturing() {
 			buffer()
 			timer.Reset(m.datapointInterval)
 		case <-ticker.C:
-			for name, collector := range m.collectors {
-				snapshots[name] = append(snapshots[name], collector.Capture())
+			for _, collector := range m.collectors {
+				collector.Capture()
 			}
-			count++
 		}
 	}
 }
