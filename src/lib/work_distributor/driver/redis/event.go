@@ -6,7 +6,7 @@ const (
 )
 
 type RedisCommandExecutedEvent struct {
-	Count int8
+	Count int
 }
 
 type RedisLockReleasedEvent struct {

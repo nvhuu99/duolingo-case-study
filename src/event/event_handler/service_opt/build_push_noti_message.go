@@ -81,9 +81,10 @@ func (e *BuildPushNotiMessage) handleBuildEnd(data any) {
 	} else {
 		e.logger.Error("", evtData.Error).Detail(ldt.BuildNotificationDetail(evtData, trace)).Write()
 	}
-	metric, _ := metricEvtData.Metric.Fetch()
-	if metric != nil {
-		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
+	if dataPointCh, err := metricEvtData.Metric.DataPointChannel(); err == nil {
+		for dp := range dataPointCh {
+			e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, dp)).Write()
+		}
 	}
 
 	fmt.Printf("message_built - has_err: %v - total: %v - build_size: %v - title: %v - id: %v - trace: %v\n",

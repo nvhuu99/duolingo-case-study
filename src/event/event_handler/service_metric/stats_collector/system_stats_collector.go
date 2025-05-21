@@ -1,68 +1,47 @@
 package metric
 
 import (
+	"duolingo/lib/metric"
+
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type CPUStats struct {
-	Util          float32 `json:"util"`
-	IOTimeSeconds float64 `json:"io_time_seconds"`
-}
-
-type MemoryStats struct {
-	UsedPct float32 `json:"used_pct"`
-	FreePct float32 `json:"free_pct"`
-	UsedMB  uint32  `json:"used_mb"`
-	FreeMB  uint32  `json:"free_mb"`
-}
-
-type DiskIOStats struct {
-	Device   string `json:"device"`
-	IOTimeMs uint64 `json:"io_time_ms"`
-}
-
-type SystemStats struct {
-	CPU    *CPUStats               `json:"cpu"`
-	Memory *MemoryStats            `json:"memory"`
-	DiskIO map[string]*DiskIOStats `json:"disk_io"`
-}
-
 type SystemStatsCollector struct {
+	snapshots map[string][]*metric.Snapshot
 }
 
-func (c *SystemStatsCollector) Capture() any {
-	systemStats := new(SystemStats)
-
-	cpuPercents, _ := cpu.Percent(0, false)
-	cpuTimes, _ := cpu.Times(false)
-	if len(cpuPercents) > 0 && len(cpuTimes) > 0 {
-		systemStats.CPU = new(CPUStats)
-		systemStats.CPU.Util = float32(cpuPercents[0])
-		systemStats.CPU.IOTimeSeconds = cpuTimes[0].Iowait
+func NewSystemStatsCollector() *SystemStatsCollector {
+	return &SystemStatsCollector{
+		snapshots:  make(map[string][]*metric.Snapshot),
 	}
+}
 
-	vmem, err := mem.VirtualMemory()
-	if err == nil {
-		systemStats.Memory = new(MemoryStats)
-		systemStats.Memory.UsedPct = float32(vmem.UsedPercent)
-		systemStats.Memory.FreePct = float32(100.0 - vmem.UsedPercent)
-		systemStats.Memory.UsedMB = uint32(vmem.Used / 1024 / 1024)
-		systemStats.Memory.FreeMB = uint32(vmem.Available / 1024 / 1024)
+func (c *SystemStatsCollector) Capture() {
+	if cpuPercents, _ := cpu.Percent(0, false); len(cpuPercents) > 0  {
+		c.snapshots["cpu_util"] = append(c.snapshots["cpu_util"], metric.NewSnapshot(cpuPercents[0]))
 	}
-
-	diskIO, err := disk.IOCounters()
-	if err == nil {
-		systemStats.DiskIO = make(map[string]*DiskIOStats)
+	if vmem, err := mem.VirtualMemory(); err == nil {
+		c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(vmem.UsedPercent, "is_used_percent"))
+		// c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(100.0-vmem.UsedPercent, "is_free_percent"))
+		c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(float64(vmem.Used)/1024/1024, "is_used_mb"))
+		// c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(float64(vmem.Available)/1024/1024, "is_free_mb"))
+	}
+	if diskIO, err := disk.IOCounters(); err == nil {
 		for name, partition := range diskIO {
-			systemStats.DiskIO[name] = &DiskIOStats{
-				Device:   name,
-				IOTimeMs: partition.IoTime,
-			}
+			c.snapshots["disk_io"] = append(c.snapshots["disk_io"], metric.NewSnapshot(float64(partition.IoTime), "partition", name))
 		}
-
 	}
+}
 
-	return systemStats
+func (c *SystemStatsCollector) Collect() []*metric.DataPoint {
+	defer func() { 
+		c.snapshots = make(map[string][]*metric.Snapshot)
+	}()
+	return []*metric.DataPoint{
+		metric.RawDataPoint(c.snapshots["cpu_util"], "target", "cpu_util"),
+		metric.RawDataPoint(c.snapshots["memory"], "target", "memory"),
+		metric.RawDataPoint(c.snapshots["disk_io"], "target", "disk_io"),
+	}
 }

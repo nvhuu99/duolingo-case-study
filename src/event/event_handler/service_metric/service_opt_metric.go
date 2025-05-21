@@ -68,9 +68,9 @@ func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 		time.Duration(sInterval)*time.Millisecond,
 	)
 	evtData.Metric.
-		WithCollector("system_stats", new(collector.SystemStatsCollector)).
-		WithCollector("message_queue_stats", rabbitmqStats).
-		WithCollector("redis_stats", redisStats).
+		AddCollector(collector.NewSystemStatsCollector()).
+		AddCollector(rabbitmqStats).
+		AddCollector(redisStats).
 		CaptureStart()
 }
 

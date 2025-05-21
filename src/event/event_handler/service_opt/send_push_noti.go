@@ -81,9 +81,10 @@ func (e *SendPushNotification) handleSendPushNotiEnd(data any) {
 	} else {
 		e.logger.Error("", evtData.Result.Error).Detail(ldt.SendPushNotiDetail(evtData, trace)).Write()
 	}
-	metric, _ := metricEvtData.Metric.Fetch()
-	if metric != nil {
-		e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, metric)).Write()
+	if dataPointCh, err := metricEvtData.Metric.DataPointChannel(); err == nil {
+		for dp := range dataPointCh {
+			e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, dp)).Write()
+		}
 	}
 
 	fmt.Printf("push_noti_sent - has_err: %v - id: %v - title: %v - trace: %v\n",
