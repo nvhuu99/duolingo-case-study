@@ -15,3 +15,7 @@ COPY src/go.mod src/go.sum ./
 RUN go mod download
 
 ENTRYPOINT ["go", "run"]
+
+EXPOSE 8001
+EXPOSE 8002
+EXPOSE 8003
