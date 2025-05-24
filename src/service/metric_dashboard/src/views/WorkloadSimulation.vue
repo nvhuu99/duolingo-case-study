@@ -1,12 +1,32 @@
 <script setup>
 import '../assets/work_simulation.min.css'
-import { ref } from 'vue'
+import { computed, onBeforeMount, ref } from 'vue'
 import OperationsExecTimeSection from '../components/partials/workload_simulation/OperationsExecTimeSection.vue'
 import WorkloadGenerateFormSection from '../components/partials/workload_simulation/WorkloadGenerateFormSection.vue'
 import ServicesMetricSection from '../components/partials/workload_simulation/ServicesMetricSection.vue'
 import InfraMetricSection from '../components/partials/workload_simulation/InfraMetricSection.vue'
+import axios from 'axios'
 
-const traceId = ref('dcb763f3-96fe-45e5-8154-de372e7448dd')
+const traceId = ref('d1c69681-1983-4471-be7c-f4431f5e6a4c')
+
+const workload = ref(null)
+
+onBeforeMount(async () => {
+  var response = await fetchWorkloadMetadata()
+  workload.value = response
+})
+
+async function fetchWorkloadMetadata() {
+  try {
+    var res = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/workload-metadata`)
+    return res.data.data
+  }
+  catch (err) {
+    console.log('Failed to fetch workload metadata.')
+    console.log(err?.response?.data ?? err)
+    return null
+  }
+}
 
 </script>
 
@@ -26,7 +46,7 @@ const traceId = ref('dcb763f3-96fe-45e5-8154-de372e7448dd')
   </section>
 
   <section class="container pb-4">
-    <ServicesMetricSection />
+    <ServicesMetricSection v-if="workload" :trace-id="traceId" :workload="workload"/>
   </section>
 
   <section class="container">

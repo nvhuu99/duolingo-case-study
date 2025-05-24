@@ -49,7 +49,7 @@ const renderChart = async function() {
   // Config and render chart
   const chartCanvas = document.getElementById('chart-canvas')
   chartCanvas.width = document.getElementById('gantt-wrapper').clientWidth
-  chartCanvas.height = 75 + chartData.length * 50 // tick-height + bar-heights (margin included)
+  chartCanvas.height = 90 + chartData.length * 50 // tick-height + bar-heights (margin included)
   chartInstance.value = new Chart(chartCanvas.getContext('2d'), {
     type: 'bar',
     data: {
@@ -77,10 +77,11 @@ const renderChart = async function() {
       barPercentage: 0.8,
       scales: {
         x: {
+          // ticks: {
+          //   stepSize: 500,
+          // },
           beginAtZero: true,
-          ticks: {
-            stepSize: 100,
-          },
+          title: { display: true, text: 'Captured time in millisecond (relative to the workload start time)' }
         },
         y: {
           ticks: {
@@ -124,13 +125,13 @@ const buildOperationExecTimeSpansReport = async function() {
   try {
     // Fetch the list of services operation, and set default time span values
     const report = {}
-    var listRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/operations`)
+    var listRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/list-operations`)
     listRequest.data.data.forEach(opt => {
       if (!report[opt.service_name]) report[opt.service_name] = {}
       report[opt.service_name][opt.service_operation] = { start_latency_ms: 0, duration_ms: 1 }
     })
     // Fetch and merge the time spans into the report
-    var timeSpansRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/operations/report-execution-time-spans`)
+    var timeSpansRequest = await axios.get(`http://localhost:8003/metric/workload/${traceId.value}/service-execution-time-spans`)
     timeSpansRequest.data.data.forEach(opt => report[opt.service_name][opt.service_operation] = {
       start_latency_ms: opt.operation_start_latency_ms,
       duration_ms: opt.operation_end_latency_ms - opt.operation_start_latency_ms

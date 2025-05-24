@@ -68,9 +68,9 @@ func (c *RabbitMQStatsCollector) Collect() []*metric.DataPoint {
 		c.snapshots = make(map[string][]*metric.Snapshot)
 	}()
 	datapoints := []*metric.DataPoint{
-		metric.RawDataPoint(c.snapshots["delivered"], "service", "rabbitmq", "target", "delivered"),
-		metric.RawDataPoint(c.snapshots["published"], "service", "rabbitmq", "target", "published"),
-		metric.RawDataPoint(c.snapshots["depth"], "service", "rabbitmq", "target", "queue_depth"),
+		metric.RawDataPoint(c.snapshots["delivered"], "metric_target", "rabbitmq", "metric_name", "delivered"),
+		metric.RawDataPoint(c.snapshots["published"], "metric_target", "rabbitmq", "metric_name", "published"),
+		metric.RawDataPoint(c.snapshots["depth"], "metric_target", "rabbitmq", "metric_name", "queue_depth"),
 	}
 
 	return datapoints 

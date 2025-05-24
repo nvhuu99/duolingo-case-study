@@ -68,7 +68,7 @@ func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 		time.Duration(sInterval)*time.Millisecond,
 	)
 	evtData.Metric.
-		AddCollector(collector.NewSystemStatsCollector()).
+		AddCollector(collector.NewSystemStatsCollector(evtData.ServiceName)).
 		AddCollector(rabbitmqStats).
 		AddCollector(redisStats).
 		CaptureStart()

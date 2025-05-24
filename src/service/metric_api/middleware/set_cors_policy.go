@@ -11,4 +11,6 @@ type SetCORSPolicies struct {
 func (mw *SetCORSPolicies) Handle(request *rest.Request, response *rest.Response) {
 	defer mw.Next(request, response)
 	response.Header().Set("Access-Control-Allow-Origin", "*")
+	response.Header().Set("Access-Control-Allow-Headers", "*")
+	response.Header().Set("Access-Control-Allow-Methods", "*")
 }

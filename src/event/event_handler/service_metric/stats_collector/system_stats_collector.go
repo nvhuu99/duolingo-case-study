@@ -9,11 +9,13 @@ import (
 )
 
 type SystemStatsCollector struct {
+	serviceName string
 	snapshots map[string][]*metric.Snapshot
 }
 
-func NewSystemStatsCollector() *SystemStatsCollector {
+func NewSystemStatsCollector(serviceName string) *SystemStatsCollector {
 	return &SystemStatsCollector{
+		serviceName: serviceName,
 		snapshots:  make(map[string][]*metric.Snapshot),
 	}
 }
@@ -23,10 +25,8 @@ func (c *SystemStatsCollector) Capture() {
 		c.snapshots["cpu_util"] = append(c.snapshots["cpu_util"], metric.NewSnapshot(cpuPercents[0]))
 	}
 	if vmem, err := mem.VirtualMemory(); err == nil {
-		c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(vmem.UsedPercent, "is_used_percent"))
-		// c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(100.0-vmem.UsedPercent, "is_free_percent"))
-		c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(float64(vmem.Used)/1024/1024, "is_used_mb"))
-		// c.snapshots["memory"] = append(c.snapshots["memory"], metric.NewSnapshot(float64(vmem.Available)/1024/1024, "is_free_mb"))
+		c.snapshots["memory_used_pct"] = append(c.snapshots["memory_used_pct"], metric.NewSnapshot(vmem.UsedPercent))
+		c.snapshots["memory_used_mb"] = append(c.snapshots["memory_used_mb"], metric.NewSnapshot(float64(vmem.Used)/1024/1024))
 	}
 	if diskIO, err := disk.IOCounters(); err == nil {
 		for name, partition := range diskIO {
@@ -40,8 +40,9 @@ func (c *SystemStatsCollector) Collect() []*metric.DataPoint {
 		c.snapshots = make(map[string][]*metric.Snapshot)
 	}()
 	return []*metric.DataPoint{
-		metric.RawDataPoint(c.snapshots["cpu_util"], "target", "cpu_util"),
-		metric.RawDataPoint(c.snapshots["memory"], "target", "memory"),
-		metric.RawDataPoint(c.snapshots["disk_io"], "target", "disk_io"),
+		metric.RawDataPoint(c.snapshots["cpu_util"], "metric_target", c.serviceName, "metric_name", "cpu_util"),
+		metric.RawDataPoint(c.snapshots["memory_used_pct"], "metric_target", c.serviceName, "metric_name", "memory_used_pct"),
+		metric.RawDataPoint(c.snapshots["memory_used_mb"], "metric_target", c.serviceName, "metric_name", "memory_used_mb"),
+		metric.RawDataPoint(c.snapshots["disk_io"], "metric_target", c.serviceName, "metric_name", "disk_io"),
 	}
 }

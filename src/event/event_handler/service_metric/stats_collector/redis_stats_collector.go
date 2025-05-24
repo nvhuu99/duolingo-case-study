@@ -60,9 +60,9 @@ func (c *RedisStatsCollector) Collect() []*metric.DataPoint {
 		c.snapshots = make(map[string][]*metric.Snapshot) 
 	}()
 	datapoints := []*metric.DataPoint{
-		metric.RawDataPoint(c.snapshots["command_count"], "service", "redis", "target", "command_count"),
-		metric.RawDataPoint(c.snapshots["lock_waited"], "service", "redis", "target", "lock_waited"),
-		metric.RawDataPoint(c.snapshots["lock_held"], "service", "redis", "target", "lock_held"),
+		metric.RawDataPoint(c.snapshots["command_count"], "metric_target", "redis", "metric_name", "command_count"),
+		metric.RawDataPoint(c.snapshots["lock_waited"], "metric_target", "redis", "metric_name", "lock_waited"),
+		metric.RawDataPoint(c.snapshots["lock_held"], "metric_target", "redis", "metric_name", "lock_held"),
 	}
 	return datapoints
 }
