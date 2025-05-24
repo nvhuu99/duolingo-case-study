@@ -1,11 +1,11 @@
 {
     "log": {
         "rotation_seconds": 86400,
-        "flush_seconds": 1,
+        "flush_seconds": 3,
         "flush_grace_ms": 300,
         "buffer": {
             "size": 1,
-            "max_count": 1
+            "max_count": 200
         }
     },
     "metric": {
