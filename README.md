@@ -4,6 +4,7 @@ Setup docker:
     docker build -t duolingo-service -f ./dockerfile.dev ..
     docker swarm init
     docker stack deploy --detach=true -c docker-compose.yml duolingo_case_study
+        docker stack rm duolingo_case_study
 
 Database Migration:
     cd src
