@@ -43,6 +43,10 @@ func (router *Router) Post(pattern string, handler func(*Request, *Response)) er
 	return router.add("POST", pattern, handler)
 }
 
+func (router *Router) Options(pattern string, handler func(*Request, *Response)) error {
+	return router.add("OPTIONS", pattern, handler)
+}
+
 func routeParts(route string) ([]string, error) {
 	route = strings.Trim(route, "/")
 	route = strings.ReplaceAll(route, "//", "/")
@@ -89,7 +93,7 @@ func (router *Router) add(method string, pattern string, handler func(*Request, 
 			if !strings.HasSuffix(part, "}") {
 				return errors.New(ErrMessages[ERR_ARGUMENT_NOT_ENCLOSED])
 			}
-			pathVal = "*"
+			pathVal = "{ARG}"
 		} else {
 			// fixed value
 			pathVal = part
@@ -127,7 +131,10 @@ func (router *Router) matchRoute(method string, pattern string) (*RouteMap, erro
 		// loop through childs, take all whose value is * or match the current route part
 		tmp := make(map[string]*RouteMap)
 		for _, m := range matches {
-			if m.name == "*" || m.name == part {
+			if m.name == "*" {
+				return m, nil
+			}
+			if m.name == "{ARG}" || m.name == part {
 				if i == len(parts)-1 {
 					return m, nil
 				}
