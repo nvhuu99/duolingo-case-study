@@ -8,6 +8,7 @@ import (
 	rest "duolingo/lib/rest_http"
 	sv "duolingo/lib/service_container"
 	model "duolingo/model"
+	lc "duolingo/model/log/context"
 	"duolingo/service/input_message_api/bootstrap"
 	"time"
 
@@ -28,6 +29,10 @@ func input(request *rest.Request, response *rest.Response) {
 		OptId: uuid.NewString(),
 		PushNoti: &model.PushNotiMessage{
 			RelayFlag: model.ShouldRelay,
+			Trace: &lc.TraceSpan{
+				TraceId: uuid.NewString(),
+				SpanId: "",
+			},
 		},
 		Request:  request,
 		Response: response,

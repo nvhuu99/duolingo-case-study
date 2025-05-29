@@ -2,22 +2,21 @@ package result
 
 import (
 	"duolingo/lib/metric"
-	"duolingo/lib/metric/downsampling"
+	"duolingo/lib/metric/reduction"
 	"time"
 )
 
 type WorkloadMetricQueryResult struct {
-	MetricTarget string `json:"metric_target" bson:"metric_target"`
-	MetricName string `json:"metric_name" bson:"metric_name"`
-	Snapshots []*metric.Snapshot `json:"snapshots" bson:"snapshots"`
+	MetricTarget     string                        `json:"metric_target" bson:"metric_target"`
+	MetricName       string                        `json:"metric_name" bson:"metric_name"`
+	Snapshots        []*metric.Snapshot            `json:"snapshots" bson:"snapshots"`
 	ReducedSnapshots map[string][]*metric.Snapshot `json:"reduced_snapshots" bson:"reduced_snapshots"`
 }
 
-func (result *WorkloadMetricQueryResult) Downsampling(workloadStart time.Time, reductionStep int64, strategies map[string]downsampling.DownsamplingStrategy) error {
-	reducer := new(downsampling.SnapshotReducer).
-					WithStartTime(workloadStart).
-					WithReductionStep(int64(reductionStep)).
-					WithSnapshots(result.Snapshots)
+func (result *WorkloadMetricQueryResult) Reduce(workloadStart time.Time, reductionStep int64, strategies map[string]reduction.ReductionStrategy) error {
+	reducer := new(reduction.SnapshotReducer).
+		WithStartTime(workloadStart).
+		WithSnapshots(result.Snapshots, reductionStep)
 	result.ReducedSnapshots = make(map[string][]*metric.Snapshot)
 	for name, strategy := range strategies {
 		reducedWithStrg, err := reducer.WithStrategy(strategy).Result()

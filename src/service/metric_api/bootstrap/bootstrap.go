@@ -62,7 +62,8 @@ func bindRepository() {
 	container.BindSingleton("repo.log", func() any {
 		repo := log_repo.NewLogRepo(ctx, conf.Get("db.campaign.name", ""))
 		err := repo.SetConnection(
-			conf.Get("db.campaign.host", ""),
+			// conf.Get("db.campaign.host", ""),
+			"localhost",
 			conf.Get("db.campaign.port", ""),
 			conf.Get("db.campaign.user", ""),
 			conf.Get("db.campaign.password", ""),

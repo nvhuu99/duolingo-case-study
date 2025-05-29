@@ -9,6 +9,7 @@ import (
 	"duolingo/lib/log"
 	sv "duolingo/lib/service_container"
 	ldt "duolingo/model/log/detail"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -55,7 +56,7 @@ func (e *InputMessageRequest) handleRequestBegin(data any) {
 		ServiceType: cnst.ServiceTypes[cnst.SV_INP_MESG],
 		ServiceOpt:  cnst.INP_MESG_REQUEST,
 		OptId:       evtData.OptId,
-		ParentSpan:  nil,
+		ParentSpan:  evtData.PushNoti.Trace,
 	})
 	e.events.Notify(sm.SERVICE_OPERATION_METRIC_BEGIN, &ed.ServiceOperationMetric{
 		ServiceName: cnst.SV_INP_MESG,
@@ -74,7 +75,6 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 	e.events.Notify(sm.SERVICE_OPERATION_METRIC_END, metricEvtData)
 
 	trace := traceEvtData.Span
-	evtData.PushNoti.Trace = trace
 	if evtData.Success {
 		e.logger.Info("").Detail(ldt.InpMsgRequestDetail(evtData, trace)).Write()
 	} else {
@@ -85,4 +85,11 @@ func (e *InputMessageRequest) handleRequestEnd(data any) {
 			e.logger.Debug("").Detail(ldt.SvOptMetricDetail(trace, dp)).Write()
 		}
 	}
+
+	fmt.Printf("input_message_api - has_err: %v - title: %v - id: %v - trace: %v\n",
+		evtData.Error,
+		evtData.PushNoti.InputMessage.Title,
+		evtData.PushNoti.InputMessage.MessageId,
+		trace.TraceId,
+	)
 }

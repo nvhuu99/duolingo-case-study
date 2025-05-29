@@ -1,38 +1,40 @@
 <script setup>
-import { ref, onMounted, toRef, watch, computed, reactive, watchEffect } from 'vue'
+import { ref, onMounted, toRef, watch, computed, reactive } from 'vue'
 import {
   Chart,
-  ScatterController,
+  LineController,
+  LineElement,
   PointElement,
   LinearScale,
-  TimeScale,
+  Title,
+  CategoryScale,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js'
 import 'chartjs-adapter-date-fns'
 import axios from 'axios'
-import IconInstace from '@/components/icons/IconInstace.vue'
+import IconInstance from '@/components/icons/IconInstance.vue'
 import IconCPU from '@/components/icons/IconCPU.vue'
 import IconRAM from '@/components/icons/IconRAM.vue'
-import IconDisk from '@/components/icons/IconDisk.vue'
 
 const SERVICE_NAMES = {
-  noti_builder: "Notification Builder",
-  input_message_api: "Input Message API",
-  push_noti_sender: "Push Notification Sender",
+  noti_builder: { key: 'noti_builder', label: 'Notification Builder'},
+  input_message_api: { key: 'input_message_api', label: 'Input Message API'},
+  push_noti_sender: { key: 'push_noti_sender', label: 'Push Notification Sender'},
 }
 const METRIC_TYPES = {
-  all: "Show all",
-  median: "Moving Median",
-  lttb: "Largest Triangle (LTTB)",
-  percentiles: "Percentiles",
+  all: {key: 'all', label: 'Show all'},
+  median: {key: 'median', label: 'Median'},
+  lttb: {key: 'lttb', label: 'Largest Triangle (LTTB)'},
+  percentiles: {key: 'percentiles', label: 'Percentiles'},
 }
 const METRIC_NAMES = {
-  cpu_util: 'cpu_util',
-  memory_used_mb: 'memory_used_mb',
+  cpu_util: {key: 'cpu_util', label: 'CPU Utilization (%)'},
+  memory_used_mb: {key: 'memory_used_mb', label: 'Memory used (MB)'},
 }
 
-const REDUCTION_STEPS = [500, 1000, 1500, 2000, 2500, 5000]
+const REDUCTION_STEPS = [100, 200, 500, 1000, 1500, 2000, 2500, 5000]
 
 const props = defineProps([
   'traceId',
@@ -41,11 +43,11 @@ const props = defineProps([
 const traceId = toRef(props, 'traceId')
 const chartInstance = ref(null)
 const selection = reactive({
-  service_name: 'noti_builder',
+  service_name: SERVICE_NAMES.noti_builder.key,
   reduction_step: 1000,
-  metric_name: 'cpu_util',
+  metric_name: METRIC_NAMES.cpu_util.key,
+  metric_type: METRIC_TYPES.all.key,
   instance_id: '',
-  metric_type: METRIC_TYPES.all,
 })
 const metricSummary = ref(null)
 
@@ -56,36 +58,50 @@ const serviceInstances = computed(() => {
 })
 const metricUnit = computed(() => {
   switch (selection.metric_name) {
-    case METRIC_NAMES.memory_used_mb:
+    case METRIC_NAMES.memory_used_mb.key:
       return ' mb';
-    case METRIC_NAMES.cpu_util:
+    case METRIC_NAMES.cpu_util.key:
     default:
       return '%';
   }
 })
 
 onMounted(() => {
-  Chart.register(ScatterController, PointElement, LinearScale, TimeScale, Tooltip, Legend)
+  Chart.register(
+    LineController,
+    LineElement,
+    PointElement,
+    LinearScale,
+    CategoryScale,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
+  );
   renderChart()
   updateSummary()
 })
 
+watch(() => selection.service_name, function() {
+  selection.instance_id = ""
+})
 watch([traceId, selection], async () => {
   await destroyChart()
-  renderChart()
-  updateSummary()
+  await renderChart()
+  await updateSummary()
 });
+
 
 function toggleWarning() {
   document.getElementById('data-warning')?.classList?.toggle('d-none')
 }
 
 function shouldShowMetricType(type) {
-  return selection.metric_type == METRIC_TYPES.all || selection.metric_type == type
+  return selection.metric_type == METRIC_TYPES.all.key || selection.metric_type == type.key
 }
 
 function getSummary(type) {
-  var val = metricSummary.value?.[selection.service_name]?.[selection.metric_name]?.[type]
+  var val = metricSummary.value?.[selection.service_name]?.[selection.metric_name]?.reduced_snapshots?.[type]?.[0].value
   if (isNaN(val)) {
     return '(unknown)'
   }
@@ -138,7 +154,7 @@ async function renderChart() {
       type: 'line',
       label: '5th percentile',
       data: makeChartDataSet('p5'),
-      backgroundColor: 'rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'rgba(255, 133, 175, 0.2)',
       borderWidth: 0,
       pointRadius: 0,
       fill: '+1', // fill to next dataset
@@ -159,7 +175,7 @@ async function renderChart() {
       type: 'line',
       label: '25th percentile',
       data: makeChartDataSet('p25'),
-      backgroundColor: 'rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'rgba(112, 87, 255, 0.2)',
       borderWidth: 0,
       pointRadius: 0,
       fill: '+1',
@@ -175,26 +191,26 @@ async function renderChart() {
       fill: false,
       hidden: !shouldShowMetricType(METRIC_TYPES.percentiles),
     },
-    {
-      type: 'line',
-      label: '1th percentile',
-      data: makeChartDataSet('p1'),
-      backgroundColor: 'rgba(0, 0, 0, 0.1)',
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: '+1',
-      hidden: !shouldShowMetricType(METRIC_TYPES.percentiles),
-    },
-    {
-      type: 'line',
-      label: '99th percentile',
-      data: makeChartDataSet('p99'),
-      backgroundColor: 'rgba(0, 0, 0, 0)',
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: false,
-      hidden: !shouldShowMetricType(METRIC_TYPES.percentiles),
-    },
+    // {
+    //   type: 'line',
+    //   label: '1th percentile',
+    //   data: makeChartDataSet('p1'),
+    //   backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    //   borderWidth: 0,
+    //   pointRadius: 0,
+    //   fill: '+1',
+    //   hidden: !shouldShowMetricType(METRIC_TYPES.percentiles),
+    // },
+    // {
+    //   type: 'line',
+    //   label: '99th percentile',
+    //   data: makeChartDataSet('p99'),
+    //   backgroundColor: 'rgba(0, 0, 0, 0)',
+    //   borderWidth: 0,
+    //   pointRadius: 0,
+    //   fill: false,
+    //   hidden: !shouldShowMetricType(METRIC_TYPES.percentiles),
+    // },
   ]
 
   const canvas = document.getElementById('service-stats-chart-canvas')
@@ -227,9 +243,9 @@ async function renderChart() {
               const asSeconds = (context.parsed.x / 1000).toFixed(1);
               const formatedVal = Intl.NumberFormat('en-US').format(Math.round(context.parsed.y).toFixed(0))
               switch (selection.metric_name) {
-                case METRIC_NAMES.memory_used_mb:
+                case METRIC_NAMES.memory_used_mb.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, Memory used ${formatedVal} mb`;
-                case METRIC_NAMES.cpu_util:
+                case METRIC_NAMES.cpu_util.key:
                 default:
                   return `After ${asMs}ms - ${asSeconds}seconds, CPUs utilized ${formatedVal}%`;
               }
@@ -257,6 +273,7 @@ async function fetchMetrics() {
         instance_ids: [selection.instance_id],
         reduction_step: selection.reduction_step,
         metric_names: [selection.metric_name],
+        strategies: ['median', 'lttb', 'p5', 'p25', 'p75', 'p95']
     })
     // map the items by the metric_target, metric_name for easier access
     var result = {}
@@ -278,14 +295,14 @@ async function fetchSummary() {
         service_name: selection.service_name,
         service_operation: '',
         instance_ids: [selection.instance_id],
-        reduction_step: selection.reduction_step,
+        reduction_step: props.workload.duration_ms,
         metric_names: [selection.metric_name],
-        summary: true,
+        strategies: ['median', 'min', 'max', 'p5', 'p25', 'p75', 'p95']
     })
     // map the items by the metric_target, metric_name for easier access
     var result = {}
     res.data.data.forEach(sts => { result[sts.metric_target] = {
-      [sts.metric_name]: sts.summary,
+      [sts.metric_name]: sts,
     }})
     return result
   }
@@ -302,11 +319,11 @@ async function fetchSummary() {
     <div class="card shadow-md p-4">
       <div class="mb-4 d-flex align-items-center">
         <div class="form-group d-flex align-items-center">
-          <IconInstace class="d-inline-block me-2" width="24" />
+          <IconInstance class="d-inline-block me-2" width="24" />
           <h5 class="m-0 me-3" style="white-space: nowrap;">Services Metric</h5>
           <select v-model="selection.service_name" class="form-select form-select-sm d-inline-block" style="width: 220px;">
-            <option v-for="(n, k) in SERVICE_NAMES" :key="k" :value="k">
-              {{ n }}
+            <option v-for="svName in SERVICE_NAMES" :key="svName.key" :value="svName.key">
+              {{ svName.label }}
             </option>
           </select>
         </div>
@@ -315,12 +332,12 @@ async function fetchSummary() {
       <p v-show="!isChartReady" class="text-center text-secondary">Failed to fetch services system statistic.</p>
 
       <div v-show="isChartReady" class="services-selection input-group mb-4">
-        <button class="col btn btn-lg rounded-0 fs-6" :class="selection.metric_name == METRIC_NAMES.cpu_util ? 'btn-dark' : 'btn-outline-dark'" @click="() => selection.metric_name = METRIC_NAMES.cpu_util">
+        <button class="col btn btn-lg rounded-0 fs-6" :class="selection.metric_name == METRIC_NAMES.cpu_util.key ? 'btn-dark' : 'btn-outline-dark'" @click="() => selection.metric_name = METRIC_NAMES.cpu_util.key">
           <span class="d-flex align-items-center justify-content-center">
             <IconCPU class="me-2" width="20" /> CPU stats
           </span>
         </button>
-        <button class="col btn btn-lg rounded-0 fs-6" :class="selection.metric_name == METRIC_NAMES.memory_used_mb ? 'btn-dark' : 'btn-outline-dark'" @click="() => selection.metric_name = METRIC_NAMES.memory_used_mb">
+        <button class="col btn btn-lg rounded-0 fs-6" :class="selection.metric_name == METRIC_NAMES.memory_used_mb.key ? 'btn-dark' : 'btn-outline-dark'" @click="() => selection.metric_name = METRIC_NAMES.memory_used_mb.key">
           <span class="d-flex align-items-center justify-content-center">
             <IconRAM class="me-2" width="20" /> Memory stats
           </span>
@@ -361,8 +378,8 @@ async function fetchSummary() {
           <div class="form-group d-inline-flex align-items-center ms-4 mb-3" style="width: 270px;">
             <label class="form-label m-0 me-2" style="font-size: 14px;white-space: nowrap;">Metric type:</label>
             <select v-model="selection.metric_type" class="form-select form-select-sm">
-              <option v-for="(typeLabel, typeKey) in METRIC_TYPES" :key="typeKey" :value="typeLabel">
-                {{ typeLabel }}
+              <option v-for="type in METRIC_TYPES" :key="type.key" :value="type.key">
+                {{ type.label }}
               </option>
             </select>
           </div>
@@ -376,20 +393,16 @@ async function fetchSummary() {
                   <th colspan="2" style="font-size: 14px;">Summarization</th>
                 </tr>
                 <tr>
-                  <td class="ps-4" style="width: 150px;">Average</td>
-                  <td>{{ getSummary('average') }}</td>
-                </tr>
-                <tr>
                   <td class="ps-4">Median</td>
                   <td>{{ getSummary('median') }}</td>
                 </tr>
                 <tr>
                   <td class="ps-4">Minimum</td>
-                  <td>{{ getSummary('minimum') }}</td>
+                  <td>{{ getSummary('min') }}</td>
                 </tr>
                 <tr>
                   <td class="ps-4">Maximum</td>
-                  <td>{{ getSummary('maximum') }}</td>
+                  <td>{{ getSummary('max') }}</td>
                 </tr>
                 <tr>
                   <td class="ps-4">Percentiles</td>
@@ -398,22 +411,24 @@ async function fetchSummary() {
                   <td colspan="2" class="ps-4">
                     <div class="ps-4x">
                       <table class="table w-100">
-                        <tr>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">p5</td>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p5') }}</td>
-                        </tr>
-                        <tr>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">p25</td>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p25') }}</td>
-                        </tr>
-                        <tr>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">p75</td>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p75') }}</td>
-                        </tr>
-                        <tr>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">p95</td>
-                          <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p95') }}</td>
-                        </tr>
+                        <tbody>
+                          <tr>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">p5</td>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p5') }}</td>
+                          </tr>
+                          <tr>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">p25</td>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p25') }}</td>
+                          </tr>
+                          <tr>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">p75</td>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p75') }}</td>
+                          </tr>
+                          <tr>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">p95</td>
+                            <td class="px-2 py-1 border-1" style="font-size: 14px;">{{ getSummary('p95') }}</td>
+                          </tr>
+                        </tbody>
                       </table>
                     </div>
                   </td>

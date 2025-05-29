@@ -106,7 +106,7 @@ func bindEvents() {
 	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
-	evt.SubscribeRegex(true, "input_message_request.+", so.NewInputMessage())
+	evt.SubscribeRegex(true, "input_message_request_.+", so.NewInputMessage())
 }
 
 func bindRestHttp() {

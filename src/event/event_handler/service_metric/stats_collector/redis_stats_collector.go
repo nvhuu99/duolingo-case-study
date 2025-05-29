@@ -1,6 +1,7 @@
 package metric
 
 import (
+	cnst "duolingo/constant"
 	"duolingo/lib/metric"
 	redis "duolingo/lib/work_distributor/driver/redis"
 
@@ -50,9 +51,12 @@ func (c *RedisStatsCollector) Capture() {
 		c.lockWaited = 0
 		c.lockHeld = 0
 	}()
-	c.snapshots["command_count"] = append(c.snapshots["command_count"], metric.NewSnapshot(float64(c.commandCount)))
-	c.snapshots["lock_waited"] = append(c.snapshots["lock_waited"], metric.NewSnapshot(float64(c.lockWaited)))
-	c.snapshots["lock_held"] = append(c.snapshots["lock_held"], metric.NewSnapshot(float64(c.lockHeld)))
+	c.snapshots["command_rate"] = append(c.snapshots["command_rate"], metric.NewSnapshot(float64(c.commandCount), 
+		cnst.METADATA_AGGREGATE_FLAG, "", cnst.METADATA_AGGREGATION_ACCUMULATE))
+	c.snapshots["lock_waited"] = append(c.snapshots["lock_waited"], metric.NewSnapshot(float64(c.lockWaited), 
+		cnst.METADATA_AGGREGATE_FLAG, "", cnst.METADATA_AGGREGATION_MAXIMUM))
+	c.snapshots["lock_held"] = append(c.snapshots["lock_held"], metric.NewSnapshot(float64(c.lockHeld), 
+		cnst.METADATA_AGGREGATE_FLAG, "", cnst.METADATA_AGGREGATION_MAXIMUM))
 }
 
 func (c *RedisStatsCollector) Collect() []*metric.DataPoint {
@@ -60,9 +64,9 @@ func (c *RedisStatsCollector) Collect() []*metric.DataPoint {
 		c.snapshots = make(map[string][]*metric.Snapshot) 
 	}()
 	datapoints := []*metric.DataPoint{
-		metric.RawDataPoint(c.snapshots["command_count"], "metric_target", "redis", "metric_name", "command_count"),
-		metric.RawDataPoint(c.snapshots["lock_waited"], "metric_target", "redis", "metric_name", "lock_waited"),
-		metric.RawDataPoint(c.snapshots["lock_held"], "metric_target", "redis", "metric_name", "lock_held"),
+		metric.RawDataPoint(c.snapshots["command_rate"], "metric_target", cnst.METRIC_TARGET_REDIS, "metric_name", cnst.METRIC_NAME_REDIS_CMD_RATE),
+		metric.RawDataPoint(c.snapshots["lock_waited"], "metric_target", cnst.METRIC_TARGET_REDIS, "metric_name", cnst.METRIC_NAME_REDIS_LOCK_WAITED),
+		metric.RawDataPoint(c.snapshots["lock_held"], "metric_target", cnst.METRIC_TARGET_REDIS, "metric_name", cnst.METRIC_NAME_REDIS_LOCK_HELD),
 	}
 	return datapoints
 }

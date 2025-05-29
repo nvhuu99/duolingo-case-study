@@ -7,7 +7,7 @@ import ServicesMetricSection from '../components/partials/workload_simulation/Se
 import InfraMetricSection from '../components/partials/workload_simulation/InfraMetricSection.vue'
 import axios from 'axios'
 
-const traceId = ref('d1c69681-1983-4471-be7c-f4431f5e6a4c')
+const traceId = ref('ab73dc21-7518-4d6a-901a-e52e56e6f6b8')
 
 const workload = ref(null)
 
@@ -50,6 +50,6 @@ async function fetchWorkloadMetadata() {
   </section>
 
   <section class="container">
-    <InfraMetricSection />
+    <InfraMetricSection v-if="workload" :trace-id="traceId" :workload="workload"/>
   </section>
 </template>

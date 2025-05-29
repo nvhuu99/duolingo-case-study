@@ -71,14 +71,14 @@ func (repo *LogRepo) GetWorkloadMetadata(traceId string) (*result.WorkloadMetada
                 {"trace_id", "$context.trace.trace_id"},
             }},
             {"instance_ids", b.D{{"$addToSet", "$context.trace.instance_id"}}},
-            {"start_times", b.D{{"$push", "$context.trace.start_time"}}}, // temp array to test start_time
+            {"start_time", b.D{{"$min", b.D{{"$toDate", "$context.trace.start_time"}}}}},
+            {"end_time", b.D{{"$max", b.D{{"$toDate", "$context.trace.end_time"}}}}},
         }}},
         {{"$group", b.D{
             {"_id", nil},
             {"trace_id", b.D{{"$first", "$_id.trace_id"}}},
-            {"start_time", b.D{{"$min", b.D{
-                {"$toDate", b.D{{"$arrayElemAt", b.A{"$start_times", 0}}}},
-            }}}},
+            {"start_time", b.D{{"$min", "$start_time"}}},
+            {"end_time", b.D{{"$max", "$end_time"}}},
             {"service_instances", b.D{{"$push", b.D{
                 {"service_name", "$_id.service_name"},
                 {"instance_ids", "$instance_ids"},
@@ -88,6 +88,8 @@ func (repo *LogRepo) GetWorkloadMetadata(traceId string) (*result.WorkloadMetada
             {"_id", 0},
             {"trace_id", 1},
             {"start_time", 1},
+            {"end_time", 1},
+            {"duration_ms", b.D{{"$subtract", b.A{"$end_time","$start_time"}}}},
             {"service_instances", 1},
         }}},
     }
@@ -216,39 +218,393 @@ func (repo *LogRepo) GetWorkloadOptsExecTimeSpans(traceId string) ([]*result.Ope
     return response, nil
 }
 
-func (repo *LogRepo) WorkloadServiceMetrics(params *param.WorkloadMetricQuery, downsampling *param.WorkloadMetricDownsampling) ([]*result.WorkloadMetricQueryResult, error) {
-    workload, err := repo.GetWorkloadMetadata(params.Filters.TraceId)
-    if err != nil {
-        return nil, err
-    }
+// func (repo *LogRepo) WorkloadServiceMetrics(params *param.WorkloadMetricQueryParam) ([]*result.WorkloadMetricQueryResult, error) {
+//     filters, err := repo.filtersForWorkloadServiceMetric(params)
+//     if err != nil {
+//         return nil, err
+//     }
 
+//     workload, err := repo.GetWorkloadMetadata(params.Filters.TraceId)
+//     if err != nil {
+//         return nil, err
+//     }
+
+//     workloadStart := workload.StartTime
+//     pipeline := mongo.Pipeline{
+//         // 1) unwind and filter
+//         {{"$unwind", b.D{{"path", "$data.metric.snapshots"}}}},
+//         {{"$match", filters}},
+        
+//         // 2) expose `incr`
+//         {{"$addFields", b.D{
+//             {"incr", "$data.metric.snapshots.incr"},
+//         }}},
+
+//         // 3) facet out aggregate and pass-through series
+//         {{"$facet", b.D{
+//             // sum-accumulate
+//             {"aggregated_accumulate", mongo.Pipeline{
+//                 {{"$match", b.D{
+//                     {"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", true}, {"$ne", nil}}},
+//                     {"data.metric.snapshots.metadata.aggregation_accumulate", b.D{{"$exists", true}, {"$ne", nil}}},
+//                 }}},
+//                 {{"$group", b.D{
+//                     {"_id", b.D{
+//                         {"incr", "$incr"},
+//                         {"metric_target", "$data.metric.tags.metric_target"}, 
+//                         {"metric_name", "$data.metric.tags.metric_name"}, 
+//                         {"should_compute_rate", "$data.metric.snapshots.metadata.should_compute_rate"},
+//                     }},
+//                     {"value", b.D{{"$sum", "$data.metric.snapshots.value"}}},
+//                 }}},
+//                 {{"$project", b.D{
+//                     {"_id", 0},
+//                     {"incr", "$_id.incr"},
+//                     {"metric_target", "$_id.metric_target"},
+//                     {"metric_name", "$_id.metric_name"},
+//                     {"should_compute_rate", "$_id.should_compute_rate"},
+//                     {"timestamp", b.D{{"$add", b.A{workloadStart, "$_id.incr"}}}},
+//                     {"value", "$value"},
+//                 }}},
+//             }},
+//             // max-aggregation
+//             {"aggregated_maximum", mongo.Pipeline{
+//                 {{"$match", b.D{
+//                     {"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", true}, {"$ne", nil}}},
+//                     {"data.metric.snapshots.metadata.aggregation_maximum", b.D{{"$exists", true}, {"$ne", nil}}},
+//                 }}},
+//                 {{"$group", b.D{
+//                     {"_id", b.D{
+//                         {"incr", "$incr"},
+//                         {"metric_target", "$data.metric.tags.metric_target"},
+//                         {"metric_name", "$data.metric.tags.metric_name"},
+//                         {"should_compute_rate", "$data.metric.snapshots.metadata.should_compute_rate"},
+//                     }},
+//                     {"value", b.D{{"$max", "$data.metric.snapshots.value"}}},
+//                 }}},
+//                 {{"$project", b.D{
+//                     {"_id", 0},
+//                     {"incr", "$_id.incr"},
+//                     {"metric_target", "$_id.metric_target"},
+//                     {"metric_name", "$_id.metric_name"},
+//                     {"should_compute_rate", "$_id.should_compute_rate"},
+//                     {"timestamp", b.D{{"$add", b.A{workloadStart, "$_id.incr"}}}},
+//                     {"value", "$value"},
+//                 }}},
+//             }},
+//             // pass-through for non-aggregated
+//             {"non_aggregated", mongo.Pipeline{
+//                 {{"$match", b.D{
+//                     {"$or", b.A{
+//                         b.D{{"data.metric.snapshots.metadata.should_aggregate", nil}},
+//                         b.D{{"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", false}}}},
+//                     }},
+//                 }}},
+//                 {{"$project", b.D{
+//                     {"_id", 0},
+//                     {"metric_target", "$data.metric.tags.metric_target"},
+//                     {"metric_name", "$data.metric.tags.metric_name"},
+//                     {"incr", "$incr"},
+//                     {"timestamp", "$data.metric.snapshots.timestamp"},
+//                     {"value", "$data.metric.snapshots.value"},
+//                 }}},
+//             }},
+//         }}},
+
+//         // 4) merge series, sort and compute lag on merged ordered docs
+//         {{"$project", b.D{
+//             {"merged", b.D{
+//                 {"$concatArrays", b.A{"$aggregated_accumulate", "$aggregated_maximum", "$non_aggregated"}},
+//             }},
+//         }}},
+//         {{"$unwind", b.D{{"path", "$merged"}}}},
+//         {{"$replaceRoot", b.D{{"newRoot", "$merged"}}}},
+//         {{"$sort", b.D{{"metric_target", 1}, {"metric_name", 1}, {"incr", 1}}}},
+//         {{"$setWindowFields", b.D{
+//             {"partitionBy", b.D{{"metric_target", "$metric_target"}, {"metric_name", "$metric_name"}}},
+//             {"sortBy", b.D{{"incr", 1}}},
+//             {"output", b.D{
+//                 {"prevValue", b.D{{"$shift", b.D{{"output", "$value"}, {"by", -1}}}}},
+//                 {"prevIncr",  b.D{{"$shift", b.D{{"output", "$incr"}, {"by", -1}}}}},
+//             }},
+//         }}},
+
+//         // 5) facet rate vs final snapshots
+//         {{"$facet", b.D{
+//             {"computed_rate", mongo.Pipeline{
+//                 {{"$match", b.D{
+//                     {"should_compute_rate", b.D{{"$ne", nil}}},
+//                     {"prevValue", b.D{{"$ne", nil}}},
+//                     {"prevIncr",  b.D{{"$ne", nil}}},
+//                 }}},
+//                 {{"$project", b.D{
+//                     {"_id", 0},
+//                     {"incr", "$incr"},
+//                     {"metric_target", "$metric_target"},
+//                     {"metric_name", "$metric_name"},
+//                     {"timestamp", "$timestamp"},
+//                     {"value", b.D{{"$divide", b.A{
+//                         b.D{{"$subtract", b.A{"$value", "$prevValue"}}},
+//                         b.D{{"$subtract", b.A{"$incr", "$prevIncr"}}},
+//                     }}}},
+//                 }}},
+//             }},
+//             {"final_snapshots", mongo.Pipeline{
+//                 {{"$match", b.D{
+//                     {"$or", b.A{
+//                         b.D{{"should_compute_rate", nil}},
+//                         b.D{{"should_compute_rate", b.D{{"$exists", false}}}},
+//                         b.D{{"prevValue", nil}},
+//                         b.D{{"prevIncr", nil}},
+//                     }},
+//                 }}},
+//                 {{"$project", b.D{
+//                     {"_id", 0},
+//                     {"incr", "$incr"},
+//                     {"metric_target", "$metric_target"},
+//                     {"metric_name", "$metric_name"},
+//                     {"timestamp", "$timestamp"},
+//                     {"value", "$value"},
+//                 }}},
+//             }},
+//         }}},
+//         // 6) merge computed_rate and final and regroup by metric
+//         {{"$project", b.D{
+//             {"merged", b.D{
+//                 // {"$concatArrays", b.A{"$computed_rate"}},
+//                 {"$concatArrays", b.A{"$computed_rate", "$final_snapshots"}},
+//             }},
+//         }}},
+//         {{"$unwind", b.D{{"path", "$merged"}}}},
+//         {{"$replaceRoot", b.D{{"newRoot", "$merged"}}}},
+//         {{"$group", b.D{
+//             {"_id", b.D{
+//                 {"metric_target", "$metric_target"},
+//                 {"metric_name", "$metric_name"},
+//             }},
+//             {"snapshots", b.D{
+//                 {"$push", b.D{
+//                     {"incr", "$incr"},
+//                     {"timestamp", "$timestamp"},
+//                     {"value", "$value"},
+//                 }},
+//             }},
+//         }}},
+//         {{"$project", b.D{
+//             {"_id", 0},
+//             {"metric_target", "$_id.metric_target"},
+//             {"metric_name", "$_id.metric_name"},
+//             {"snapshots", "$snapshots"},
+//         }}},
+//     }
+
+// 	collection := repo.client.Database(repo.database).Collection("log")
+//     cursor, err := collection.Aggregate(repo.ctx, pipeline)
+//     if err != nil {
+//         return nil, err
+//     }
+//     defer cursor.Close(repo.ctx)
+
+//     results := []*result.WorkloadMetricQueryResult{}
+//     for cursor.Next(repo.ctx) {
+//         stats := new(result.WorkloadMetricQueryResult)
+//         if err := cursor.Decode(stats); err != nil {
+//             return nil, err
+//         }
+//         results = append(results, stats)
+//     }
+
+//     return results, nil
+// }
+
+func (repo *LogRepo) WorkloadServiceMetrics(params *param.WorkloadMetricQueryParam) ([]*result.WorkloadMetricQueryResult, error) {
     filters, err := repo.filtersForWorkloadServiceMetric(params)
     if err != nil {
         return nil, err
     }
 
+    workload, err := repo.GetWorkloadMetadata(params.Filters.TraceId)
+    if err != nil {
+        return nil, err
+    }
+
+    workloadStart := workload.StartTime
     pipeline := mongo.Pipeline{
+        // 1) unwind and filter
         {{"$unwind", b.D{{"path", "$data.metric.snapshots"}}}},
         {{"$match", filters}},
-		{{"$group", b.D{
-			{"_id", b.D{
-				{"metric_target", "$data.metric.tags.metric_target"},
-				{"metric_name", "$data.metric.tags.metric_name"},
-			}},
-			{"snapshots", b.D{
-				{"$push", b.D{
-					{"timestamp", "$data.metric.snapshots.timestamp"},
-					{"value", "$data.metric.snapshots.value"},
-				}},
-			}},
-		}}},
-		{{"$project", b.D{
+        
+        {{"$addFields", b.D{
+            {"start_time_offset", b.D{
+                {"$multiply", b.A{
+                    "$data.metric.incr_ms",
+                    b.D{{"$ceil", b.D{
+                        {"$divide", b.A{
+                            b.D{{"$subtract", b.A{b.D{{"$toDate", "$data.metric.snapshots.timestamp"}}, workloadStart}}},
+                            "$data.metric.incr_ms",
+                        }},
+                    }}},
+                }},
+            }},
+        }}},
+
+        // 3) facet out aggregate and pass-through series
+        {{"$facet", b.D{
+            // sum-accumulate
+            {"aggregated_accumulate", mongo.Pipeline{
+                {{"$match", b.D{
+                    {"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", true}, {"$ne", nil}}},
+                    {"data.metric.snapshots.metadata.aggregation_accumulate", b.D{{"$exists", true}, {"$ne", nil}}},
+                }}},
+                {{"$group", b.D{
+                    {"_id", b.D{
+                        {"start_time_offset", "$start_time_offset"},
+                        {"metric_target", "$data.metric.tags.metric_target"}, 
+                        {"metric_name", "$data.metric.tags.metric_name"}, 
+                        {"should_compute_rate", "$data.metric.snapshots.metadata.should_compute_rate"},
+                    }},
+                    {"value", b.D{{"$sum", "$data.metric.snapshots.value"}}},
+                }}},
+                {{"$project", b.D{
+                    {"_id", 0},
+                    {"start_time_offset", "$_id.start_time_offset"},
+                    {"metric_target", "$_id.metric_target"},
+                    {"metric_name", "$_id.metric_name"},
+                    {"should_compute_rate", "$_id.should_compute_rate"},
+                    {"timestamp", b.D{{"$add", b.A{workloadStart, "$_id.start_time_offset"}}}},
+                    {"value", "$value"},
+                }}},
+            }},
+            // max-aggregation
+            {"aggregated_maximum", mongo.Pipeline{
+                {{"$match", b.D{
+                    {"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", true}, {"$ne", nil}}},
+                    {"data.metric.snapshots.metadata.aggregation_maximum", b.D{{"$exists", true}, {"$ne", nil}}},
+                }}},
+                {{"$group", b.D{
+                    {"_id", b.D{
+                        {"start_time_offset", "$start_time_offset"},
+                        {"metric_target", "$data.metric.tags.metric_target"},
+                        {"metric_name", "$data.metric.tags.metric_name"},
+                        {"should_compute_rate", "$data.metric.snapshots.metadata.should_compute_rate"},
+                    }},
+                    {"value", b.D{{"$max", "$data.metric.snapshots.value"}}},
+                }}},
+                {{"$project", b.D{
+                    {"_id", 0},
+                    {"start_time_offset", "$_id.start_time_offset"},
+                    {"metric_target", "$_id.metric_target"},
+                    {"metric_name", "$_id.metric_name"},
+                    {"should_compute_rate", "$_id.should_compute_rate"},
+                    {"timestamp", b.D{{"$add", b.A{workloadStart, "$_id.start_time_offset"}}}},
+                    {"value", "$value"},
+                }}},
+            }},
+            // pass-through for non-aggregated
+            {"non_aggregated", mongo.Pipeline{
+                {{"$match", b.D{
+                    {"$or", b.A{
+                        b.D{{"data.metric.snapshots.metadata.should_aggregate", nil}},
+                        b.D{{"data.metric.snapshots.metadata.should_aggregate", b.D{{"$exists", false}}}},
+                    }},
+                }}},
+                {{"$project", b.D{
+                    {"_id", 0},
+                    {"metric_target", "$data.metric.tags.metric_target"},
+                    {"metric_name", "$data.metric.tags.metric_name"},
+                    {"start_time_offset", "$start_time_offset"},
+                    {"timestamp", "$data.metric.snapshots.timestamp"},
+                    {"value", "$data.metric.snapshots.value"},
+                }}},
+            }},
+        }}},
+
+        // 4) merge series, sort and compute lag on merged ordered docs
+        {{"$project", b.D{
+            {"merged", b.D{
+                {"$concatArrays", b.A{"$aggregated_accumulate", "$aggregated_maximum", "$non_aggregated"}},
+            }},
+        }}},
+        {{"$unwind", b.D{{"path", "$merged"}}}},
+        {{"$replaceRoot", b.D{{"newRoot", "$merged"}}}},
+        {{"$sort", b.D{{"metric_target", 1}, {"metric_name", 1}, {"start_time_offset", 1}}}},
+        {{"$setWindowFields", b.D{
+            {"partitionBy", b.D{{"metric_target", "$metric_target"}, {"metric_name", "$metric_name"}}},
+            {"sortBy", b.D{{"start_time_offset", 1}}},
+            {"output", b.D{
+                {"prevValue", b.D{{"$shift", b.D{{"output", "$value"}, {"by", -1}}}}},
+                {"prevstart_time_offset",  b.D{{"$shift", b.D{{"output", "$start_time_offset"}, {"by", -1}}}}},
+            }},
+        }}},
+
+        // 5) facet rate vs final snapshots
+        {{"$facet", b.D{
+            {"computed_rate", mongo.Pipeline{
+                {{"$match", b.D{
+                    {"should_compute_rate", b.D{{"$ne", nil}}},
+                    {"prevValue", b.D{{"$ne", nil}}},
+                    {"prevstart_time_offset",  b.D{{"$ne", nil}}},
+                }}},
+                {{"$project", b.D{
+                    {"_id", 0},
+                    {"start_time_offset", "$start_time_offset"},
+                    {"metric_target", "$metric_target"},
+                    {"metric_name", "$metric_name"},
+                    {"timestamp", "$timestamp"},
+                    {"value", b.D{{"$divide", b.A{
+                        b.D{{"$subtract", b.A{"$value", "$prevValue"}}},
+                        b.D{{"$subtract", b.A{"$start_time_offset", "$prevstart_time_offset"}}},
+                    }}}},
+                }}},
+            }},
+            {"final_snapshots", mongo.Pipeline{
+                {{"$match", b.D{
+                    {"$or", b.A{
+                        b.D{{"should_compute_rate", nil}},
+                        b.D{{"should_compute_rate", b.D{{"$exists", false}}}},
+                        b.D{{"prevValue", nil}},
+                        b.D{{"prevstart_time_offset", nil}},
+                    }},
+                }}},
+                {{"$project", b.D{
+                    {"_id", 0},
+                    {"start_time_offset", "$start_time_offset"},
+                    {"metric_target", "$metric_target"},
+                    {"metric_name", "$metric_name"},
+                    {"timestamp", "$timestamp"},
+                    {"value", "$value"},
+                }}},
+            }},
+        }}},
+        // 6) merge computed_rate and final and regroup by metric
+        {{"$project", b.D{
+            {"merged", b.D{
+                // {"$concatArrays", b.A{"$computed_rate"}},
+                {"$concatArrays", b.A{"$computed_rate", "$final_snapshots"}},
+            }},
+        }}},
+        {{"$unwind", b.D{{"path", "$merged"}}}},
+        {{"$replaceRoot", b.D{{"newRoot", "$merged"}}}},
+        {{"$group", b.D{
+            {"_id", b.D{
+                {"metric_target", "$metric_target"},
+                {"metric_name", "$metric_name"},
+            }},
+            {"snapshots", b.D{
+                {"$push", b.D{
+                    {"start_time_offset", "$start_time_offset"},
+                    {"timestamp", "$timestamp"},
+                    {"value", "$value"},
+                }},
+            }},
+        }}},
+        {{"$project", b.D{
             {"_id", 0},
             {"metric_target", "$_id.metric_target"},
             {"metric_name", "$_id.metric_name"},
             {"snapshots", "$snapshots"},
         }}},
-	}
+    }
 
 	collection := repo.client.Database(repo.database).Collection("log")
     cursor, err := collection.Aggregate(repo.ctx, pipeline)
@@ -257,22 +613,19 @@ func (repo *LogRepo) WorkloadServiceMetrics(params *param.WorkloadMetricQuery, d
     }
     defer cursor.Close(repo.ctx)
 
-    response := []*result.WorkloadMetricQueryResult{}
+    results := []*result.WorkloadMetricQueryResult{}
     for cursor.Next(repo.ctx) {
         stats := new(result.WorkloadMetricQueryResult)
         if err := cursor.Decode(stats); err != nil {
             return nil, err
         }
-        if err := stats.Downsampling(workload.StartTime, downsampling.ReductionStep, downsampling.Stratergies); err != nil {
-            return nil, err
-        }
-        response = append(response, stats)
+        results = append(results, stats)
     }
-    
-    return response, nil
+
+    return results, nil
 }
 
-func (repo *LogRepo) filtersForWorkloadServiceMetric(params *param.WorkloadMetricQuery) (b.D, error) {
+func (repo *LogRepo) filtersForWorkloadServiceMetric(params *param.WorkloadMetricQueryParam) (b.D, error) {
     if params.Filters.TraceId == "" {
         return nil, errors.New("workload service metric trace id is empty string")
     }
@@ -281,12 +634,14 @@ func (repo *LogRepo) filtersForWorkloadServiceMetric(params *param.WorkloadMetri
         {"level", log.LevelDebug},
         {"context.trace.trace_id", params.Filters.TraceId },
     }
+    
     if params.Filters.ServiceName != "" {
         filters = append(filters, b.E{"context.trace.service_name", params.Filters.ServiceName})
     }
     if params.Filters.ServiceOperation != "" {
         filters = append(filters, b.E{"context.trace.service_operation", params.Filters.ServiceOperation})
     }
+
     instancesIds := []string{}
     for _, id := range params.Filters.InstanceIds {
         if id != "" {
@@ -296,17 +651,18 @@ func (repo *LogRepo) filtersForWorkloadServiceMetric(params *param.WorkloadMetri
     if len(instancesIds) > 0 {
         filters = append(filters, b.E{"context.trace.instance_id", b.D{{"$in", instancesIds}}})
     }
-    if len(params.MetricGroups) == 0 {
-        return nil, errors.New("workload service metric query metric groups not specified")
+    
+    if len(params.MetricNames) == 0 {
+        return nil, errors.New("workload service metric query metric names not specified")
     }
     targetFilters := b.A{}
-    for _, grp := range params.MetricGroups {
+    for _, metricName := range params.MetricNames {
         condition := b.D{}
-        if grp.MetricTarget != "" {
-            condition = append(condition, b.E{"data.metric.tags.metric_target", grp.MetricTarget})
+        if params.MetricTarget != "" {
+            condition = append(condition, b.E{"data.metric.tags.metric_target", params.MetricTarget})
         }
-        if grp.MetricName != "" {
-            condition = append(condition, b.E{"data.metric.tags.metric_name", grp.MetricName})
+        if metricName != "" {
+            condition = append(condition, b.E{"data.metric.tags.metric_name", metricName})
         }
         if len(condition) > 0 {
             targetFilters = append(targetFilters, condition)
@@ -314,102 +670,11 @@ func (repo *LogRepo) filtersForWorkloadServiceMetric(params *param.WorkloadMetri
     }
     filters = append(filters, b.E{"$or", targetFilters})
 
-    return filters, nil
-}
-
-func (repo *LogRepo) WorkloadServiceMetricSummary(params *param.WorkloadMetricQuery) ([]*result.WorkloadMetricSummaryResult, error) {
-    filters, err := repo.filtersForWorkloadServiceMetric(params)
-    if err != nil {
-        return nil, err
-    }
-
-    pipeline := mongo.Pipeline{
-        {{"$unwind", b.D{{"path", "$data.metric.snapshots"}}}},
-        {{"$match", filters}},
-        {{"$group", b.D{
-			{"_id", b.D{
-				{"metric_target", "$data.metric.tags.metric_target"},
-				{"metric_name", "$data.metric.tags.metric_name"},
-			}},
-			{"values", b.D{{"$push", "$data.metric.snapshots.value"}}},
-            {"min_value", b.D{{"$min", "$data.metric.snapshots.value"}}},
-            {"max_value", b.D{{"$max", "$data.metric.snapshots.value"}}},
-            {"avg_value", b.D{{"$avg", "$data.metric.snapshots.value"}}},
-		}}},
-        {{"$addFields", b.D{
-            {"sorted_values", b.D{
-                {"$sortArray", b.D{
-                    {"input", "$values"},
-                    {"sortBy", 1},
-                }},
-            }},
-        }}},
-        {{"$addFields", b.D{
-            {"median", b.D{{"$let", b.D{
-                {"vars", b.D{
-                    {"half", b.D{{"$divide", b.A{b.D{{"$size", "$sorted_values"}}, 2}}}},
-                }},
-                {"in", b.D{
-                    {"$cond", b.A{
-                        b.D{{"$eq", b.A{b.D{{"$mod", b.A{"$$half", 1}}}, 0}}},
-                        b.D{{"$avg", b.A{
-                            b.D{{"$arrayElemAt", b.A{"$sorted_values", b.D{{"$subtract", b.A{"$$half", 1}}}}}},
-                            b.D{{"$arrayElemAt", b.A{"$sorted_values", "$$half"}}},
-                        }}},
-                        b.D{{"$arrayElemAt", b.A{"$sorted_values", b.D{{"$floor", "$$half"}}}}}, // Added comma here
-                    }},
-                }},
-            }}}},
-            {"p5", b.D{{"$arrayElemAt", b.A{
-                "$sorted_values",
-                b.D{{"$floor", b.D{{"$multiply", b.A{0.05, b.D{{"$subtract", b.A{b.D{{"$size", "$sorted_values"}}, 1}}}}}}}},
-            }}}},
-            {"p25", b.D{{"$arrayElemAt", b.A{
-                "$sorted_values",
-                b.D{{"$floor", b.D{{"$multiply", b.A{0.25, b.D{{"$subtract", b.A{b.D{{"$size", "$sorted_values"}}, 1}}}}}}}},
-            }}}},
-            {"p75", b.D{{"$arrayElemAt", b.A{
-                "$sorted_values",
-                b.D{{"$floor", b.D{{"$multiply", b.A{0.75, b.D{{"$subtract", b.A{b.D{{"$size", "$sorted_values"}}, 1}}}}}}}},
-            }}}},
-            {"p95", b.D{{"$arrayElemAt", b.A{
-                "$sorted_values",
-                b.D{{"$floor", b.D{{"$multiply", b.A{0.95, b.D{{"$subtract", b.A{b.D{{"$size", "$sorted_values"}}, 1}}}}}}}},
-            }}}},
-        }}},
-        {{"$project", b.D{
-            {"_id", 0},
-            {"metric_target", "$_id.metric_target"},
-            {"metric_name", "$_id.metric_name"},
-            {"values", "$sorted_values"},
-            {"summary", b.D{
-                {"minimum", "$min_value"},
-                {"maximum", "$max_value"},
-                {"average", "$avg_value"},
-                {"median", "$median"},
-                {"p5", "$p5"},
-                {"p25", "$p25"},
-                {"p50", "$p50"},
-                {"p75", "$p75"},
-                {"p95", "$p95"},
-            }},
-        }}},
-    }
-    collection := repo.client.Database(repo.database).Collection("log")
-    cursor, err := collection.Aggregate(repo.ctx, pipeline)
-    if err != nil {
-        return nil, err
-    }
-    defer cursor.Close(repo.ctx)
-
-    response := []*result.WorkloadMetricSummaryResult{}
-    for cursor.Next(repo.ctx) {
-        aggr := new(result.WorkloadMetricSummaryResult)
-        if err := cursor.Decode(aggr); err != nil {
-            return nil, err
+    for key, val := range params.Filters.Metadata {
+        if val != "" {
+            filters = append(filters, b.E{"data.metric.snapshots.metadata."+key, val})
         }
-        response = append(response, aggr)
     }
-    
-    return response, nil
+
+    return filters, nil
 }
