@@ -1,4 +1,4 @@
-package downsampling
+package reduction
 
 import (
 	"duolingo/lib/metric"

@@ -90,6 +90,11 @@ func (m *Metric) capturing() {
 	timer := time.NewTimer(m.datapointInterval)
 	defer timer.Stop()
 
+	capture := func() {
+		for _, collector := range m.collectors {
+			collector.Capture()
+		}
+	}
 	buffer := func() {
 		for _, collector := range m.collectors {
 			rawDatapoints := collector.Collect()
@@ -125,9 +130,7 @@ func (m *Metric) capturing() {
 			buffer()
 			timer.Reset(m.datapointInterval)
 		case <-ticker.C:
-			for _, collector := range m.collectors {
-				collector.Capture()
-			}
+			capture()
 		}
 	}
 }

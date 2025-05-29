@@ -1,4 +1,4 @@
-package downsampling
+package reduction
 
 import (
 	"duolingo/lib/metric"
@@ -24,13 +24,13 @@ func (l *LTTB) Make(reduction int64, reductionB []*metric.Snapshot) (*metric.Sna
 
 	if errPrev != nil || errNext != nil {
 		// Fallback to simple average if we're on the edge
-		return (&MovingAverage{source: l.source}).Make(reduction, reductionB)
+		return (&Median{source: l.source}).Make(reduction, reductionB)
 	}
 
 	// A = previous point (from previous reduction)
 	aPoints := l.source.GetSnapshots(prevReduction)
 	if len(aPoints) == 0 {
-		return (&MovingAverage{source: l.source}).Make(reduction, reductionB)
+		return (&Median{source: l.source}).Make(reduction, reductionB)
 	}
 	a := aPoints[len(aPoints)-1] // choose the latest point in previous reduction
 	aX := float64(a.Timestamp.UnixMilli())
@@ -39,7 +39,7 @@ func (l *LTTB) Make(reduction int64, reductionB []*metric.Snapshot) (*metric.Sna
 	// C = average of next reduction
 	cPoints := l.source.GetSnapshots(nextReduction)
 	if len(cPoints) == 0 {
-		return (&MovingAverage{source: l.source}).Make(reduction, reductionB)
+		return (&Median{source: l.source}).Make(reduction, reductionB)
 	}
 	var sumX, sumY float64
 	for _, p := range cPoints {
@@ -66,7 +66,7 @@ func (l *LTTB) Make(reduction int64, reductionB []*metric.Snapshot) (*metric.Sna
 	}
 
 	if maxPoint == nil {
-		return (&MovingAverage{source: l.source}).Make(reduction, reductionB)
+		return (&Median{source: l.source}).Make(reduction, reductionB)
 	}
 
 	return maxPoint, nil
