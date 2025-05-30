@@ -17,6 +17,7 @@ const METRIC_TARGETS = {
   redis: { key: "redis", label: "Redis" },
   rabbitmq: { key: "rabbitmq", label: "RabbitMQ" },
   mongo: { key: "mongo", label: "MongoDB"},
+  firebase: { key: "firebase", label: "Firebase"},
 }
 const METRIC_TYPES = {
   all: { key: "all", label: "Show all" },
@@ -39,12 +40,16 @@ const METRIC_NAMES = {
   mongo: {
     query_rate: { key: 'query_rate', label: 'Query rate' },
     query_latency_ms: { key: 'query_latency_ms', label: 'Query latency (ms)' },
+  },
+  firebase: {
+    multicast_latency_ms: { key: 'multicast_latency_ms', label: 'Multicast latency (ms)' },
   }
 }
 const METRIC_NAME_DEFAULT = {
   redis: METRIC_NAMES.redis.command_rate.key,
   rabbitmq: METRIC_NAMES.rabbitmq.published_rate.key,
   mongo: METRIC_NAMES.mongo.query_latency_ms.key,
+  firebase: METRIC_NAMES.firebase.multicast_latency_ms.key,
 }
 const REDUCTION_STEPS = [100, 200, 500, 1000, 1500, 2000, 2500, 5000]
 
@@ -79,6 +84,8 @@ const metricUnit = computed(() => {
       return ' ms'
     case METRIC_NAMES.mongo.query_rate:
       return ' queries'
+    case METRIC_NAMES.firebase.multicast_latency_ms:
+      return ' ms'
     default:
       return ''
   }
@@ -253,6 +260,9 @@ async function renderChart() {
                   return `After ${asMs}ms - ${asSeconds}seconds, the query rate rate is ${formatedVal} queries for ${selection.reduction_step} ms`;
                 case METRIC_NAMES.mongo.query_latency_ms.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, the query latency is ${formatedVal} ms`;
+                // firebase
+                case METRIC_NAMES.firebase.multicast_latency_ms.key:
+                  return `After ${asMs}ms - ${asSeconds}seconds, the multicast latency is ${formatedVal} ms`;
                 default:
                   return `After ${asMs}ms - ${asSeconds} is the value of an unknown metric`;
               }
@@ -281,6 +291,8 @@ async function fetchMetrics() {
       endpoint = `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
     } else if (selection.metric_target == METRIC_TARGETS.mongo.key) {
       endpoint = `http://localhost:8003/metric/workload/${traceId.value}/mongo-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.firebase.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/firebase-metrics`
     }
     var res = await axios.post(endpoint, {
         reduction_step: selection.reduction_step,
@@ -310,6 +322,8 @@ async function fetchSummary() {
       endpoint = `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
     } else if (selection.metric_target == METRIC_TARGETS.mongo.key) {
       endpoint = `http://localhost:8003/metric/workload/${traceId.value}/mongo-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.firebase.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/firebase-metrics`
     }
     var res = await axios.post(endpoint, {
         reduction_step: props.workload.duration_ms,

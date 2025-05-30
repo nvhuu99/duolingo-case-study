@@ -7,7 +7,7 @@ import ServicesMetricSection from '../components/partials/workload_simulation/Se
 import InfraMetricSection from '../components/partials/workload_simulation/InfraMetricSection.vue'
 import axios from 'axios'
 
-const traceId = ref('bfcd13ec-f6e1-420c-868d-44733545ad78')
+const traceId = ref('61996664-4206-4778-8d3a-24864772d220')
 
 const workload = ref(null)
 

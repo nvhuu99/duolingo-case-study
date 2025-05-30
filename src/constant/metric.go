@@ -15,9 +15,12 @@ const (
 	METRIC_NAME_QUERY_LATENCY = "query_latency_ms"
 	METRIC_NAME_QUERY_RATE = "query_rate"
 
+	METRIC_TARGET_FIREBASE = "firebase"
+	METRIC_NAME_MULTICAST_LATENCY = "multicast_latency_ms"
+
 	METADATA_AGGREGATE_FLAG = "should_aggregate"
 	METADATA_AGGREGATION_ACCUMULATE = "aggregation_accumulate"
 	METADATA_AGGREGATION_MAXIMUM = "aggregation_maximum"
-	
+
 	METADATA_RATE_FLAG = "should_compute_rate"
 )

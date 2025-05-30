@@ -17,8 +17,8 @@ import (
 	mq "duolingo/lib/message_queue"
 	"duolingo/lib/message_queue/driver/rabbitmq"
 	noti "duolingo/lib/notification/sender/firebase"
+	firebaseEvt "duolingo/lib/notification/sender/firebase/event"
 	sv "duolingo/lib/service_container"
-	distributor "duolingo/lib/work_distributor/driver/redis"
 	"os"
 	"time"
 )
@@ -97,13 +97,12 @@ func bindEvents() {
 	rabbitmqStats := collector.NewRabbitMQStatsCollector()
 	container.BindSingleton("metric.rabbitmq_stats_collector", func() any { return rabbitmqStats })
 
-	redisStats := collector.NewRedisStatsCollector()
-	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
+	firebaseStats := collector.NewFirebaseStatsCollector()
+	container.BindSingleton("metric.firebase_stats_collector", func() any { return firebaseStats })
 
 	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_CONSUMED, rabbitmqStats)
 	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_PUBLISHED, rabbitmqStats)
-	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
-	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
+	evt.Subscribe(true, firebaseEvt.EVT_FIREBASE_SENT_MULTICAST, firebaseStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
 	evt.SubscribeRegex(true, "send_push_notification_.+", so.NewSendPushNoti())
@@ -181,6 +180,9 @@ func bindPushNotiService() {
 		if err != nil {
 			panic(err)
 		}
+
+		evtPublisher := container.Resolve("event.publisher").(*ep.EventPublisher)
+		sender.WithEventPublisher(evtPublisher)
 
 		return sender
 	})

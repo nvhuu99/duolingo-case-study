@@ -70,6 +70,12 @@ func (query *WorkLoadMetricQuery) Reduce() error {
 			if err != nil {
 				return err
 			}
+		} else if query.params.MetricTarget == constant.METRIC_TARGET_FIREBASE {
+			wrapper := result.NewWorkloadFirebaseQueryResult(r)
+			err := wrapper.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
+			if err != nil {
+				return err
+			}
 		} else {
 			err := r.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
 			if err != nil {

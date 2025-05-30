@@ -3,19 +3,23 @@ package firebase
 import (
 	"context"
 	"errors"
+	"time"
 
 	"fmt"
 
+	evt "duolingo/lib/notification/sender/firebase/event"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"google.golang.org/api/option"
 
+	"duolingo/lib/event"
 	noti "duolingo/lib/notification"
 )
 
 type FirebaseSender struct {
 	client *messaging.Client
 	ctx    context.Context
+	events event.Publisher
 }
 
 func NewFirebaseSender(ctx context.Context) *FirebaseSender {
@@ -42,6 +46,10 @@ func (sender *FirebaseSender) WithJsonCredentials(credentials string) error {
 	return nil
 }
 
+func (sender *FirebaseSender) WithEventPublisher(publisher event.Publisher) {
+	sender.events = publisher
+}
+
 func (sender *FirebaseSender) SendAll(title string, content string, deviceTokens []string) *noti.Result {
 	if len(deviceTokens) == 0 {
 		return &noti.Result{
@@ -52,6 +60,11 @@ func (sender *FirebaseSender) SendAll(title string, content string, deviceTokens
 			FailureTokens: deviceTokens,
 		}
 	}
+
+	start := time.Now()
+	defer func() {
+		sender.events.Notify(evt.EVT_FIREBASE_SENT_MULTICAST, &evt.FirebaseSentMulticastEvent{ Latency: time.Since(start) })
+	}()
 
 	crafted := &messaging.MulticastMessage{
 		Notification: &messaging.Notification{

@@ -75,6 +75,9 @@ func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 	if mongoStats, ok := e.container.Resolve("metric.mongo_stats_collector").(*collector.MongoStatsCollector); ok {
 		evtData.Metric.AddCollector(mongoStats)
 	}
+	if firebaseStats, ok := e.container.Resolve("metric.firebase_stats_collector").(*collector.FirebaseStatsCollector); ok {
+		evtData.Metric.AddCollector(firebaseStats)
+	}
 	evtData.Metric.AddCollector(collector.NewSystemStatsCollector(evtData.ServiceName))
 
 	evtData.Metric.CaptureStart()
