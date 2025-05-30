@@ -30,6 +30,10 @@ func (ma *Max) Make(reduction int64, snapshots []*metric.Snapshot) (*metric.Snap
 	}
 	avgTimestamp := sumTimestamp / int64(len(snapshots))
 
-	avg := &metric.Snapshot{Value: maxVal, Timestamp: time.UnixMilli(avgTimestamp)}
+	avg := &metric.Snapshot{
+		Value: maxVal, 
+		Timestamp: time.UnixMilli(avgTimestamp), 
+		StartTimeOffset: reduction,
+	}
 	return avg, nil
 }

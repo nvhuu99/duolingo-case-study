@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
-	"math/rand"
+	// "math/rand"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -41,9 +41,10 @@ func acquireLock(ctx context.Context, rdb *redis.Client, ttl time.Duration, val 
 			if result == int64(1) {
 				return nil
 			}
-			minWait := 10
-			maxWait := 100
-			wait := rand.Intn(maxWait-minWait+1) + minWait
+			// minWait := 10
+			// maxWait := 100
+			// wait := rand.Intn(maxWait-minWait+1) + minWait
+			wait := 2
 			time.Sleep(time.Duration(wait) * time.Millisecond)
 		}
 	}

@@ -17,6 +17,7 @@ import (
 	"duolingo/lib/log"
 	mq "duolingo/lib/message_queue"
 	rabbitmq "duolingo/lib/message_queue/driver/rabbitmq"
+	mongo "duolingo/repository/campaign_user/event"
 	sv "duolingo/lib/service_container"
 	distributor "duolingo/lib/work_distributor/driver/redis"
 	usr_repo "duolingo/repository/campaign_user"
@@ -100,9 +101,15 @@ func bindEvents() {
 	redisStats := collector.NewRedisStatsCollector()
 	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
 
-	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	mongoStats := collector.NewMongoStatsCollector()
+	container.BindSingleton("metric.mongo_stats_collector", func() any { return mongoStats })
+
+	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_CONSUMED, rabbitmqStats)
+	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_PUBLISHED, rabbitmqStats)
 	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
 	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
+	evt.Subscribe(true, mongo.EVT_MONGODB_QUERY, mongoStats)
+
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())
 	evt.SubscribeRegex(true, "service_operation_metric_.+", sm.NewSvOptMetric())
 	evt.SubscribeRegex(true, "relay_input_message_.+", so.NewRelayInpMsg())
@@ -122,6 +129,9 @@ func bindRepository() {
 		if err != nil {
 			panic(err)
 		}
+		evtPublisher := container.Resolve("event.publisher").(*ep.EventPublisher)
+		repo.WithEventPublisher(evtPublisher)
+
 		return repo
 	})
 }

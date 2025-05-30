@@ -69,5 +69,6 @@ func (l *LTTB) Make(reduction int64, reductionB []*metric.Snapshot) (*metric.Sna
 		return (&Median{source: l.source}).Make(reduction, reductionB)
 	}
 
+	maxPoint.StartTimeOffset = reduction
 	return maxPoint, nil
 }

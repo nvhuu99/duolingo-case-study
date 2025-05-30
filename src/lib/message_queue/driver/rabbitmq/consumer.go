@@ -181,7 +181,7 @@ func (client *RabbitMQConsumer) action(d amqp.Delivery, act mq.ConsumerAction) (
 	}
 	if err == nil {
 		if manager, ok := client.manager.(*RabbitMQManager); ok {
-			manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
+			manager.opts.EventPublisher.Notify(EVT_CLIENT_ACTION_CONSUMED, &ConsumeEvent{
 				ClientName: client.name,
 				QueueName:  client.opts.Queue,
 				Action:     clientAct,

@@ -58,13 +58,15 @@ func (client *RabbitMQPublisher) Publish(mssg string) error {
 	writeDeadline := time.After(client.opts.WriteTimeOut)
 	firstTry := true
 
+	start := time.Now()
 	defer func() {
 		if publishErr == nil {
 			if manager, ok := client.manager.(*RabbitMQManager); ok {
-				manager.opts.EventPublisher.Notify(EVT_ON_CLIENT_ACTION, &ClientActionEvent{
+				manager.opts.EventPublisher.Notify(EVT_CLIENT_ACTION_PUBLISHED, &PublishEvent{
 					ClientName: client.name,
 					QueueName:  client.opts.Topic,
 					Action:     PublisherPublished,
+					Latency: time.Since(start),
 				})
 			}
 		}

@@ -100,7 +100,8 @@ func bindEvents() {
 	redisStats := collector.NewRedisStatsCollector()
 	container.BindSingleton("metric.redis_stats_collector", func() any { return redisStats })
 
-	evt.Subscribe(true, rabbitmq.EVT_ON_CLIENT_ACTION, rabbitmqStats)
+	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_CONSUMED, rabbitmqStats)
+	evt.Subscribe(true, rabbitmq.EVT_CLIENT_ACTION_PUBLISHED, rabbitmqStats)
 	evt.Subscribe(true, distributor.EVT_REDIS_COMMANDS_EXEC, redisStats)
 	evt.Subscribe(true, distributor.EVT_REDIS_LOCK_RELEASED, redisStats)
 	evt.SubscribeRegex(true, "service_operation_trace_.+", st.NewSvOptTrace())

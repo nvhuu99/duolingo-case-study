@@ -52,6 +52,10 @@ func (ps *PercentileStrategy) Make(reduction int64, dp []*metric.Snapshot) (*met
 	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
 	medianTs := timestamps[len(timestamps)/2]
 
-	result := &metric.Snapshot{Value: percentileValue, Timestamp: time.UnixMilli(medianTs)}
+	result := &metric.Snapshot{
+		Value: percentileValue, 
+		Timestamp: time.UnixMilli(medianTs),
+		StartTimeOffset: reduction,
+	}
 	return result, nil
 }

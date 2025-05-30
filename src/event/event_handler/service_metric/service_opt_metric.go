@@ -59,19 +59,25 @@ func (e *ServiceOperationMetric) handleServiceOperationBegin(data any) {
 	evtData := data.(*ed.ServiceOperationMetric)
 	e.container.Bind("events.data.sv_opt_metric."+evtData.OptId, func() any { return evtData })
 
-	rabbitmqStats := e.container.Resolve("metric.rabbitmq_stats_collector").(*collector.RabbitMQStatsCollector)
-	redisStats := e.container.Resolve("metric.redis_stats_collector").(*collector.RedisStatsCollector)
 	dpInterval := e.conf.GetInt(evtData.ServiceName+".metric.datapoint_interval_ms", 15000)
 	sInterval := e.conf.GetInt(evtData.ServiceName+".metric.snapshot_interval_ms", 100)
-	evtData.Metric = mtr.NewMetric(e.ctx,
-		time.Duration(dpInterval)*time.Millisecond,
+	evtData.Metric = mtr.NewMetric(e.ctx, 
+		time.Duration(dpInterval)*time.Millisecond, 
 		time.Duration(sInterval)*time.Millisecond,
 	)
-	evtData.Metric.
-		AddCollector(collector.NewSystemStatsCollector(evtData.ServiceName)).
-		AddCollector(rabbitmqStats).
-		AddCollector(redisStats).
-		CaptureStart()
+
+	if rabbitmqStats, ok := e.container.Resolve("metric.rabbitmq_stats_collector").(*collector.RabbitMQStatsCollector); ok {
+		evtData.Metric.AddCollector(rabbitmqStats)
+	}
+	if redisStats, ok := e.container.Resolve("metric.redis_stats_collector").(*collector.RedisStatsCollector); ok {
+		evtData.Metric.AddCollector(redisStats)
+	}
+	if mongoStats, ok := e.container.Resolve("metric.mongo_stats_collector").(*collector.MongoStatsCollector); ok {
+		evtData.Metric.AddCollector(mongoStats)
+	}
+	evtData.Metric.AddCollector(collector.NewSystemStatsCollector(evtData.ServiceName))
+
+	evtData.Metric.CaptureStart()
 }
 
 func (e *ServiceOperationMetric) handleServiceOperationEnd(data any) {

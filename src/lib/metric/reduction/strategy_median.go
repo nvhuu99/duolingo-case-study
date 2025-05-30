@@ -29,6 +29,10 @@ func (ma *Median) Make(reduction int64, snapshots []*metric.Snapshot) (*metric.S
 	avgValue := sumValue / float64(len(snapshots))
 	avgTimestamp := sumTimestamp / int64(len(snapshots))
 
-	avg := &metric.Snapshot{Value: avgValue, Timestamp: time.UnixMilli(avgTimestamp)}
+	avg := &metric.Snapshot{
+		Value: avgValue, 
+		Timestamp: time.UnixMilli(avgTimestamp),
+		StartTimeOffset: reduction,
+	}
 	return avg, nil
 }

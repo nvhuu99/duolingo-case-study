@@ -191,6 +191,36 @@ func rabbitMQMetrics(request *rest.Request, response *rest.Response) {
 	response.Ok("", data)
 }
 
+func mongoMetrics(request *rest.Request, response *rest.Response) {
+	traceId := request.Path("traceId").Str()
+	if traceId == "" {
+		response.InvalidRequest("", map[string]string{"traceId": "traceId must not be empty"})
+		return
+	}
+
+	metricNames, _ := request.Input("metric_names").StrArr()
+	reductionStep, _ := request.Input("reduction_step").Int64()
+
+	reduction := &param.WorkloadMetricReduction{ ReductionStep: reductionStep, Stratergies: strategies }
+	params := param.NewWorkloadMongoMetricQuery(traceId).AddMetricNames(metricNames...)
+
+	var err error
+	var data any
+	q := query.NewWorkloadMetricQuery(repo).SetParams(params.GetQuery()).SetReduction(reduction)
+	if err = q.Execute(); err == nil {
+		if err = q.Reduce(); err == nil {
+			data = q.Result()
+		}
+	}
+
+	if err != nil {
+		response.ServerErr("", err.Error())
+		log.Println("workload mongo metrics", err)
+		return
+	}
+
+	response.Ok("", data)
+}
 
 func main() {
 	bootstrap.Run()
@@ -217,6 +247,7 @@ func main() {
 	server.Router().Post("/metric/workload/{traceId}/service-metrics", serviceMetrics)
 	server.Router().Post("/metric/workload/{traceId}/redis-metrics", redisMetrics)
 	server.Router().Post("/metric/workload/{traceId}/rabbitmq-metrics", rabbitMQMetrics)
+	server.Router().Post("/metric/workload/{traceId}/mongo-metrics", mongoMetrics)
 	server.Router().Options("*", func(request *rest.Request, response *rest.Response) {
 		response.Ok("", nil)
 	})

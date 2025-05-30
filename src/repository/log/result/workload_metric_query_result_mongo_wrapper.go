@@ -6,21 +6,21 @@ import (
 	"slices"
 )
 
-type WorkloadMetricQueryResultRedisWrapper struct {
+type WorkloadMetricQueryResultMongoWrapper struct {
 	queryResult *WorkloadMetricQueryResult
 }
 
-func NewWorkloadRedisQueryResult(queryResult *WorkloadMetricQueryResult) *WorkloadMetricQueryResultRedisWrapper {
-	wrapper := new(WorkloadMetricQueryResultRedisWrapper)
+func NewWorkloadMongoQueryResult(queryResult *WorkloadMetricQueryResult) *WorkloadMetricQueryResultMongoWrapper {
+	wrapper := new(WorkloadMetricQueryResultMongoWrapper)
 	wrapper.queryResult = queryResult
 	return wrapper
 }
 
-func (wrapper *WorkloadMetricQueryResultRedisWrapper) Reduce(workload *WorkloadMetadataResult, reductionStep int64, strategies map[string]reduction.ReductionStrategy) error {
+func (wrapper *WorkloadMetricQueryResultMongoWrapper) Reduce(workload *WorkloadMetadataResult, reductionStep int64, strategies map[string]reduction.ReductionStrategy) error {
 	rm := wrapper.queryResult
 
 	accumulation := []string{
-		constant.METRIC_NAME_REDIS_CMD_RATE,
+		constant.METRIC_NAME_QUERY_RATE,
 	}
 	sumStrg := map[string]reduction.ReductionStrategy{"sum": new(reduction.Sum)}
 	if slices.Contains(accumulation, rm.MetricName) {

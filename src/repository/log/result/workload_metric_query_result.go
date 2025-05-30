@@ -3,7 +3,6 @@ package result
 import (
 	"duolingo/lib/metric"
 	"duolingo/lib/metric/reduction"
-	"time"
 )
 
 type WorkloadMetricQueryResult struct {
@@ -13,11 +12,13 @@ type WorkloadMetricQueryResult struct {
 	ReducedSnapshots map[string][]*metric.Snapshot `json:"reduced_snapshots" bson:"reduced_snapshots"`
 }
 
-func (result *WorkloadMetricQueryResult) Reduce(workloadStart time.Time, reductionStep int64, strategies map[string]reduction.ReductionStrategy) error {
+func (result *WorkloadMetricQueryResult) Reduce(workload *WorkloadMetadataResult, reductionStep int64, strategies map[string]reduction.ReductionStrategy) error {
 	reducer := new(reduction.SnapshotReducer).
-		WithStartTime(workloadStart).
+		WithStartTime(workload.StartTime).
 		WithSnapshots(result.Snapshots, reductionStep)
+
 	result.ReducedSnapshots = make(map[string][]*metric.Snapshot)
+	
 	for name, strategy := range strategies {
 		reducedWithStrg, err := reducer.WithStrategy(strategy).Result()
 		if err != nil {

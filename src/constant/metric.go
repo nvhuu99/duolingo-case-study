@@ -9,6 +9,11 @@ const (
 	METRIC_TARGET_RABBITMQ = "rabbitmq"
 	METRIC_NAME_DELIVERED_RATE = "delivered_rate"
 	METRIC_NAME_PUBLISHED_RATE = "published_rate"
+	METRIC_NAME_PUBLISH_LATENCY = "publish_latency_ms"
+
+	METRIC_TARGET_MONGO = "mongo"
+	METRIC_NAME_QUERY_LATENCY = "query_latency_ms"
+	METRIC_NAME_QUERY_RATE = "query_rate"
 
 	METADATA_AGGREGATE_FLAG = "should_aggregate"
 	METADATA_AGGREGATION_ACCUMULATE = "aggregation_accumulate"

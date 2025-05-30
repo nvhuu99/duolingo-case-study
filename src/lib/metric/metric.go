@@ -32,7 +32,9 @@ func NewMetric(ctx context.Context, interval time.Duration, tick time.Duration) 
 }
 
 func (m *Metric) AddCollector(c Collector) *Metric {
-	m.collectors = append(m.collectors, c)
+	if c != nil {
+		m.collectors = append(m.collectors, c)
+	}
 	return m
 }
 

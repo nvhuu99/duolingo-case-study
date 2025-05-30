@@ -16,6 +16,7 @@ import IconStack from '@/components/icons/IconStack.vue'
 const METRIC_TARGETS = {
   redis: { key: "redis", label: "Redis" },
   rabbitmq: { key: "rabbitmq", label: "RabbitMQ" },
+  mongo: { key: "mongo", label: "MongoDB"},
 }
 const METRIC_TYPES = {
   all: { key: "all", label: "Show all" },
@@ -32,12 +33,18 @@ const METRIC_NAMES = {
   },
   rabbitmq: {
     published_rate: { key: "published_rate", label: "Message publishing rate" },
+    publish_latency_ms: { key: "publish_latency_ms", label: "Message publish latency (ms)" },
     delivered_rate: { key: "delivered_rate", label: "Message delivery rate" },
   },
+  mongo: {
+    query_rate: { key: 'query_rate', label: 'Query rate' },
+    query_latency_ms: { key: 'query_latency_ms', label: 'Query latency (ms)' },
+  }
 }
 const METRIC_NAME_DEFAULT = {
   redis: METRIC_NAMES.redis.command_rate.key,
   rabbitmq: METRIC_NAMES.rabbitmq.published_rate.key,
+  mongo: METRIC_NAMES.mongo.query_latency_ms.key,
 }
 const REDUCTION_STEPS = [100, 200, 500, 1000, 1500, 2000, 2500, 5000]
 
@@ -60,13 +67,20 @@ const metricUnit = computed(() => {
   switch (selection.metric_name) {
     case METRIC_NAMES.rabbitmq.delivered_rate.key:
     case METRIC_NAMES.rabbitmq.published_rate.key:
-      return ' messages';
+      return ' messages'
+    case METRIC_NAMES.rabbitmq.publish_latency_ms:
+      return ' ms'
     case METRIC_NAMES.redis.lock_waited_ms.key:
     case METRIC_NAMES.redis.lock_held_ms.key:
       return ' ms'
     case METRIC_NAMES.redis.command_rate.key:
+        return ' commands'
+    case METRIC_NAMES.mongo.query_latency_ms:
+      return ' ms'
+    case METRIC_NAMES.mongo.query_rate:
+      return ' queries'
     default:
-      return ' commands';
+      return ''
   }
 })
 
@@ -220,16 +234,25 @@ async function renderChart() {
               const asSeconds = (context.parsed.x / 1000).toFixed(1);
               const formatedVal = Intl.NumberFormat('en-US').format(Math.round(context.parsed.y).toFixed(0))
               switch (selection.metric_name) {
+                // redis
                 case METRIC_NAMES.redis.command_rate.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, the command rate is ${formatedVal} commands per ${selection.reduction_step} ms`;
                 case METRIC_NAMES.redis.lock_waited_ms.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, lock waited upto ${formatedVal} ms`;
                 case METRIC_NAMES.redis.lock_held_ms.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, lock held upto ${formatedVal} ms`;
+                // rabbitmq
                 case METRIC_NAMES.rabbitmq.published_rate.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, the message publish rate is ${formatedVal} messages for ${selection.reduction_step} ms`;
                 case METRIC_NAMES.rabbitmq.delivered_rate.key:
                   return `After ${asMs}ms - ${asSeconds}seconds, the message delivery rate is ${formatedVal} messages for ${selection.reduction_step} ms`;
+                case METRIC_NAMES.rabbitmq.publish_latency_ms.key:
+                  return `After ${asMs}ms - ${asSeconds}seconds, the publish latency is ${formatedVal} ms`;
+                // mongodb
+                case METRIC_NAMES.mongo.query_rate.key:
+                  return `After ${asMs}ms - ${asSeconds}seconds, the query rate rate is ${formatedVal} queries for ${selection.reduction_step} ms`;
+                case METRIC_NAMES.mongo.query_latency_ms.key:
+                  return `After ${asMs}ms - ${asSeconds}seconds, the query latency is ${formatedVal} ms`;
                 default:
                   return `After ${asMs}ms - ${asSeconds} is the value of an unknown metric`;
               }
@@ -251,9 +274,14 @@ async function updateSummary() {
 
 async function fetchMetrics() {
   try {
-    var endpoint = (selection.metric_target == METRIC_TARGETS.redis.key)
-                    ? `http://localhost:8003/metric/workload/${traceId.value}/redis-metrics`
-                    : `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
+    var endpoint = ""
+    if (selection.metric_target == METRIC_TARGETS.redis.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/redis-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.rabbitmq.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.mongo.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/mongo-metrics`
+    }
     var res = await axios.post(endpoint, {
         reduction_step: selection.reduction_step,
         metric_names: [selection.metric_name],
@@ -275,9 +303,14 @@ async function fetchMetrics() {
 
 async function fetchSummary() {
   try {
-    var endpoint = (selection.metric_target == METRIC_TARGETS.redis.key)
-                    ? `http://localhost:8003/metric/workload/${traceId.value}/redis-metrics`
-                    : `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
+    var endpoint = ""
+    if (selection.metric_target == METRIC_TARGETS.redis.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/redis-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.rabbitmq.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/rabbitmq-metrics`
+    } else if (selection.metric_target == METRIC_TARGETS.mongo.key) {
+      endpoint = `http://localhost:8003/metric/workload/${traceId.value}/mongo-metrics`
+    }
     var res = await axios.post(endpoint, {
         reduction_step: props.workload.duration_ms,
         metric_names: [selection.metric_name],

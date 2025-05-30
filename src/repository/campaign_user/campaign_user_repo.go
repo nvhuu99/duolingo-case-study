@@ -2,6 +2,8 @@ package campaign_user
 
 import (
 	"context"
+	"duolingo/lib/event"
+	evt "duolingo/repository/campaign_user/event"
 	"fmt"
 	"net/url"
 	"time"
@@ -22,6 +24,7 @@ type UserRepo struct {
 	database string
 	client   *mongo.Client
 	ctx      context.Context
+	events           event.Publisher
 }
 
 func NewUserRepo(ctx context.Context, database string) *UserRepo {
@@ -30,6 +33,10 @@ func NewUserRepo(ctx context.Context, database string) *UserRepo {
 	repo.database = database
 
 	return &repo
+}
+
+func (repo *UserRepo) WithEventPublisher(publisher event.Publisher) {
+	repo.events = publisher
 }
 
 func (repo *UserRepo) SetConnection(host string, port string, usr string, pwd string) error {
@@ -56,6 +63,11 @@ func (repo *UserRepo) SetConnection(host string, port string, usr string, pwd st
 }
 
 func (repo *UserRepo) CountCampaignMsgReceivers(campaign string, timestamp time.Time) (int, error) {
+	start := time.Now()
+	defer func() {
+		repo.events.Notify(evt.EVT_MONGODB_QUERY, &evt.MongoDBQueryEvent{ Latency: time.Since(start) })
+	}()
+
 	filter := repo.campaignMsgReceiversQuery(campaign, timestamp)
 	coll := repo.client.Database(repo.database).Collection("campaign_users")
 	count, err := coll.CountDocuments(repo.ctx, filter)
@@ -63,6 +75,11 @@ func (repo *UserRepo) CountCampaignMsgReceivers(campaign string, timestamp time.
 }
 
 func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp time.Time, opts *QueryOptions) ([]string, error) {
+	start := time.Now()
+	defer func() {
+		repo.events.Notify(evt.EVT_MONGODB_QUERY, &evt.MongoDBQueryEvent{ Latency: time.Since(start) })
+	}()
+	
 	filter := repo.campaignMsgReceiversQuery(campaign, timestamp)
 	opt := options.Find()
 	if opts.Skip >= 0 {
@@ -79,13 +96,15 @@ func (repo *UserRepo) ListCampaignMsgReceiverTokens(campaign string, timestamp t
 	}
 	defer cursor.Close(repo.ctx)
 
-	tokens := []string{}
+	i := 0
+	tokens := make([]string, opts.Limit)
 	for cursor.Next(repo.ctx) {
 		user := new(CampaignUser)
 		if err := cursor.Decode(user); err != nil {
 			return []string{}, err
 		}
-		tokens = append(tokens, user.DeviceToken)
+		tokens[i] = user.DeviceToken
+		i++
 	}
 
 	if err := cursor.Err(); err != nil {

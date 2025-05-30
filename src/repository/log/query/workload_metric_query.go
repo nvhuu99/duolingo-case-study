@@ -1,6 +1,7 @@
 package query
 
 import (
+	"duolingo/constant"
 	"duolingo/repository/log"
 	"duolingo/repository/log/param"
 	"duolingo/repository/log/result"
@@ -51,23 +52,29 @@ func (query *WorkLoadMetricQuery) Reduce() error {
     }
 
 	for _, r := range query.results {
-		// if query.params.MetricTarget == constant.METRIC_TARGET_REDIS {
-		// 	wrapper := result.NewWorkloadRedisQueryResult(r)
-		// 	err := wrapper.Reduce(workload.StartTime, query.reduction.ReductionStep, query.reduction.Stratergies)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// } else if query.params.MetricTarget == constant.METRIC_TARGET_RABBITMQ {
-		// 	wrapper := result.NewWorkloadRabbitMQQueryResult(r)
-		// 	err := wrapper.Reduce(workload.StartTime, query.reduction.ReductionStep, query.reduction.Stratergies)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// } else {
-		// }
-		err := r.Reduce(workload.StartTime, query.reduction.ReductionStep, query.reduction.Stratergies)
-		if err != nil {
-			return err
+		if query.params.MetricTarget == constant.METRIC_TARGET_REDIS {
+			wrapper := result.NewWorkloadRedisQueryResult(r)
+			err := wrapper.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
+			if err != nil {
+				return err
+			}
+		} else if query.params.MetricTarget == constant.METRIC_TARGET_RABBITMQ {
+			wrapper := result.NewWorkloadRabbitMQQueryResult(r)
+			err := wrapper.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
+			if err != nil {
+				return err
+			}
+		} else if query.params.MetricTarget == constant.METRIC_TARGET_MONGO {
+			wrapper := result.NewWorkloadMongoQueryResult(r)
+			err := wrapper.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := r.Reduce(workload, query.reduction.ReductionStep, query.reduction.Stratergies)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
