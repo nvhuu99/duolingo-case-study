@@ -25,15 +25,15 @@ func (s *SendMessageForCampaignRequestTestSuite) TestRequestValidations() {
 	req1 := requests.NewSendMessageForCampaignRequest("", "", "")
 	s.suite.Assert().False(req1.Validate())
 	s.suite.Assert().Error(req1.GetValidationError())
-	
+
 	req2 := requests.NewSendMessageForCampaignRequest("campaign_name", "", "")
 	s.suite.Assert().False(req2.Validate())
 	s.suite.Assert().Error(req2.GetValidationError())
-	
+
 	req3 := requests.NewSendMessageForCampaignRequest("campaign_name", "message_title", "")
 	s.suite.Assert().False(req3.Validate())
 	s.suite.Assert().Error(req3.GetValidationError())
-	
+
 	req4 := requests.NewSendMessageForCampaignRequest("campaign_name", "message_title", "message_body")
 	s.suite.Assert().True(req4.Validate())
 	s.suite.Assert().NoError(req4.GetValidationError())

@@ -2,6 +2,8 @@ package models
 
 import "time"
 
+const USER_ID_KEY = "user_id"
+
 type User struct {
 	Id              string
 	Lastname        string

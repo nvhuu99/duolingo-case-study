@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"duolingo/libraries/pub_sub"
 	"duolingo/libraries/work_distributor"
-	"duolingo/repositories/campaign_message/user_repository"
+	user_repository "duolingo/repositories/campaign_message/user_repository/external"
 )
 
 func GetPublisher() pub_sub.Publisher {
