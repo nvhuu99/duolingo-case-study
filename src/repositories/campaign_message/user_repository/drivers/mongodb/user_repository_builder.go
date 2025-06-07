@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	connectionManager     *ClientConnectionManager
+	connectionManager     *ConnectionManager
 	errSingletonViolation = errors.New("failed to build UserRepo due to singleton violation (build has already called)")
 )
 
@@ -41,7 +41,7 @@ type UserRepoBuilder struct {
 
 func NewUserRepoBuilder(ctx context.Context) *UserRepoBuilder {
 	if connectionManager == nil {
-		connectionManager = &ClientConnectionManager{
+		connectionManager = &ConnectionManager{
 			ctx:                 ctx,
 			connectionGraceWait: 300 * time.Millisecond,
 			clients:             make(map[string]*Client),
@@ -142,7 +142,7 @@ func (builder *UserRepoBuilder) updateConnectionManagerUri() {
 	credentials := fmt.Sprintf("%v:%v", builder.user, builder.password)
 	uri := fmt.Sprintf("mongodb://%v/", address)
 	if credentials != ":" {
-		uri = fmt.Sprintf("mongodb://%v:%v/", address, credentials)
+		uri = fmt.Sprintf("mongodb://%v@%v/", address, credentials)
 	}
 	if connectionManager.uri != uri {
 		connectionManager.uri = uri

@@ -20,7 +20,7 @@ type Client struct {
 
 	databaseName      string
 	collectionName    string
-	connectionManager *ClientConnectionManager
+	connectionManager *ConnectionManager
 
 	connectionWait     time.Duration
 	operationReadWait  time.Duration
@@ -51,7 +51,7 @@ func (client *Client) GetConnectionTimeOut() time.Duration {
 func (client *Client) ExecuteClosure(
 	wait time.Duration,
 	closure func(ctx context.Context, collection *mongo.Collection) error,
-) (timeoutErr error) {
+) error {
 	done := make(chan bool, 1)
 	timeoutCtx, timeoutCancel := context.WithTimeout(client.ctx, wait)
 	defer timeoutCancel()
@@ -65,6 +65,7 @@ func (client *Client) ExecuteClosure(
 		case <-timeoutCtx.Done():
 			return ErrOperationTimeout
 		case <-done:
+			log.Println("done should be catch")
 			return nil
 		}
 	}
@@ -75,7 +76,9 @@ func (client *Client) executeClosureWithRetryOnNetworkErr(
 	done chan bool,
 	closure func(ctx context.Context, collection *mongo.Collection) error,
 ) {
-	defer func() { done <- true }()
+	defer func() {
+		done <- true
+	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,7 +90,7 @@ func (client *Client) executeClosureWithRetryOnNetworkErr(
 			time.Sleep(client.operationRetryWait)
 			continue
 		}
-		if err := closure(ctx, collection); mongo.IsNetworkError(err) {
+		if err := closure(ctx, collection); err != nil && mongo.IsNetworkError(err) {
 			client.ensureSingleReconnectAttempt() // thread-safe reconnect attempt
 			time.Sleep(client.operationRetryWait)
 			continue

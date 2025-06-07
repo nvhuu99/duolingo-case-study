@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type ClientConnectionManager struct {
+type ConnectionManager struct {
 	uri                 string
 	connectionGraceWait time.Duration
 
@@ -18,12 +18,12 @@ type ClientConnectionManager struct {
 	ctx context.Context
 }
 
-func (manager *ClientConnectionManager) SetUri(uri string) {
+func (manager *ConnectionManager) SetUri(uri string) {
 	manager.uri = uri
 	manager.DiscardClients()
 }
 
-func (manager *ClientConnectionManager) RegisterClient(client *Client, connectImmediately bool) {
+func (manager *ConnectionManager) RegisterClient(client *Client, connectImmediately bool) {
 	manager.clients[client.GetClientId()] = client
 	client.connectionManager = manager
 	if !connectImmediately {
@@ -35,7 +35,7 @@ func (manager *ClientConnectionManager) RegisterClient(client *Client, connectIm
 	}()
 }
 
-func (manager *ClientConnectionManager) RemoveClient(client *Client) {
+func (manager *ConnectionManager) RemoveClient(client *Client) {
 	if conn := manager.clientConnections[client.GetClientId()]; conn != nil {
 		conn.Disconnect(manager.ctx)
 	}
@@ -43,13 +43,13 @@ func (manager *ClientConnectionManager) RemoveClient(client *Client) {
 	delete(manager.clientConnections, client.GetClientId())
 }
 
-func (manager *ClientConnectionManager) DiscardClients() {
+func (manager *ConnectionManager) DiscardClients() {
 	for id := range manager.clients {
 		manager.RemoveClient(manager.clients[id])
 	}
 }
 
-func (manager *ClientConnectionManager) GetClientConnection(
+func (manager *ConnectionManager) GetClientConnection(
 	client *Client,
 	forceReconnect bool,
 ) (
@@ -78,7 +78,7 @@ func (manager *ClientConnectionManager) GetClientConnection(
 	return newConn, timeoutErr
 }
 
-func (manager *ClientConnectionManager) makeConnection(client *Client) (*mongo.Client, error) {
+func (manager *ConnectionManager) makeConnection(client *Client) (*mongo.Client, error) {
 	opts := options.Client()
 	opts.SetConnectTimeout(client.connectionWait)
 	opts.ApplyURI(manager.uri)

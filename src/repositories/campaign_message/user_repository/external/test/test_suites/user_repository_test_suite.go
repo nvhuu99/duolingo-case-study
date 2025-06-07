@@ -1,4 +1,4 @@
-package suite
+package test_suites
 
 import (
 	user_repository "duolingo/repositories/campaign_message/user_repository/external"
@@ -29,13 +29,14 @@ func NewUserRepositorySuite(repo user_repository.UserRepository) *UserRepository
 
 func (s *UserRepositorySuite) SetupTest() {
 	insertedUsrs, err := s.insertFakeUsers()
-	if err == nil {
-		s.testUsersMap = make(map[string]*models.User)
-		s.testUserIds = make([]string, len(insertedUsrs))
-		for i := range insertedUsrs {
-			s.testUsersMap[insertedUsrs[i].Id] = insertedUsrs[i]
-			s.testUserIds = append(s.testUserIds, insertedUsrs[i].Id)
-		}
+	if err != nil {
+		panic("fail to setup test")
+	}
+	s.testUsersMap = make(map[string]*models.User)
+	s.testUserIds = make([]string, len(insertedUsrs))
+	for i := range insertedUsrs {
+		s.testUsersMap[insertedUsrs[i].Id] = insertedUsrs[i]
+		s.testUserIds = append(s.testUserIds, insertedUsrs[i].Id)
 	}
 }
 
