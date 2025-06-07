@@ -1,4 +1,4 @@
-package suite
+package test_suites
 
 import (
 	"duolingo/services/campaign_message/message_input/server/requests"
