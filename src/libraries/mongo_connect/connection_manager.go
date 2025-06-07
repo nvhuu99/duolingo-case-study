@@ -1,7 +1,8 @@
-package mongodb
+package mongo_connect
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,6 +17,7 @@ type ConnectionManager struct {
 	clientConnections map[string]*mongo.Client
 
 	ctx context.Context
+	mu  sync.Mutex
 }
 
 func (manager *ConnectionManager) SetUri(uri string) {
@@ -25,6 +27,7 @@ func (manager *ConnectionManager) SetUri(uri string) {
 
 func (manager *ConnectionManager) RegisterClient(client *Client, connectImmediately bool) {
 	manager.clients[client.GetClientId()] = client
+
 	client.connectionManager = manager
 	if !connectImmediately {
 		return

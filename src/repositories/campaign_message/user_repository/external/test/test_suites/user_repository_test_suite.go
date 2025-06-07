@@ -14,20 +14,20 @@ var (
 	testDeviceTokens = []string{"fake_token_1", "fake_token_2"}
 )
 
-type UserRepositorySuite struct {
+type UserRepositoryTestSuite struct {
 	suite.Suite
 	repo         user_repository.UserRepository
 	testUsersMap map[string]*models.User
 	testUserIds  []string
 }
 
-func NewUserRepositorySuite(repo user_repository.UserRepository) *UserRepositorySuite {
-	return &UserRepositorySuite{
+func NewUserRepositoryTestSuite(repo user_repository.UserRepository) *UserRepositoryTestSuite {
+	return &UserRepositoryTestSuite{
 		repo: repo,
 	}
 }
 
-func (s *UserRepositorySuite) SetupTest() {
+func (s *UserRepositoryTestSuite) SetupTest() {
 	insertedUsrs, err := s.insertFakeUsers()
 	if err != nil {
 		panic("fail to setup test")
@@ -40,11 +40,11 @@ func (s *UserRepositorySuite) SetupTest() {
 	}
 }
 
-func (s *UserRepositorySuite) TearDownTest() {
+func (s *UserRepositoryTestSuite) TearDownTest() {
 	s.repo.DeleteUsersByCampaign(testOnlyCampaign)
 }
 
-func (s *UserRepositorySuite) TestInsertManyUsers() {
+func (s *UserRepositoryTestSuite) TestInsertManyUsers() {
 	users := []*models.User{
 		{Id: uuid.NewString(), Campaigns: []string{testOnlyCampaign}},
 		{Id: uuid.NewString(), Campaigns: []string{testOnlyCampaign}},
@@ -65,7 +65,7 @@ func (s *UserRepositorySuite) TestInsertManyUsers() {
 	}
 }
 
-func (s *UserRepositorySuite) TestDeleteUsersByIds() {
+func (s *UserRepositoryTestSuite) TestDeleteUsersByIds() {
 	err := s.repo.DeleteUsersByIds(s.testUserIds)
 	if s.Assert().NoError(err) {
 		listResult, err := s.repo.GetListUsersByIds(s.testUserIds)
@@ -74,7 +74,7 @@ func (s *UserRepositorySuite) TestDeleteUsersByIds() {
 	}
 }
 
-func (s *UserRepositorySuite) TestDeleteUsersByCampaign() {
+func (s *UserRepositoryTestSuite) TestDeleteUsersByCampaign() {
 	err := s.repo.DeleteUsersByCampaign(testOnlyCampaign)
 	if s.Assert().NoError(err) {
 		listResult, err := s.repo.GetListUsersByCampaign(testOnlyCampaign)
@@ -83,7 +83,7 @@ func (s *UserRepositorySuite) TestDeleteUsersByCampaign() {
 	}
 }
 
-func (s *UserRepositorySuite) TestGetListUsersByIds() {
+func (s *UserRepositoryTestSuite) TestGetListUsersByIds() {
 	listResult, err := s.repo.GetListUsersByIds(s.testUserIds)
 	if s.Assert().NoError(err) && s.Assert().NotEmpty(listResult) {
 		for i := range listResult {
@@ -92,7 +92,7 @@ func (s *UserRepositorySuite) TestGetListUsersByIds() {
 	}
 }
 
-func (s *UserRepositorySuite) TestGetListUsersByCampaign() {
+func (s *UserRepositoryTestSuite) TestGetListUsersByCampaign() {
 	listResult, err := s.repo.GetListUsersByCampaign(testOnlyCampaign)
 	if s.Assert().NoError(err) && s.Assert().NotEmpty(listResult) {
 		for i := range listResult {
@@ -101,14 +101,14 @@ func (s *UserRepositorySuite) TestGetListUsersByCampaign() {
 	}
 }
 
-func (s *UserRepositorySuite) TestCountUserDevicesForCampaign() {
+func (s *UserRepositoryTestSuite) TestCountUserDevicesForCampaign() {
 	count, err := s.repo.CountUserDevicesForCampaign(testOnlyCampaign)
 	if s.Assert().NoError(err) {
 		s.Assert().Equal(len(s.testUsersMap)*len(testDeviceTokens), count)
 	}
 }
 
-func (s *UserRepositorySuite) insertFakeUsers() ([]*models.User, error) {
+func (s *UserRepositoryTestSuite) insertFakeUsers() ([]*models.User, error) {
 	n := rand.Intn(5) + 1
 	usrs := make([]*models.User, n)
 	for i := range n {

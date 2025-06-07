@@ -1,4 +1,4 @@
-package mongodb
+package mongo_connect
 
 import (
 	"context"
@@ -18,6 +18,8 @@ type Client struct {
 	ctx                context.Context
 	reconnectTriggered atomic.Bool
 
+	id string
+
 	databaseName      string
 	collectionName    string
 	connectionManager *ConnectionManager
@@ -29,7 +31,7 @@ type Client struct {
 }
 
 func (client *Client) GetClientId() string {
-	return ""
+	return client.id
 }
 
 func (client *Client) GetReadTimeout() time.Duration {
@@ -46,6 +48,14 @@ func (client *Client) GetDefaultTimeOut() time.Duration {
 
 func (client *Client) GetConnectionTimeOut() time.Duration {
 	return client.connectionWait
+}
+
+func (client *Client) Ping() error {
+	conn, err := client.getConnection(true)
+	if err != nil {
+		return err
+	}
+	return conn.Ping(client.ctx, nil)
 }
 
 func (client *Client) ExecuteClosure(
@@ -65,7 +75,6 @@ func (client *Client) ExecuteClosure(
 		case <-timeoutCtx.Done():
 			return ErrOperationTimeout
 		case <-done:
-			log.Println("done should be catch")
 			return nil
 		}
 	}

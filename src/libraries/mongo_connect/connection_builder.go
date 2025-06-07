@@ -1,4 +1,4 @@
-package mongodb
+package mongo_connect
 
 import (
 	"context"
@@ -27,9 +27,8 @@ const (
 	DEFAULT_PORT            = "27017" // standard default mongodb port
 )
 
-type UserRepoBuilder struct {
+type ConnectionBuilder struct {
 	ctx                         context.Context
-	hasUserRepoCreatedBefore    atomic.Bool
 	hasConnManagerCreatedBefore atomic.Bool
 
 	host               string
@@ -44,8 +43,8 @@ type UserRepoBuilder struct {
 	operationRetryWait time.Duration
 }
 
-func NewUserRepoBuilder(ctx context.Context) *UserRepoBuilder {
-	return &UserRepoBuilder{
+func NewConnectionBuilder(ctx context.Context) *ConnectionBuilder {
+	return &ConnectionBuilder{
 		ctx:                ctx,
 		connectionWait:     15 * time.Second,
 		operationReadWait:  5 * time.Second,
@@ -54,54 +53,54 @@ func NewUserRepoBuilder(ctx context.Context) *UserRepoBuilder {
 	}
 }
 
-func (builder *UserRepoBuilder) SetCredentials(user string, password string) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetCredentials(user string, password string) *ConnectionBuilder {
 	builder.user = url.QueryEscape(user)
 	builder.password = url.QueryEscape(password)
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetHost(host string) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetHost(host string) *ConnectionBuilder {
 	builder.host = host
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetPort(port string) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetPort(port string) *ConnectionBuilder {
 	builder.port = port
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetOperationRetryWait(duration time.Duration) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetOperationRetryWait(duration time.Duration) *ConnectionBuilder {
 	connectionManager.connectionGraceWait = duration
 	builder.operationRetryWait = duration
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetConnectionTimeOut(duration time.Duration) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetConnectionTimeOut(duration time.Duration) *ConnectionBuilder {
 	builder.connectionWait = duration
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetOperationReadTimeOut(duration time.Duration) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetOperationReadTimeOut(duration time.Duration) *ConnectionBuilder {
 	builder.operationReadWait = duration
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetOperationWriteTimeOut(duration time.Duration) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetOperationWriteTimeOut(duration time.Duration) *ConnectionBuilder {
 	builder.operationWriteWait = duration
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetDatabaseName(name string) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetDatabaseName(name string) *ConnectionBuilder {
 	builder.databaseName = name
 	return builder
 }
 
-func (builder *UserRepoBuilder) SetCollectionName(name string) *UserRepoBuilder {
+func (builder *ConnectionBuilder) SetCollectionName(name string) *ConnectionBuilder {
 	builder.collectionName = name
 	return builder
 }
 
-func (builder *UserRepoBuilder) BuildConnectionManager() (*ConnectionManager, error) {
+func (builder *ConnectionBuilder) BuildConnectionManager() (*ConnectionManager, error) {
 	if singletonErr := builder.ensureConnManagerIsSingleton(); singletonErr != nil {
 		return nil, singletonErr
 	}
@@ -117,7 +116,7 @@ func (builder *UserRepoBuilder) BuildConnectionManager() (*ConnectionManager, er
 	return connectionManager, nil
 }
 
-func (builder *UserRepoBuilder) BuildClientAndRegisterToManager() (*Client, error) {
+func (builder *ConnectionBuilder) BuildClientAndRegisterToManager() (*Client, error) {
 	if connectionManager == nil {
 		return nil, ErrConnManagerHasNotCreated
 	}
@@ -131,36 +130,18 @@ func (builder *UserRepoBuilder) BuildClientAndRegisterToManager() (*Client, erro
 		operationWriteWait: builder.operationWriteWait,
 		operationRetryWait: builder.operationRetryWait,
 	}
-	connectionManager.RegisterClient(client, true)
+	connectionManager.RegisterClient(client, false)
 	return client, nil
 }
 
-func (builder *UserRepoBuilder) BuildRepo(client *Client) (*UserRepo, error) {
-	if connectionManager == nil {
-		return nil, ErrConnManagerHasNotCreated
-	}
-	defer builder.hasUserRepoCreatedBefore.Store(true)
-	if err := builder.ensureUserRepoIsSingleton(); err != nil {
-		return nil, err
-	}
-	return &UserRepo{client: client}, nil
-}
-
-func (builder *UserRepoBuilder) ensureUserRepoIsSingleton() error {
-	if builder.hasUserRepoCreatedBefore.Load() {
-		return ErrUserRepoSingletonViolation
-	}
-	return nil
-}
-
-func (builder *UserRepoBuilder) ensureConnManagerIsSingleton() error {
+func (builder *ConnectionBuilder) ensureConnManagerIsSingleton() error {
 	if builder.hasConnManagerCreatedBefore.Load() {
 		return ErrConnManagerSingletonViolation
 	}
 	return nil
 }
 
-func (builder *UserRepoBuilder) setDefaultArguments() {
+func (builder *ConnectionBuilder) setDefaultArguments() {
 	if builder.databaseName == "" {
 		builder.collectionName = DEFAULT_DATABASE_NAME
 	}
@@ -175,7 +156,7 @@ func (builder *UserRepoBuilder) setDefaultArguments() {
 	}
 }
 
-func (builder *UserRepoBuilder) updateConnectionManagerUri() {
+func (builder *ConnectionBuilder) updateConnectionManagerUri() {
 	address := fmt.Sprintf("%v:%v", builder.host, builder.port)
 	credentials := fmt.Sprintf("%v:%v", builder.user, builder.password)
 	uri := fmt.Sprintf("mongodb://%v/", address)
@@ -184,5 +165,12 @@ func (builder *UserRepoBuilder) updateConnectionManagerUri() {
 	}
 	if connectionManager.uri != uri {
 		connectionManager.uri = uri
+	}
+}
+
+func (builder *ConnectionBuilder) Destroy() {
+	if connectionManager != nil {
+		connectionManager.DiscardClients()
+		connectionManager = nil
 	}
 }
