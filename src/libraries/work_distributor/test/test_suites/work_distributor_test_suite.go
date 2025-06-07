@@ -1,4 +1,4 @@
-package suite
+package test_suites
 
 import (
 	"duolingo/libraries/work_distributor"
