@@ -8,12 +8,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var (
-	connectionManager     *ConnectionManager
-	errSingletonViolation = errors.New("failed to build UserRepo due to singleton violation (build has already called)")
+	connectionManager *ConnectionManager
+
+	ErrUserRepoSingletonViolation    = errors.New("failed to build UserRepo due to singleton violation (build has already called)")
+	ErrConnManagerSingletonViolation = errors.New("failed to build ConnectionManager due to singleton violation (build has already called)")
+	ErrConnManagerHasNotCreated      = errors.New("ConnectionManager has been not created")
 )
 
 const (
@@ -24,8 +28,9 @@ const (
 )
 
 type UserRepoBuilder struct {
-	ctx                      context.Context
-	hasUserRepoCreatedBefore atomic.Bool
+	ctx                         context.Context
+	hasUserRepoCreatedBefore    atomic.Bool
+	hasConnManagerCreatedBefore atomic.Bool
 
 	host               string
 	port               string
@@ -40,14 +45,6 @@ type UserRepoBuilder struct {
 }
 
 func NewUserRepoBuilder(ctx context.Context) *UserRepoBuilder {
-	if connectionManager == nil {
-		connectionManager = &ConnectionManager{
-			ctx:                 ctx,
-			connectionGraceWait: 300 * time.Millisecond,
-			clients:             make(map[string]*Client),
-			clientConnections:   make(map[string]*mongo.Client),
-		}
-	}
 	return &UserRepoBuilder{
 		ctx:                ctx,
 		connectionWait:     15 * time.Second,
@@ -104,20 +101,61 @@ func (builder *UserRepoBuilder) SetCollectionName(name string) *UserRepoBuilder 
 	return builder
 }
 
-func (builder *UserRepoBuilder) Build() (*UserRepo, error) {
-	if singletonErr := builder.ensureUserRepoIsSingleton(); singletonErr != nil {
+func (builder *UserRepoBuilder) BuildConnectionManager() (*ConnectionManager, error) {
+	if singletonErr := builder.ensureConnManagerIsSingleton(); singletonErr != nil {
 		return nil, singletonErr
+	}
+	defer builder.hasConnManagerCreatedBefore.Store(true)
+	connectionManager = &ConnectionManager{
+		ctx:                 builder.ctx,
+		connectionGraceWait: 300 * time.Millisecond,
+		clients:             make(map[string]*Client),
+		clientConnections:   make(map[string]*mongo.Client),
 	}
 	builder.setDefaultArguments()
 	builder.updateConnectionManagerUri()
-	repo := builder.createUserRepoAndRegisterToManager()
-	return repo, nil
+	return connectionManager, nil
+}
+
+func (builder *UserRepoBuilder) BuildClientAndRegisterToManager() (*Client, error) {
+	if connectionManager == nil {
+		return nil, ErrConnManagerHasNotCreated
+	}
+	client := &Client{
+		id:                 uuid.NewString(),
+		ctx:                builder.ctx,
+		databaseName:       builder.databaseName,
+		collectionName:     builder.collectionName,
+		connectionWait:     builder.connectionWait,
+		operationReadWait:  builder.operationReadWait,
+		operationWriteWait: builder.operationWriteWait,
+		operationRetryWait: builder.operationRetryWait,
+	}
+	connectionManager.RegisterClient(client, true)
+	return client, nil
+}
+
+func (builder *UserRepoBuilder) BuildRepo(client *Client) (*UserRepo, error) {
+	if connectionManager == nil {
+		return nil, ErrConnManagerHasNotCreated
+	}
+	defer builder.hasUserRepoCreatedBefore.Store(true)
+	if err := builder.ensureUserRepoIsSingleton(); err != nil {
+		return nil, err
+	}
+	return &UserRepo{client: client}, nil
 }
 
 func (builder *UserRepoBuilder) ensureUserRepoIsSingleton() error {
 	if builder.hasUserRepoCreatedBefore.Load() {
-		builder.hasUserRepoCreatedBefore.Store(true)
-		return errSingletonViolation
+		return ErrUserRepoSingletonViolation
+	}
+	return nil
+}
+
+func (builder *UserRepoBuilder) ensureConnManagerIsSingleton() error {
+	if builder.hasConnManagerCreatedBefore.Load() {
+		return ErrConnManagerSingletonViolation
 	}
 	return nil
 }
@@ -146,21 +184,5 @@ func (builder *UserRepoBuilder) updateConnectionManagerUri() {
 	}
 	if connectionManager.uri != uri {
 		connectionManager.uri = uri
-	}
-}
-
-func (builder *UserRepoBuilder) createUserRepoAndRegisterToManager() *UserRepo {
-	client := &Client{
-		ctx:                builder.ctx,
-		databaseName:       builder.databaseName,
-		collectionName:     builder.collectionName,
-		connectionWait:     builder.connectionWait,
-		operationReadWait:  builder.operationReadWait,
-		operationWriteWait: builder.operationWriteWait,
-		operationRetryWait: builder.operationRetryWait,
-	}
-	connectionManager.RegisterClient(client, true)
-	return &UserRepo{
-		client: client,
 	}
 }
