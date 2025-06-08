@@ -25,7 +25,7 @@ func (opts *UserDevicesAggregationCommandBuilder) WithEmailVerifiedOnlyFilter() 
 	if opts.filters == nil {
 		opts.filters = b.M{}
 	}
-	opts.filters["verified_at"] = b.M{"$lte": time.Now()}
+	opts.filters["email_verified_at"] = b.M{"$lte": time.Now()}
 	return opts
 }
 

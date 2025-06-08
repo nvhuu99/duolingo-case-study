@@ -2,9 +2,7 @@ package fake
 
 import (
 	"context"
-	"duolingo/libraries/connection_manager"
 	"errors"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -14,7 +12,7 @@ var (
 )
 
 type FakeConnectionProxy struct {
-	networkUp        atomic.Bool
+	networkUp atomic.Bool
 }
 
 func NewFakeConnectionProxy() *FakeConnectionProxy {
@@ -23,7 +21,10 @@ func NewFakeConnectionProxy() *FakeConnectionProxy {
 	return f
 }
 
-func (f *FakeConnectionProxy) CreateConnection(args *connection_manager.ConnectArgs) (any, error) {
+func (f *FakeConnectionProxy) SetConnectionArgsWithPanicOnValidationErr(args any) {
+}
+
+func (f *FakeConnectionProxy) CreateConnection() (any, error) {
 	if !f.networkUp.Load() {
 		return nil, errors.New("")
 	}
@@ -60,7 +61,7 @@ func (f *FakeConnectionProxy) SimulateNetworkRecovery() {
 }
 
 func (f *FakeConnectionProxy) SimulateNetworkFailureWithInterval(
-	ctx context.Context, 
+	ctx context.Context,
 	interval time.Duration,
 ) {
 	failureTicker := time.Tick(interval)
@@ -71,7 +72,6 @@ func (f *FakeConnectionProxy) SimulateNetworkFailureWithInterval(
 				return
 			case <-failureTicker:
 				// Toggle network state
-				log.Println("im here though")
 				if f.networkUp.Load() {
 					f.SimulateNetworkFailure()
 				} else {

@@ -4,6 +4,7 @@ import (
 	user_repository "duolingo/repositories/campaign_message/user_repository/external"
 	"duolingo/repositories/campaign_message/user_repository/models"
 	"math/rand"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -30,6 +31,7 @@ func NewUserRepositoryTestSuite(repo user_repository.UserRepository) *UserReposi
 func (s *UserRepositoryTestSuite) SetupTest() {
 	insertedUsrs, err := s.insertFakeUsers()
 	if err != nil {
+		s.T().Log(err)
 		panic("fail to setup test")
 	}
 	s.testUsersMap = make(map[string]*models.User)
@@ -104,7 +106,8 @@ func (s *UserRepositoryTestSuite) TestGetListUsersByCampaign() {
 func (s *UserRepositoryTestSuite) TestCountUserDevicesForCampaign() {
 	count, err := s.repo.CountUserDevicesForCampaign(testOnlyCampaign)
 	if s.Assert().NoError(err) {
-		s.Assert().Equal(len(s.testUsersMap)*len(testDeviceTokens), count)
+		expectedCount := uint64(len(s.testUsersMap) * len(testDeviceTokens))
+		s.Assert().Equal(expectedCount, count)
 	}
 }
 
@@ -113,9 +116,10 @@ func (s *UserRepositoryTestSuite) insertFakeUsers() ([]*models.User, error) {
 	usrs := make([]*models.User, n)
 	for i := range n {
 		usrs[i] = &models.User{
-			Id:           uuid.NewString(),
-			Campaigns:    []string{testOnlyCampaign},
-			DeviceTokens: testDeviceTokens,
+			Id:              uuid.NewString(),
+			Campaigns:       []string{testOnlyCampaign},
+			DeviceTokens:    testDeviceTokens,
+			EmailVerifiedAt: time.Now().Add(-1 * time.Hour), // 1 hour ago
 		}
 	}
 	return s.repo.InsertManyUsers(usrs)

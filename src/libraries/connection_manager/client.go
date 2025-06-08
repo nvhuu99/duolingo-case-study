@@ -13,14 +13,14 @@ var (
 )
 
 type Client struct {
-	connectionManager  *ConnectionManager
+	connectionManager *ConnectionManager
 
-	id                 string
-	operationReadWait  time.Duration
-	operationWriteWait time.Duration
-	operationRetryWait time.Duration
-	
-	ctx                context.Context
+	id                    string
+	operationReadTimeout  time.Duration
+	operationWriteTimeout time.Duration
+	operationRetryWait    time.Duration
+
+	ctx context.Context
 }
 
 func (client *Client) GetClientId() string {
@@ -28,15 +28,15 @@ func (client *Client) GetClientId() string {
 }
 
 func (client *Client) GetReadTimeout() time.Duration {
-	return client.operationReadWait
+	return client.operationReadTimeout
 }
 
 func (client *Client) GetWriteTimeout() time.Duration {
-	return client.operationWriteWait
+	return client.operationWriteTimeout
 }
 
 func (client *Client) GetDefaultTimeOut() time.Duration {
-	return max(client.operationWriteWait, client.operationReadWait)
+	return max(client.operationWriteTimeout, client.operationReadTimeout)
 }
 
 func (client *Client) GetRetryWait() time.Duration {
@@ -53,10 +53,10 @@ func (client *Client) ExecuteClosure(
 ) error {
 	timeoutCtx, timeoutCancel := context.WithTimeout(client.ctx, wait)
 	defer timeoutCancel()
-	
+
 	done := make(chan bool, 1)
 	go client.executeClosureWithRetryOnNetworkErr(timeoutCtx, done, closure)
-	
+
 	for {
 		select {
 		case <-client.ctx.Done():
@@ -68,7 +68,6 @@ func (client *Client) ExecuteClosure(
 		}
 	}
 }
-
 
 func (client *Client) executeClosureWithRetryOnNetworkErr(
 	timeoutCtx context.Context,

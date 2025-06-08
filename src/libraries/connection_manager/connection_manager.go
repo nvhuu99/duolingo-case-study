@@ -9,8 +9,6 @@ import (
 )
 
 var (
-	managerSpecialClientId = "MANAGER_SPECIAL_CLIENT_ID"
-
 	ErrManagerContextCanceled = errors.New("connection manager operation canceled by context")
 )
 
@@ -18,13 +16,13 @@ type ConnectionManager struct {
 	connectionProxy ConnectionProxy
 
 	uri                 string
-	connectionWait      time.Duration
-	connectionGraceWait time.Duration
-	clients           map[string]*Client
-	clientConnections map[string]any
-	
-	ctx context.Context
-	clientsMutex sync.Mutex
+	connectionTimeout   time.Duration
+	connectionRetryWait time.Duration
+	clients             map[string]*Client
+	clientConnections   map[string]any
+
+	ctx                context.Context
+	clientsMutex       sync.Mutex
 	resettingTriggered atomic.Bool
 }
 
@@ -41,7 +39,7 @@ func (manager *ConnectionManager) NotifyNetworkFailure() {
 		defer manager.resettingTriggered.Store(false)
 
 		manager.discardAllClientConnections() // avoid further accesses
-		if err := manager.waitForNetworkRecoveryUnlessCanceled(); err != nil { 
+		if err := manager.idleUntilNetworkRecoveredUnlessCtxCanceled(); err != nil {
 			return
 		}
 		manager.resetAllConnections()
@@ -54,22 +52,19 @@ func (manager *ConnectionManager) RegisterClient(client *Client) {
 
 	id := client.GetClientId()
 	manager.clients[id] = client
-	manager.clientConnections[id] = manager.makeConnectionAndNotifyIfFails(client)
+	manager.clientConnections[id] = manager.makeConnectionAndNotifyIfFails()
 	client.connectionManager = manager
 }
 
 func (manager *ConnectionManager) RemoveClient(client *Client) {
 	id := client.GetClientId()
-	if id == managerSpecialClientId {
-        return
-    }
 
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
-	
-	conn := manager.clientConnections[id] 
+
+	conn := manager.clientConnections[id]
 	go manager.connectionProxy.CloseConnection(conn)
-	
+
 	delete(manager.clients, id)
 	delete(manager.clientConnections, id)
 }
@@ -86,7 +81,6 @@ func (manager *ConnectionManager) GetClientConnection(client *Client) any {
 	return manager.clientConnections[client.GetClientId()]
 }
 
-
 func (manager *ConnectionManager) discardAllClientConnections() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
@@ -99,19 +93,18 @@ func (manager *ConnectionManager) discardAllClientConnections() {
 	}
 }
 
-func (manager *ConnectionManager) waitForNetworkRecoveryUnlessCanceled() error {
-	specialClient := manager.getSpecialClient()
+func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() error {
 	for {
 		select {
 		case <-manager.ctx.Done():
 			return ErrManagerContextCanceled
 		default:
-			if conn, connErr := manager.makeConnection(specialClient); connErr == nil {
+			if conn, connErr := manager.makeConnection(); connErr == nil {
 				if pingErr := manager.connectionProxy.Ping(conn); pingErr == nil {
 					return nil
 				}
 			}
-			time.Sleep(manager.connectionGraceWait)
+			time.Sleep(manager.connectionRetryWait)
 		}
 	}
 }
@@ -121,13 +114,13 @@ func (manager *ConnectionManager) resetAllConnections() {
 	defer manager.clientsMutex.Unlock()
 
 	for id := range manager.clients {
-		conn, _ := manager.makeConnection(manager.clients[id])
-		manager.clientConnections[id] = conn 
+		conn, _ := manager.makeConnection()
+		manager.clientConnections[id] = conn
 	}
 }
 
-func (manager *ConnectionManager) makeConnectionAndNotifyIfFails(client *Client) any {
-	conn, err := manager.makeConnection(client)
+func (manager *ConnectionManager) makeConnectionAndNotifyIfFails() any {
+	conn, err := manager.makeConnection()
 	if err != nil {
 		manager.NotifyNetworkFailure()
 		return nil
@@ -135,24 +128,6 @@ func (manager *ConnectionManager) makeConnectionAndNotifyIfFails(client *Client)
 	return conn
 }
 
-func (manager *ConnectionManager) makeConnection(client *Client) (any, error) {
-	args := manager.makeConnectionArgs(client)
-	return manager.connectionProxy.CreateConnection(args)
-}
-
-func (manager *ConnectionManager) makeConnectionArgs(client *Client) *ConnectArgs {
-	return &ConnectArgs{
-		URI: manager.uri,
-		ConnectionTimeout: manager.connectionWait,
-		ConnectionRetryWait: manager.connectionGraceWait,
-		OperationRetryWait: client.GetRetryWait(),
-		OperationReadTimeout: client.GetReadTimeout(),
-		OperationWriteTimeout: client.GetWriteTimeout(),
-	}
-}
-
-func (manager *ConnectionManager) getSpecialClient() *Client {
-	manager.clientsMutex.Lock()
-	defer manager.clientsMutex.Unlock()
-	return manager.clients[managerSpecialClientId]
+func (manager *ConnectionManager) makeConnection() (any, error) {
+	return manager.connectionProxy.CreateConnection()
 }

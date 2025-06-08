@@ -30,10 +30,11 @@ func (s *ConnectionManagerTestSuite) SetupTest() {
 	s.builder = connection_manager.NewConnectionBuilder(context.Background()).
 		SetConnectionDriver(s.proxy).
 		SetURI("fake-uri").
-		SetOperationRetryWait(5 * time.Millisecond).
 		SetConnectionTimeOut(50 * time.Millisecond).
+		SetConnectionRetryWait(5 * time.Millisecond).
 		SetOperationReadTimeOut(100 * time.Millisecond).
-		SetOperationWriteTimeOut(100 * time.Millisecond)
+		SetOperationWriteTimeOut(100 * time.Millisecond).
+		SetOperationRetryWait(5 * time.Millisecond)
 	manager, err := s.builder.BuildConnectionManager()
 	if err != nil {
 		panic(err)
@@ -90,19 +91,19 @@ func (s *ConnectionManagerTestSuite) TestConnectionReset() {
 	for i := range clientCount {
 		go func() {
 			defer wg.Done()
-			timeout := clients[i].GetDefaultTimeOut() 
+			timeout := clients[i].GetDefaultTimeOut()
 			err := clients[i].ExecuteClosure(timeout, clientWork)
 			s.Assert().Equal(connection_manager.ErrClientOperationTimeout, err)
 		}()
 	}
 	wg.Wait()
-	// verify client works successful after connection recovered 
+	// verify client works successful after connection recovered
 	s.proxy.SimulateNetworkRecovery()
 	wg.Add(clientCount)
 	for i := range clientCount {
 		go func() {
 			defer wg.Done()
-			timeout := clients[i].GetDefaultTimeOut() 
+			timeout := clients[i].GetDefaultTimeOut()
 			err := clients[i].ExecuteClosure(timeout, clientWork)
 			s.Assert().NoError(err)
 		}()

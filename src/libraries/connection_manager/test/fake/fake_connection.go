@@ -1,3 +1,3 @@
 package fake
 
-type FakeConnection struct {}
+type FakeConnection struct{}

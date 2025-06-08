@@ -2,7 +2,7 @@ package mongodb
 
 import (
 	"context"
-	"duolingo/libraries/mongo_connect"
+	connection "duolingo/libraries/connection_manager/drivers/mongodb"
 	cmd "duolingo/repositories/campaign_message/user_repository/drivers/mongodb/command_builders"
 	"duolingo/repositories/campaign_message/user_repository/models"
 
@@ -11,22 +11,43 @@ import (
 )
 
 type UserRepo struct {
-	mongo_connect.Client
+	connection.MongoClient
+
+	databaseName   string
+	collectionName string
+}
+
+func NewUserRepo(
+	client *connection.MongoClient,
+	databaseName string,
+	collectionName string,
+) *UserRepo {
+	return &UserRepo{
+		MongoClient:    *client,
+		databaseName:   databaseName,
+		collectionName: collectionName,
+	}
 }
 
 func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, error) {
 	bsonData := make([]any, len(users))
 	for i := range users {
-		users[i].Id = uuid.NewString()
+		if users[i].Id == "" {
+			users[i].Id = uuid.NewString()
+		}
 		bsonData[i] = users[i]
 	}
 	var err error
 	timeout := repo.GetWriteTimeout()
-	repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Collection) error {
-		_, err = conn.InsertMany(ctx, bsonData)
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		_, err = collection.InsertMany(ctx, bsonData)
 		return err
 	})
-	return users, err
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 func (repo *UserRepo) DeleteUsersByIds(ids []string) error {
@@ -61,20 +82,22 @@ func (repo *UserRepo) CountUserDevicesForCampaign(campaign string) (uint64, erro
 	if err := builder.Build(); err != nil {
 		return 0, err
 	}
+	var err error
 	var total uint64
 	timeout := repo.GetReadTimeout()
-	err := repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Collection) error {
-		cursor, err := conn.Aggregate(ctx, builder.GetPipeline())
-		if err != nil {
-			return err
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		cursor, cursorErr := collection.Aggregate(ctx, builder.GetPipeline())
+		if cursorErr != nil {
+			return cursorErr
 		}
 		defer cursor.Close(ctx)
 		if cursor.Next(ctx) {
 			var result struct {
 				Total uint64 `bson:"total"`
 			}
-			if err := cursor.Decode(&result); err != nil {
-				return err
+			if decodeErr := cursor.Decode(&result); decodeErr != nil {
+				return decodeErr
 			}
 			total = result.Total
 		}
@@ -84,15 +107,17 @@ func (repo *UserRepo) CountUserDevicesForCampaign(campaign string) (uint64, erro
 }
 
 func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*models.User, error) {
+	var err error
 	var users []*models.User
 	timeout := repo.GetReadTimeout()
-	err := repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Collection) error {
-		if err := builder.Build(); err != nil {
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		if err = builder.Build(); err != nil {
 			return err
 		}
-		cursor, err := conn.Find(ctx, builder.GetFilters(), builder.GetOptions())
-		if err != nil {
-			return err
+		cursor, cursorErr := collection.Find(ctx, builder.GetFilters(), builder.GetOptions())
+		if cursorErr != nil {
+			return cursorErr
 		}
 		defer cursor.Close(ctx)
 		return cursor.All(ctx, &users)
@@ -101,12 +126,15 @@ func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*mode
 }
 
 func (repo *UserRepo) deleteUsers(builder *cmd.UserDeleteCommandBuilder) error {
+	var err error
 	timeout := repo.GetWriteTimeout()
-	return repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Collection) error {
-		if err := builder.Build(); err != nil {
+	repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		if err = builder.Build(); err != nil {
 			return err
 		}
-		_, err := conn.DeleteMany(ctx, builder.GetFilters())
+		_, err = collection.DeleteMany(ctx, builder.GetFilters())
 		return err
 	})
+	return err
 }

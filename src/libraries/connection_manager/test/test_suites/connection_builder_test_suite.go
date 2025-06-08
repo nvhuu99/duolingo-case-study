@@ -11,9 +11,12 @@ import (
 type ConnectionBuilderTestSuite struct {
 	suite.Suite
 	builder *connection_manager.ConnectionBuilder
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 func (s *ConnectionBuilderTestSuite) SetupTest() {
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.builder = connection_manager.NewConnectionBuilder(context.Background())
 	s.builder.SetConnectionDriver(fake.NewFakeConnectionProxy())
 }
@@ -21,6 +24,7 @@ func (s *ConnectionBuilderTestSuite) SetupTest() {
 func (s *ConnectionBuilderTestSuite) TearDownTest() {
 	s.builder.Destroy()
 	s.builder = nil
+	s.cancel()
 }
 
 func (s *ConnectionBuilderTestSuite) TestEnforceConnectionManagerSingleton() {
