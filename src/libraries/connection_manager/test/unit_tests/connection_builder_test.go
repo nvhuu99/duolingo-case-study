@@ -1,12 +1,12 @@
 package unit_tests
 
 import (
-	"duolingo/libraries/mongo_connect/test/test_suites"
+	"duolingo/libraries/connection_manager/test/test_suites"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 )
 
-func TestUserRepositoryBuilder(t *testing.T) {
+func TestConnectionBuilder(t *testing.T) {
 	suite.Run(t, &test_suites.ConnectionBuilderTestSuite{})
 }
