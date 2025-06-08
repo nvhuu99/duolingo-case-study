@@ -41,8 +41,8 @@ func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, err
 	timeout := repo.GetWriteTimeout()
 	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		_, err = collection.InsertMany(ctx, bsonData)
-		return err
+		_, insertErr := collection.InsertMany(ctx, bsonData)
+		return insertErr
 	})
 	if err != nil {
 		return nil, err
@@ -107,14 +107,14 @@ func (repo *UserRepo) CountUserDevicesForCampaign(campaign string) (uint64, erro
 }
 
 func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*models.User, error) {
+	if err := builder.Build(); err != nil {
+		return nil, err
+	}
 	var err error
 	var users []*models.User
 	timeout := repo.GetReadTimeout()
 	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		if err = builder.Build(); err != nil {
-			return err
-		}
 		cursor, cursorErr := collection.Find(ctx, builder.GetFilters(), builder.GetOptions())
 		if cursorErr != nil {
 			return cursorErr
@@ -126,15 +126,15 @@ func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*mode
 }
 
 func (repo *UserRepo) deleteUsers(builder *cmd.UserDeleteCommandBuilder) error {
+	if err := builder.Build(); err != nil {
+		return err
+	}
 	var err error
 	timeout := repo.GetWriteTimeout()
-	repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		if err = builder.Build(); err != nil {
-			return err
-		}
-		_, err = collection.DeleteMany(ctx, builder.GetFilters())
-		return err
+		_, deleteErr := collection.DeleteMany(ctx, builder.GetFilters())
+		return deleteErr
 	})
 	return err
 }
