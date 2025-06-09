@@ -1,4 +1,4 @@
-package unit_tests
+package mongodb
 
 import (
 	"context"
