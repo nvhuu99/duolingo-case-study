@@ -1,7 +1,7 @@
 package test_suites
 
 import (
-	user_repository "duolingo/repositories/campaign_message/user_repository/external"
+	user_repository "duolingo/repositories/campaign_message/user_repository"
 	"duolingo/repositories/campaign_message/user_repository/models"
 	"math/rand"
 	"time"

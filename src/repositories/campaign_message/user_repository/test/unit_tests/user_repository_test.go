@@ -7,7 +7,7 @@ import (
 
 	connection "duolingo/libraries/connection_manager/drivers/mongodb"
 	mongodb_driver "duolingo/repositories/campaign_message/user_repository/drivers/mongodb"
-	repo_test_suite "duolingo/repositories/campaign_message/user_repository/external/test/test_suites"
+	repo_test_suite "duolingo/repositories/campaign_message/user_repository/test/test_suites"
 
 	"github.com/stretchr/testify/suite"
 )
