@@ -55,7 +55,15 @@ func (client *Client) ExecuteClosure(
 	defer timeoutCancel()
 
 	done := make(chan bool, 1)
-	go client.executeClosureWithRetryOnNetworkErr(timeoutCtx, done, closure)
+	errChan := make(chan error, 1)
+	go func() {
+		defer func() {
+			close(done)
+			close(errChan)
+		}()
+		client.executeClosureWithRetryOnNetworkErr(timeoutCtx, closure, errChan)
+		done <- true
+	}()
 
 	for {
 		select {
@@ -64,6 +72,9 @@ func (client *Client) ExecuteClosure(
 		case <-timeoutCtx.Done():
 			return ErrClientOperationTimeout
 		case <-done:
+			if len(errChan) > 0 {
+				return <-errChan
+			}
 			return nil
 		}
 	}
@@ -71,25 +82,31 @@ func (client *Client) ExecuteClosure(
 
 func (client *Client) executeClosureWithRetryOnNetworkErr(
 	timeoutCtx context.Context,
-	done chan bool,
 	closure func(ctx context.Context, connection any) error,
+	errChan chan error,
 ) {
-	defer func() {
-		done <- true
-	}()
 	for {
 		select {
 		case <-timeoutCtx.Done():
 			return
 		default:
-			if conn := client.connectionManager.GetClientConnection(client); conn != nil {
-				err := closure(timeoutCtx, conn)
-				if err == nil || !client.connectionManager.IsNetworkError(err) {
-					return // exit normally
-				}
+			// retry getting connection
+			conn := client.connectionManager.GetClientConnection(client)
+			if conn == nil {
+				time.Sleep(client.operationRetryWait)
+				continue
 			}
-			time.Sleep(client.operationRetryWait)
-			continue
+			// retry on network err
+			err := closure(timeoutCtx, conn)
+			if client.connectionManager.IsNetworkError(err) {
+				time.Sleep(client.operationRetryWait)
+				continue
+			}
+			// exit normally
+			if err != nil {
+				errChan <- err
+			}
+			return
 		}
 	}
 }
