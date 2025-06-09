@@ -15,6 +15,10 @@ type ConnectionBuilderTestSuite struct {
 	cancel  context.CancelFunc
 }
 
+func NewConnectionBuilderTestSuite() *ConnectionBuilderTestSuite {
+	return &ConnectionBuilderTestSuite{}
+}
+
 func (s *ConnectionBuilderTestSuite) SetupTest() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.builder = connection_manager.NewConnectionBuilder(context.Background())

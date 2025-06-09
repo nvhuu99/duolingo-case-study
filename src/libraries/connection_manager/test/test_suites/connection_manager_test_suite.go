@@ -20,6 +20,10 @@ type ConnectionManagerTestSuite struct {
 	proxy   *fake.FakeConnectionProxy
 }
 
+func NewConnectionManagerTestSuite() *ConnectionManagerTestSuite {
+	return &ConnectionManagerTestSuite{}
+}
+
 func TestConnectionManagerSuite(t *testing.T) {
 	suite.Run(t, new(ConnectionManagerTestSuite))
 }

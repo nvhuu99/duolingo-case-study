@@ -7,6 +7,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func TestConnectionBuilder(t *testing.T) {
-	suite.Run(t, &test_suites.ConnectionBuilderTestSuite{})
+func TestConnectionManager(t *testing.T) {
+	suite.Run(t, test_suites.NewConnectionManagerTestSuite())
 }
