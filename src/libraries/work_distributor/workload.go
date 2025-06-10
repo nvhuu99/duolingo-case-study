@@ -1,43 +1,65 @@
 package work_distributor
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrUnexpectedWorkloadTotalCommittedAssignments = errors.New("workload total committed exceeds expectation")
+)
 
 type Workload struct {
-	id                       string
-	totalWorkloadUnits       uint64
-	totalUnitsPerAssignment  uint64
-	totalPendingAssignments  uint64
-	totalCommittedAssignment uint64
+	Id                        string `json:"id"`
+	TotalWorkUnits            uint64 `json:"total_units"`
+	TotalUnitsPerAssignment   uint64 `json:"dist_size"`
+	TotalCommittedAssignments uint64 `json:"total_commited"`
+
+	CreatedAt time.Time
 }
 
 func NewWorkload(id string, totalUnits uint64, unitsPerAssignment uint64) (*Workload, error) {
-	if id == "" || totalUnits == 0 || unitsPerAssignment == 0 {
-		return nil, errors.New("invalid workload's parameters")
-	}
 	workload := &Workload{
-		id:                      id,
-		totalWorkloadUnits:      totalUnits,
-		totalUnitsPerAssignment: unitsPerAssignment,
+		Id:                        id,
+		TotalWorkUnits:            totalUnits,
+		TotalUnitsPerAssignment:   unitsPerAssignment,
+		TotalCommittedAssignments: 0,
+		CreatedAt:                 time.Now(),
 	}
+
+	if validationErr := workload.Validate(); validationErr != nil {
+		return nil, validationErr
+	}
+
 	return workload, nil
 }
 
-func (w *Workload) GetId() string {
-	return w.id
+func (w *Workload) Validate() error {
+	if w.Id == "" ||
+		w.TotalWorkUnits == 0 ||
+		w.TotalUnitsPerAssignment == 0 {
+		return errors.New("invalid workload's parameters")
+	}
+	return nil
 }
 
-func (w *Workload) GetDistributionSize() uint64 {
-	return w.totalUnitsPerAssignment
+func (w *Workload) GetExpectTotalAssignments() uint64 {
+	size := w.TotalUnitsPerAssignment
+	return (w.TotalWorkUnits + size - 1) / size // round up division
 }
 
-func (w *Workload) GetTotalWorkloadUnits() uint64 {
-	return w.totalWorkloadUnits
+func (w *Workload) HasWorkloadFulfilled() bool {
+	return w.TotalCommittedAssignments == w.GetExpectTotalAssignments()
 }
 
-// func (w *Workload) GetTotalPendingAssignments() uint64 {
-// 	return w.totalPendingAssignments
-// }
+func (w *Workload) IncreaseTotalCommittedAssignments() error {
+	if w.TotalCommittedAssignments == w.GetExpectTotalAssignments() {
+		return ErrUnexpectedWorkloadTotalCommittedAssignments
+	}
+	w.TotalCommittedAssignments++
+	return nil
+}
 
-// func (w *Workload) GetTotalCommitedAssignments() uint64 {
-// 	return w.totalCommittedAssignment
-// }
+func (w *Workload) Equal(target *Workload) bool {
+	return target != nil && target.Id == w.Id
+}

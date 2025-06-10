@@ -97,7 +97,7 @@ func (s *ConnectionManagerTestSuite) TestConnectionReset() {
 			defer wg.Done()
 			timeout := clients[i].GetDefaultTimeOut()
 			err := clients[i].ExecuteClosure(timeout, clientWork)
-			
+
 			s.Assert().Equal(connection_manager.ErrClientOperationTimeout, err)
 		}()
 	}

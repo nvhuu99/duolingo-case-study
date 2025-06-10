@@ -1,7 +1,7 @@
 package test_suites
 
 import (
-	"duolingo/libraries/work_distributor"
+	distributor "duolingo/libraries/work_distributor"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -10,20 +10,52 @@ type WorkloadTestSuite struct {
 	suite.Suite
 }
 
-func (s *WorkloadTestSuite) TestCreateWorkloadWithInvalidParams() {
-	w1, err1 := work_distributor.NewWorkload("", 0, 0)
-	w2, err2 := work_distributor.NewWorkload("WORKLOAD#2", 100, 0)
+func NewWorkloadTestSuite() *WorkloadTestSuite {
+	return &WorkloadTestSuite{}
+}
+
+func (s *WorkloadTestSuite) Test_NewWorkload() {
+	w1, err1 := distributor.NewWorkload("", 0, 0)     // missing all params
+	w2, err2 := distributor.NewWorkload("W2", 100, 0) // missing distribution size
+
 	s.Assert().Nil(w1)
 	s.Assert().Nil(w2)
 	s.Assert().Error(err1)
 	s.Assert().Error(err2)
+
+	// distribution size's greater than total units
+	w3, err3 := distributor.NewWorkload("W3", 100, 1000)
+	// normal case
+	w4, err4 := distributor.NewWorkload("W4", 100, 5)
+
+	s.Assert().NotNil(w3)
+	s.Assert().NotNil(w4)
+	s.Assert().NoError(err3)
+	s.Assert().NoError(err4)
 }
 
-func (s *WorkloadTestSuite) TestCreateWorkload() {
-	w, err := work_distributor.NewWorkload("WORKLOAD#1", 100, 5)
-	s.Assert().NotNil(w)
-	s.Assert().NoError(err)
-	s.Assert().Equal("WORKLOAD#1", w.GetId())
-	s.Assert().Equal(100, w.GetTotalWorkloadUnits())
-	s.Assert().Equal(5, w.GetDistributionSize())
+func (s *WorkloadTestSuite) Test_GetExpectTotalAssignments() {
+	w1, _ := distributor.NewWorkload("W1", 100, 10)
+	w2, _ := distributor.NewWorkload("W2", 100, 3)
+
+	s.Assert().Equal(uint64(10), w1.GetExpectTotalAssignments())
+	s.Assert().Equal(uint64(34), w2.GetExpectTotalAssignments())
+}
+
+func (s *WorkloadTestSuite) Test_HasWorkloadFulfilled() {
+	w1, _ := distributor.NewWorkload("W1", 100, 10)
+
+	w1.TotalCommittedAssignments = 5
+	s.Assert().False(w1.HasWorkloadFulfilled())
+
+	w1.TotalCommittedAssignments = 10
+	s.Assert().True(w1.HasWorkloadFulfilled())
+}
+
+func (s *WorkloadTestSuite) Test_IncreaseTotalCommittedAssignments() {
+	w1, _ := distributor.NewWorkload("W1", 100, 10)
+	w1.TotalCommittedAssignments = 10
+	err := w1.IncreaseTotalCommittedAssignments()
+
+	s.Assert().Equal(distributor.ErrUnexpectedWorkloadTotalCommittedAssignments, err)
 }
