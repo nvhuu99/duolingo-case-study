@@ -30,45 +30,43 @@ func TestConnectionManagerSuite(t *testing.T) {
 
 func (s *ConnectionManagerTestSuite) SetupTest() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+
+	args := connection_manager.DefaultConnectionArgs()
+	args.SetConnectionTimeout(10 * time.Millisecond)
+	args.SetConnectionRetryWait(5 * time.Millisecond)
+	args.SetOperationRetryWait(5 * time.Millisecond)
+
 	s.proxy = fake.NewFakeConnectionProxy()
-	s.builder = connection_manager.NewConnectionBuilder(context.Background()).
-		SetConnectionDriver(s.proxy).
-		SetURI("fake-uri").
-		SetConnectionTimeOut(50 * time.Millisecond).
-		SetConnectionRetryWait(5 * time.Millisecond).
-		SetOperationReadTimeOut(100 * time.Millisecond).
-		SetOperationWriteTimeOut(100 * time.Millisecond).
-		SetOperationRetryWait(5 * time.Millisecond)
-	manager, err := s.builder.BuildConnectionManager()
-	if err != nil {
-		panic(err)
-	}
-	s.manager = manager
+
+	s.builder = connection_manager.NewConnectionBuilder(context.Background())
+	s.builder.SetConnectionArgs(args)
+	s.builder.SetConnectionProxy(s.proxy)
+
+	s.manager = s.builder.GetConnectionManager()
 }
 
 func (s *ConnectionManagerTestSuite) TearDownTest() {
-	defer s.cancel()
 	s.builder.Destroy()
+	s.cancel()
 	s.builder = nil
 	s.manager = nil
+	s.proxy = nil
 }
 
 func (s *ConnectionManagerTestSuite) TestAddClient() {
-	client, err := s.builder.BuildClientAndRegisterToManager()
-	if !s.Assert().NoError(err) || !s.Assert().NotNil(client) {
-		return
-	}
+	client := s.builder.BuildClientAndRegisterToManager()
+	s.Assert().NotNil(client)
 }
 
 func (s *ConnectionManagerTestSuite) TestRemoveClient() {
-	client, _ := s.builder.BuildClientAndRegisterToManager()
+	client := s.builder.BuildClientAndRegisterToManager()
 	s.manager.RemoveClient(client)
 	s.Assert().Nil(client.GetConnection())
 	s.Assert().Nil(s.manager.GetClientConnection(client))
 }
 
 func (s *ConnectionManagerTestSuite) TestGetClientConnection() {
-	client, _ := s.builder.BuildClientAndRegisterToManager()
+	client := s.builder.BuildClientAndRegisterToManager()
 	s.Assert().NotNil(client.GetConnection())
 	s.Assert().NotNil(s.manager.GetClientConnection(client))
 	s.Assert().Equal(client.GetConnection(), s.manager.GetClientConnection(client))
@@ -86,8 +84,7 @@ func (s *ConnectionManagerTestSuite) TestConnectionReset() {
 	}
 	// setup clients
 	for i := range clientCount {
-		client, _ := s.builder.BuildClientAndRegisterToManager()
-		clients[i] = client
+		clients[i] = s.builder.BuildClientAndRegisterToManager()
 	}
 	// verify client timeout on network failure
 	s.proxy.SimulateNetworkFailure()
@@ -95,8 +92,7 @@ func (s *ConnectionManagerTestSuite) TestConnectionReset() {
 	for i := range clientCount {
 		go func() {
 			defer wg.Done()
-			timeout := clients[i].GetDefaultTimeOut()
-			err := clients[i].ExecuteClosure(timeout, clientWork)
+			err := clients[i].ExecuteClosure(20*time.Millisecond, clientWork)
 
 			s.Assert().Equal(connection_manager.ErrClientOperationTimeout, err)
 		}()
@@ -108,8 +104,7 @@ func (s *ConnectionManagerTestSuite) TestConnectionReset() {
 	for i := range clientCount {
 		go func() {
 			defer wg.Done()
-			timeout := clients[i].GetDefaultTimeOut()
-			err := clients[i].ExecuteClosure(timeout, clientWork)
+			err := clients[i].ExecuteClosure(20*time.Millisecond, clientWork)
 
 			s.Assert().NoError(err)
 		}()

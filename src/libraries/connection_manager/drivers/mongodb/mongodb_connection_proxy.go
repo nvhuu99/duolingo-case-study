@@ -22,31 +22,31 @@ type MongoConnectionProxy struct {
 
 /* Implement connection_manager.ConnectionProxy interface */
 
-func (proxy *MongoConnectionProxy) SetConnectionArgsWithPanicOnValidationErr(args any) {
+func (proxy *MongoConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	mongoArgs, ok := args.(*MongoConnectionArgs)
 	if !ok {
 		panic(ErrConnectionArgsType)
 	}
-	if mongoArgs.Host == "" || mongoArgs.Port == "" {
+	if mongoArgs.GetHost() == "" || mongoArgs.GetPort() == "" {
 		panic(ErrInvalidConnectionArgs)
 	}
-	if mongoArgs.URI == "" {
-		address := fmt.Sprintf("%v:%v", mongoArgs.Host, mongoArgs.Port)
-		credentials := fmt.Sprintf("%v:%v", mongoArgs.User, mongoArgs.Password)
+	if mongoArgs.GetURI() == "" {
+		address := fmt.Sprintf("%v:%v", mongoArgs.GetHost(), mongoArgs.GetPort())
+		credentials := fmt.Sprintf("%v:%v", mongoArgs.GetUser(), mongoArgs.GetPassword())
 		uri := fmt.Sprintf("mongodb://%v/", address)
 		if credentials != ":" {
 			uri = fmt.Sprintf("mongodb://%v@%v/", credentials, address)
 		}
-		mongoArgs.URI = uri
+		mongoArgs.SetURI(uri)
 	}
 	proxy.connectionArgs = mongoArgs
 }
 
-func (proxy *MongoConnectionProxy) CreateConnection() (any, error) {
+func (proxy *MongoConnectionProxy) GetConnection() (any, error) {
 	args := proxy.connectionArgs
 	opts := options.Client()
-	opts.SetConnectTimeout(args.ConnectionTimeout)
-	opts.ApplyURI(args.URI)
+	opts.SetConnectTimeout(args.GetConnectionTimeout())
+	opts.ApplyURI(args.GetURI())
 	return mongo.Connect(proxy.ctx, opts)
 }
 
@@ -57,7 +57,7 @@ func (proxy *MongoConnectionProxy) Ping(connection any) error {
 	return ErrConnectionType
 }
 
-func (proxy *MongoConnectionProxy) IsNetworkError(err error) bool {
+func (proxy *MongoConnectionProxy) IsNetworkErr(err error) bool {
 	return mongo.IsNetworkError(err)
 }
 

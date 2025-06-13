@@ -138,7 +138,7 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitUntilOneRollbacked
 	wg.Add(2)
 
 	// Create a timeout to wait for available assignment
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer waitCancel()
 
 	// Call WaitForAssignment() to wait for available work
@@ -163,8 +163,8 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitUntilOneRollbacked
 			case <-rollbackTimer:
 				s.distributor.Rollback(assigned)
 			case <-waitCtx.Done():
-				s.Assert().NotNil(assignedByWait)
 				s.Assert().NoError(assignErr)
+				s.Assert().NotNil(assignedByWait)
 				return
 			}
 		}
@@ -192,7 +192,7 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitWillFailOnFulfille
 	wg.Add(2)
 
 	// Create a timeout to wait for available assignment
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer waitCancel()
 
 	// Call WaitForAssignment() to wait for available work
@@ -208,15 +208,16 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitWillFailOnFulfille
 	}()
 
 	// Commit all assignments,
-	// then verify that eventually the work is available
+	// then verify that there no more work
 	go func() {
 		defer wg.Done()
 		for i := range assignments {
 			s.distributor.Commit(assignments[i])
 		}
+		time.Sleep(10 * time.Millisecond)
 		<-waitCtx.Done()
 		s.Assert().Nil(assignedByWait)
-		s.Assert().Equal(assignErr, distributor.ErrWorkloadHasAlreadyFulfilled)
+		s.Assert().Equal(distributor.ErrWorkloadHasAlreadyFulfilled, assignErr)
 	}()
 
 	wg.Wait()

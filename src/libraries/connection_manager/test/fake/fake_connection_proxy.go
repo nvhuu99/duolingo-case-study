@@ -1,10 +1,8 @@
 package fake
 
 import (
-	"context"
 	"errors"
 	"sync/atomic"
-	"time"
 )
 
 var (
@@ -21,10 +19,10 @@ func NewFakeConnectionProxy() *FakeConnectionProxy {
 	return f
 }
 
-func (f *FakeConnectionProxy) SetConnectionArgsWithPanicOnValidationErr(args any) {
+func (f *FakeConnectionProxy) SetArgsPanicIfInvalid(args any) {
 }
 
-func (f *FakeConnectionProxy) CreateConnection() (any, error) {
+func (f *FakeConnectionProxy) GetConnection() (any, error) {
 	if !f.networkUp.Load() {
 		return nil, errors.New("")
 	}
@@ -44,7 +42,7 @@ func (f *FakeConnectionProxy) Ping(connection any) error {
 func (f *FakeConnectionProxy) CloseConnection(connection any) {
 }
 
-func (f *FakeConnectionProxy) IsNetworkError(err error) bool {
+func (f *FakeConnectionProxy) IsNetworkErr(err error) bool {
 	return err == ErrFakeNetworkFailure
 }
 
@@ -58,26 +56,4 @@ func (f *FakeConnectionProxy) SimulateNetworkFailure() {
 
 func (f *FakeConnectionProxy) SimulateNetworkRecovery() {
 	f.networkUp.Store(true)
-}
-
-func (f *FakeConnectionProxy) SimulateNetworkFailureWithInterval(
-	ctx context.Context,
-	interval time.Duration,
-) {
-	failureTicker := time.Tick(interval)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-failureTicker:
-				// Toggle network state
-				if f.networkUp.Load() {
-					f.SimulateNetworkFailure()
-				} else {
-					f.SimulateNetworkRecovery()
-				}
-			}
-		}
-	}()
 }

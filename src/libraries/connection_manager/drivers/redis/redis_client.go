@@ -9,28 +9,12 @@ import (
 )
 
 type RedisClient struct {
-	connection_manager.Client
+	*connection_manager.Client
 
 	lockAcquireTimeout      time.Duration
 	lockAcquireRetryWaitMin time.Duration
 	lockAcquireRetryWaitMax time.Duration
 	lockTTL                 time.Duration
-}
-
-func (client *RedisClient) GetLockAcquireTimeout() time.Duration {
-	return client.lockAcquireTimeout
-}
-
-func (client *RedisClient) GetLockAcquireRetryWaitMin() time.Duration {
-	return client.lockAcquireRetryWaitMin
-}
-
-func (client *RedisClient) GetLockAcquireRetryWaitMax() time.Duration {
-	return client.lockAcquireRetryWaitMax
-}
-
-func (client *RedisClient) GetLockTTL() time.Duration {
-	return client.lockTTL
 }
 
 func (client *RedisClient) ExecuteClosureWithLocks(
@@ -39,9 +23,7 @@ func (client *RedisClient) ExecuteClosureWithLocks(
 	closure func(ctx context.Context, connection *redis_driver.Client) error,
 ) error {
 	lock := NewDistributedLock(client, keyToLocks)
-
-	acquireErr := lock.AcquireLock()
-	if acquireErr != nil {
+	if acquireErr := lock.AcquireLock(); acquireErr != nil {
 		return acquireErr
 	}
 	defer lock.ReleaseLock()

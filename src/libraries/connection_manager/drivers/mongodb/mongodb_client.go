@@ -9,7 +9,7 @@ import (
 )
 
 type MongoClient struct {
-	connection_manager.Client
+	*connection_manager.Client
 }
 
 func (client *MongoClient) ExecuteClosure(

@@ -22,17 +22,11 @@ var (
 type DistributedLock struct {
 	client *RedisClient
 
-	lockValue      string
-	resourceKeys   []string
-	acquireTimeout time.Duration
-	minRetryWait   time.Duration
-	maxRetryWait   time.Duration
-
-	acquiredAt time.Time
-	releasedAt time.Time
-	timeToLive time.Duration
-
-	isLocked atomic.Bool
+	lockValue    string
+	resourceKeys []string
+	acquiredAt   time.Time
+	releasedAt   time.Time
+	isLocked     atomic.Bool
 }
 
 func NewDistributedLock(client *RedisClient, resourceKeys []string) *DistributedLock {
@@ -40,12 +34,8 @@ func NewDistributedLock(client *RedisClient, resourceKeys []string) *Distributed
 		panic(ErrDistributedLockCreateWithoutKeys)
 	}
 	return &DistributedLock{
-		client:         client,
-		resourceKeys:   resourceKeys,
-		acquireTimeout: client.GetLockAcquireTimeout(),
-		minRetryWait:   client.GetLockAcquireRetryWaitMin(),
-		maxRetryWait:   client.GetLockAcquireRetryWaitMax(),
-		timeToLive:     client.GetLockTTL(),
+		client:       client,
+		resourceKeys: resourceKeys,
 	}
 }
 
@@ -73,9 +63,10 @@ func (lock *DistributedLock) AcquireLock() error {
 	}()
 
 	// try to acquire the locks within timeout
-	timeout := time.After(lock.acquireTimeout)
-	minWait := lock.maxRetryWait.Milliseconds()
-	maxWait := lock.maxRetryWait.Milliseconds()
+	client := lock.client
+	timeout := time.After(client.lockAcquireTimeout)
+	minWait := client.lockAcquireRetryWaitMin.Milliseconds()
+	maxWait := client.lockAcquireRetryWaitMax.Milliseconds()
 	var acquireErr error
 	for {
 		select {
@@ -83,12 +74,12 @@ func (lock *DistributedLock) AcquireLock() error {
 			return ErrLockAcquireTimeout
 		default:
 			// acquire lock
-			lock.client.ExecuteClosure(lock.acquireTimeout, func(
+			lock.client.ExecuteClosure(client.lockAcquireTimeout, func(
 				ctx context.Context,
 				rdb *redis_driver.Client,
 			) error {
 				acquireErr = acquireLock(
-					ctx, rdb, newLockValue, lock.resourceKeys, lock.timeToLive,
+					ctx, rdb, newLockValue, lock.resourceKeys, client.lockTTL,
 				)
 				return acquireErr
 			})
@@ -112,7 +103,7 @@ func (lock *DistributedLock) ReleaseLock() error {
 		return ErrLockValueEmpty
 	}
 	var realeaseErr error
-	lock.client.ExecuteClosure(lock.acquireTimeout, func(
+	lock.client.ExecuteClosure(lock.client.lockAcquireTimeout, func(
 		ctx context.Context,
 		rdb *redis_driver.Client,
 	) error {

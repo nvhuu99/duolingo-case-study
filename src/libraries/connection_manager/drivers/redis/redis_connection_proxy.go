@@ -9,42 +9,41 @@ import (
 	redis_driver "github.com/redis/go-redis/v9"
 )
 
-var (
-	ErrConnectionType        = errors.New("provided with a connection not redis.Client")
-	ErrConnectionArgsType    = errors.New("provided with an argument type that is not RedisConnectionArgs")
-	ErrInvalidConnectionArgs = errors.New("provided with invalid connection arguments")
-)
-
 type RedisConnectionProxy struct {
 	ctx            context.Context
 	connectionArgs *RedisConnectionArgs
 }
 
+func NewRedisConnectionProxy(ctx context.Context) *RedisConnectionProxy {
+	return &RedisConnectionProxy{ctx: ctx}
+}
+
 /* Implement connection_manager.ConnectionProxy interface */
 
-func (proxy *RedisConnectionProxy) SetConnectionArgsWithPanicOnValidationErr(args any) {
+func (proxy *RedisConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	redisArgs, ok := args.(*RedisConnectionArgs)
 	if !ok {
 		panic(ErrConnectionArgsType)
 	}
-	if redisArgs.Host == "" || redisArgs.Port == "" {
+	if redisArgs.GetHost() == "" || redisArgs.GetPort() == "" {
 		panic(ErrInvalidConnectionArgs)
 	}
-	if redisArgs.URI == "" {
-		address := fmt.Sprintf("%v:%v", redisArgs.Host, redisArgs.Port)
-		credentials := fmt.Sprintf("%v:%v", redisArgs.User, redisArgs.Password)
+	if redisArgs.GetURI() == "" {
+		address := fmt.Sprintf("%v:%v", redisArgs.GetHost(), redisArgs.GetPort())
+		credentials := fmt.Sprintf("%v:%v", redisArgs.GetUser(), redisArgs.GetPassword())
 		uri := fmt.Sprintf("redis://%v/", address)
 		if credentials != ":" {
 			uri = fmt.Sprintf("redis://%v@%v/", credentials, address)
 		}
-		redisArgs.URI = uri
+		redisArgs.SetURI(uri)
 	}
 	proxy.connectionArgs = redisArgs
 }
 
-func (proxy *RedisConnectionProxy) CreateConnection() (any, error) {
+func (proxy *RedisConnectionProxy) GetConnection() (any, error) {
 	args := proxy.connectionArgs
-	opt, err := redis_driver.ParseURL(fmt.Sprintf("redis://%v:%v", args.Host, args.Port))
+	url := fmt.Sprintf("redis://%v:%v", args.GetHost(), args.GetPort())
+	opt, err := redis_driver.ParseURL(url)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +58,7 @@ func (proxy *RedisConnectionProxy) Ping(connection any) error {
 	return ErrConnectionType
 }
 
-func (proxy *RedisConnectionProxy) IsNetworkError(err error) bool {
+func (proxy *RedisConnectionProxy) IsNetworkErr(err error) bool {
 	var netErr net.Error
 	return errors.As(err, &netErr)
 }

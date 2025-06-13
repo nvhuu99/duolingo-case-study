@@ -15,8 +15,6 @@ var (
 type ConnectionManager struct {
 	connectionProxy ConnectionProxy
 
-	uri                 string
-	connectionTimeout   time.Duration
 	connectionRetryWait time.Duration
 	clients             map[string]*Client
 	clientConnections   map[string]any
@@ -27,7 +25,7 @@ type ConnectionManager struct {
 }
 
 func (manager *ConnectionManager) IsNetworkError(err error) bool {
-	return manager.connectionProxy.IsNetworkError(err)
+	return manager.connectionProxy.IsNetworkErr(err)
 }
 
 func (manager *ConnectionManager) NotifyNetworkFailure() {
@@ -129,5 +127,5 @@ func (manager *ConnectionManager) makeConnectionAndNotifyIfFails() any {
 }
 
 func (manager *ConnectionManager) makeConnection() (any, error) {
-	return manager.connectionProxy.CreateConnection()
+	return manager.connectionProxy.GetConnection()
 }
