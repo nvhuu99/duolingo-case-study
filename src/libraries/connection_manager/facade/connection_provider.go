@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"duolingo/libraries/connection_manager/drivers/mongodb"
-	"duolingo/libraries/connection_manager/drivers/redis"
 	"duolingo/libraries/connection_manager/drivers/rabbitmq"
+	"duolingo/libraries/connection_manager/drivers/redis"
 )
 
 var (
