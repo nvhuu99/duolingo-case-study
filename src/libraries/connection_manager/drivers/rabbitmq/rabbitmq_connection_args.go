@@ -67,17 +67,13 @@ func (r *RabbitMQConnectionArgs) GetUser() string {
 	return r.user
 }
 
-func (r *RabbitMQConnectionArgs) SetUser(user string) *RabbitMQConnectionArgs {
-	r.user = user
-	return r
-}
-
 func (r *RabbitMQConnectionArgs) GetPassword() string {
 	return r.password
 }
 
-func (r *RabbitMQConnectionArgs) SetPassword(password string) *RabbitMQConnectionArgs {
-	r.password = password
+func (r *RabbitMQConnectionArgs) SetCredentials(usr string, pwd string) *RabbitMQConnectionArgs {
+	r.user = usr
+	r.password = pwd
 	return r
 }
 

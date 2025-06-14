@@ -6,6 +6,7 @@ import (
 
 	"duolingo/libraries/connection_manager/drivers/mongodb"
 	"duolingo/libraries/connection_manager/drivers/redis"
+	"duolingo/libraries/connection_manager/drivers/rabbitmq"
 )
 
 var (
@@ -19,6 +20,9 @@ type ConnectionProvider struct {
 
 	mongoBuilder    *mongodb.MongoConnectionBuilder
 	mongoCreateOnce sync.Once
+
+	rabbitMQBuilder    *rabbitmq.RabbitMQConnectionBuilder
+	rabbitMQCreateOnce sync.Once
 
 	ctx context.Context
 }
@@ -35,11 +39,8 @@ func Provider(ctx context.Context) *ConnectionProvider {
 
 /* Redis provider methods */
 
-func (p *ConnectionProvider) InitRedisWithBasicArgs(
-	host string,
-	port string,
-) *ConnectionProvider {
-	args := redis.DefaultRedisConnectionArgs().SetHost(host).SetPort(port)
+func (p *ConnectionProvider) InitRedisWithBasicArgs(host string) *ConnectionProvider {
+	args := redis.DefaultRedisConnectionArgs().SetHost(host)
 	p.InitRedis(args)
 	return p
 }
@@ -66,7 +67,6 @@ func (p *ConnectionProvider) InitMongoWithBasicArgs(
 ) *ConnectionProvider {
 	args := mongodb.DefaultMongoConnectionArgs()
 	args.SetHost(host)
-	args.SetPort("27017")
 	args.SetCredentials(usr, pwd)
 	p.InitMongo(args)
 	return p
@@ -83,4 +83,31 @@ func (p *ConnectionProvider) InitMongo(
 
 func (p *ConnectionProvider) GetMongoClient() *mongodb.MongoClient {
 	return p.mongoBuilder.BuildClientAndRegisterToManager()
+}
+
+/* RabbitMQ provider methods */
+
+func (p *ConnectionProvider) InitRabbitMQWithBasicArgs(
+	host string,
+	usr string,
+	pwd string,
+) *ConnectionProvider {
+	args := rabbitmq.DefaultRabbitMQConnectionArgs()
+	args.SetHost(host)
+	args.SetCredentials(usr, pwd)
+	p.InitRabbitMQ(args)
+	return p
+}
+
+func (p *ConnectionProvider) InitRabbitMQ(
+	args *rabbitmq.RabbitMQConnectionArgs,
+) *ConnectionProvider {
+	p.rabbitMQCreateOnce.Do(func() {
+		p.rabbitMQBuilder = rabbitmq.NewRabbitMQConnectionBuilder(p.ctx, args)
+	})
+	return p
+}
+
+func (p *ConnectionProvider) GetRabbitMQClient() *rabbitmq.RabbitMQClient {
+	return p.rabbitMQBuilder.BuildClientAndRegisterToManager()
 }
