@@ -22,7 +22,7 @@ func NewFakeConnectionProxy() *FakeConnectionProxy {
 func (f *FakeConnectionProxy) SetArgsPanicIfInvalid(args any) {
 }
 
-func (f *FakeConnectionProxy) GetConnection() (any, error) {
+func (f *FakeConnectionProxy) MakeConnection() (any, error) {
 	if !f.networkUp.Load() {
 		return nil, errors.New("")
 	}

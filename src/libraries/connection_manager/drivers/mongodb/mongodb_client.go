@@ -13,14 +13,14 @@ type MongoClient struct {
 }
 
 func (client *MongoClient) ExecuteClosure(
-	wait time.Duration,
+	timeout time.Duration,
 	closure func(ctx context.Context, connection *mongo.Client) error,
 ) error {
 	wrapper := func(ctx context.Context, conn any) error {
 		converted, _ := conn.(*mongo.Client)
 		return closure(ctx, converted)
 	}
-	return client.Client.ExecuteClosure(wait, wrapper)
+	return client.Client.ExecuteClosure(timeout, wrapper)
 }
 
 func (client *MongoClient) GetConnection() *mongo.Client {

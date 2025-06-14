@@ -24,7 +24,7 @@ type ConnectionManager struct {
 	resettingTriggered atomic.Bool
 }
 
-func (manager *ConnectionManager) IsNetworkError(err error) bool {
+func (manager *ConnectionManager) IsNetworkErr(err error) bool {
 	return manager.connectionProxy.IsNetworkErr(err)
 }
 
@@ -127,5 +127,5 @@ func (manager *ConnectionManager) makeConnectionAndNotifyIfFails() any {
 }
 
 func (manager *ConnectionManager) makeConnection() (any, error) {
-	return manager.connectionProxy.GetConnection()
+	return manager.connectionProxy.MakeConnection()
 }

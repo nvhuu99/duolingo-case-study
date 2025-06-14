@@ -5,6 +5,7 @@ import (
 	"duolingo/libraries/connection_manager"
 	"errors"
 	"fmt"
+	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -12,10 +13,14 @@ import (
 type RabbitMQConnectionProxy struct {
 	ctx            context.Context
 	connectionArgs *RabbitMQConnectionArgs
+
+	currentConnection *amqp.Connection
+	connectionMu      sync.Mutex
 }
 
 func NewRabbitMQConnectionProxy(ctx context.Context) *RabbitMQConnectionProxy {
-	return &RabbitMQConnectionProxy{ctx: ctx}
+	proxy := &RabbitMQConnectionProxy{ctx: ctx}
+	return proxy
 }
 
 /* Implement connection_manager.ConnectionProxy interface */
@@ -40,13 +45,8 @@ func (proxy *RabbitMQConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	proxy.connectionArgs = rabbitMQArgs
 }
 
-func (proxy *RabbitMQConnectionProxy) GetConnection() (any, error) {
-	args := proxy.connectionArgs
-	conn, err := amqp.DialConfig(args.GetURI(), amqp.Config{
-		Heartbeat: args.GetHeartbeat(),
-		Dial:      amqp.DefaultDial(args.GetConnectionTimeout()),
-	})
-	return conn, err
+func (proxy *RabbitMQConnectionProxy) MakeConnection() (any, error) {
+	return proxy.getAMQPChannel()
 }
 
 func (proxy *RabbitMQConnectionProxy) Ping(connection any) error {
@@ -61,12 +61,61 @@ func (proxy *RabbitMQConnectionProxy) Ping(connection any) error {
 
 func (proxy *RabbitMQConnectionProxy) IsNetworkErr(err error) bool {
 	return connection_manager.IsNetworkErr(err) ||
-			errors.As(err, amqp.ErrClosed) || 
-			errors.As(err, amqp.ErrChannelMax)
+		errors.As(err, amqp.ErrClosed) ||
+		errors.As(err, amqp.ErrChannelMax)
 }
 
 func (proxy *RabbitMQConnectionProxy) CloseConnection(connection any) {
-	if conn, ok := connection.(*amqp.Connection); ok {
-		conn.Close()
+	if ch, ok := connection.(*amqp.Channel); ok {
+		ch.Close()
 	}
+}
+
+func (proxy *RabbitMQConnectionProxy) getAMQPChannel() (*amqp.Channel, error) {
+	conn, conErr := proxy.getAMQPConnection()
+	if conErr != nil {
+		return nil, conErr
+	}
+	args := proxy.connectionArgs
+	// Declare channel
+	ch, chErr := conn.Channel()
+	if chErr != nil {
+		return nil, chErr
+	}
+	// Declare quality of service
+	qosErr := ch.Qos(
+		int(args.GetPrefetchCount()),
+		int(args.GetPrefetchLimit()),
+		true, // Apply all channels
+	)
+	if qosErr != nil {
+		return nil, qosErr
+	}
+	return ch, nil
+}
+
+func (proxy *RabbitMQConnectionProxy) getAMQPConnection() (
+	*amqp.Connection,
+	error,
+) {
+	proxy.connectionMu.Lock()
+	defer proxy.connectionMu.Unlock()
+
+	// Reuse the current connection
+	if proxy.currentConnection == nil || !proxy.currentConnection.IsClosed() {
+		return proxy.currentConnection, nil
+	}
+
+	// Recreate connection if closed
+	args := proxy.connectionArgs
+	newConn, connErr := amqp.DialConfig(args.GetURI(), amqp.Config{
+		Heartbeat: args.GetHeartbeat(),
+		Dial:      amqp.DefaultDial(args.GetConnectionTimeout()),
+	})
+	if connErr != nil {
+		return nil, connErr
+	}
+	proxy.currentConnection = newConn
+
+	return newConn, nil
 }

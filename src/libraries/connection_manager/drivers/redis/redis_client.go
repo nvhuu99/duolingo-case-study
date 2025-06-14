@@ -19,7 +19,7 @@ type RedisClient struct {
 
 func (client *RedisClient) ExecuteClosureWithLocks(
 	keyToLocks []string,
-	wait time.Duration,
+	timeout time.Duration,
 	closure func(ctx context.Context, connection *redis_driver.Client) error,
 ) error {
 	lock := NewDistributedLock(client, keyToLocks)
@@ -28,18 +28,18 @@ func (client *RedisClient) ExecuteClosureWithLocks(
 	}
 	defer lock.ReleaseLock()
 
-	return client.ExecuteClosure(wait, closure)
+	return client.ExecuteClosure(timeout, closure)
 }
 
 func (client *RedisClient) ExecuteClosure(
-	wait time.Duration,
+	timeout time.Duration,
 	closure func(ctx context.Context, connection *redis_driver.Client) error,
 ) error {
 	wrapper := func(ctx context.Context, conn any) error {
 		converted, _ := conn.(*redis_driver.Client)
 		return closure(ctx, converted)
 	}
-	return client.Client.ExecuteClosure(wait, wrapper)
+	return client.Client.ExecuteClosure(timeout, wrapper)
 }
 
 func (client *RedisClient) GetConnection() *redis_driver.Client {

@@ -40,7 +40,7 @@ func (proxy *RedisConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	proxy.connectionArgs = redisArgs
 }
 
-func (proxy *RedisConnectionProxy) GetConnection() (any, error) {
+func (proxy *RedisConnectionProxy) MakeConnection() (any, error) {
 	opt, err := redis_driver.ParseURL(proxy.connectionArgs.GetURI())
 	if err != nil {
 		return nil, err
@@ -57,11 +57,14 @@ func (proxy *RedisConnectionProxy) Ping(connection any) error {
 }
 
 func (proxy *RedisConnectionProxy) IsNetworkErr(err error) bool {
+	if err == nil {
+		return false
+	}
 	mssg := err.Error()
 	return connection_manager.IsNetworkErr(err) ||
-			strings.Contains(mssg, "client is closed") || 
-			strings.Contains(mssg, "connection pool exhausted") || 
-			strings.Contains(mssg, "connection pool timeout")
+		strings.Contains(mssg, "client is closed") ||
+		strings.Contains(mssg, "connection pool exhausted") ||
+		strings.Contains(mssg, "connection pool timeout")
 }
 
 func (proxy *RedisConnectionProxy) CloseConnection(connection any) {

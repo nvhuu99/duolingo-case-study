@@ -34,7 +34,7 @@ func (builder *RabbitMQConnectionBuilder) BuildClientAndRegisterToManager() *Rab
 	}
 	client := builder.ConnectionBuilder.BuildClientAndRegisterToManager()
 	rabbitMQClient := &RabbitMQClient{
-		Client:                  client,
+		Client:         client,
 		declareTimeout: args.GetDeclareTimeout(),
 	}
 

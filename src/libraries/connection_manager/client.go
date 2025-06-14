@@ -15,10 +15,10 @@ var (
 type Client struct {
 	connectionManager *ConnectionManager
 
-	id                    string
-	operationReadTimeout  time.Duration
-	operationWriteTimeout time.Duration
-	operationRetryWait    time.Duration
+	id           string
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	retryWait    time.Duration
 
 	ctx context.Context
 }
@@ -28,30 +28,34 @@ func (client *Client) GetClientId() string {
 }
 
 func (client *Client) GetReadTimeout() time.Duration {
-	return client.operationReadTimeout
+	return client.readTimeout
 }
 
 func (client *Client) GetWriteTimeout() time.Duration {
-	return client.operationWriteTimeout
+	return client.writeTimeout
 }
 
 func (client *Client) GetDefaultTimeOut() time.Duration {
-	return max(client.operationWriteTimeout, client.operationReadTimeout)
+	return max(client.writeTimeout, client.readTimeout)
 }
 
 func (client *Client) GetRetryWait() time.Duration {
-	return client.operationRetryWait
+	return client.retryWait
 }
 
 func (client *Client) GetConnection() any {
 	return client.connectionManager.GetClientConnection(client)
 }
 
+func (client *Client) IsNetworkErr(err error) bool {
+	return client.connectionManager.IsNetworkErr(err)
+}
+
 func (client *Client) ExecuteClosure(
-	wait time.Duration,
+	timeout time.Duration,
 	closure func(ctx context.Context, connection any) error,
 ) error {
-	timeoutCtx, timeoutCancel := context.WithTimeout(client.ctx, wait)
+	timeoutCtx, timeoutCancel := context.WithTimeout(client.ctx, timeout)
 	defer timeoutCancel()
 
 	done := make(chan bool, 1)
@@ -93,13 +97,13 @@ func (client *Client) executeClosureWithRetryOnNetworkErr(
 			// retry getting connection
 			conn := client.connectionManager.GetClientConnection(client)
 			if conn == nil {
-				time.Sleep(client.operationRetryWait)
+				time.Sleep(client.retryWait)
 				continue
 			}
 			// retry on network err
 			err := closure(timeoutCtx, conn)
-			if client.connectionManager.IsNetworkError(err) {
-				time.Sleep(client.operationRetryWait)
+			if client.IsNetworkErr(err) {
+				time.Sleep(client.retryWait)
 				continue
 			}
 			// exit normally

@@ -8,25 +8,30 @@ import (
 type RabbitMQConnectionArgs struct {
 	*connection_manager.BaseConnectionArgs
 
-	uri                     string
-	host                    string
-	port                    string
-	user                    string
-	password                string
+	uri            string
+	host           string
+	port           string
+	user           string
+	password       string
 	declareTimeout time.Duration
-	heartbeat time.Duration
+	heartbeat      time.Duration
+
+	prefetchCount uint8
+	prefetchLimit uint
 }
 
 func DefaultRabbitMQConnectionArgs() *RabbitMQConnectionArgs {
 	baseArgs := connection_manager.DefaultConnectionArgs()
 	redisArgs := &RabbitMQConnectionArgs{
-		BaseConnectionArgs:      baseArgs,
-		host:                    "127.0.0.1",
-		port:                    "5672",
-		user:                    "",
-		password:                "",
-		declareTimeout: 15 * time.Second,
-		heartbeat: 20 * time.Second,
+		BaseConnectionArgs: baseArgs,
+		host:               "127.0.0.1",
+		port:               "5672",
+		user:               "",
+		password:           "",
+		declareTimeout:     15 * time.Second,
+		heartbeat:          20 * time.Second,
+		prefetchCount:      1,
+		prefetchLimit:      0, // no size limit for message content
 	}
 	return redisArgs
 }
@@ -91,5 +96,23 @@ func (r *RabbitMQConnectionArgs) GetDeclareTimeout() time.Duration {
 
 func (r *RabbitMQConnectionArgs) SetDeclareTimeout(value time.Duration) *RabbitMQConnectionArgs {
 	r.declareTimeout = value
+	return r
+}
+
+func (r *RabbitMQConnectionArgs) GetPrefetchCount() uint8 {
+	return r.prefetchCount
+}
+
+func (r *RabbitMQConnectionArgs) SetPrefetchCount(value uint8) *RabbitMQConnectionArgs {
+	r.prefetchCount = value
+	return r
+}
+
+func (r *RabbitMQConnectionArgs) GetPrefetchLimit() uint {
+	return r.prefetchLimit
+}
+
+func (r *RabbitMQConnectionArgs) SetPrefetchLimit(value uint) *RabbitMQConnectionArgs {
+	r.prefetchLimit = value
 	return r
 }

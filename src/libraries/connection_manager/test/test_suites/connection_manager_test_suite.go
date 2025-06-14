@@ -33,8 +33,7 @@ func (s *ConnectionManagerTestSuite) SetupTest() {
 
 	args := connection_manager.DefaultConnectionArgs()
 	args.SetConnectionTimeout(10 * time.Millisecond)
-	args.SetConnectionRetryWait(5 * time.Millisecond)
-	args.SetOperationRetryWait(5 * time.Millisecond)
+	args.SetRetryWait(5 * time.Millisecond)
 
 	s.proxy = fake.NewFakeConnectionProxy()
 

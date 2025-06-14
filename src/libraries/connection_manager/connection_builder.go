@@ -48,7 +48,7 @@ func (builder *ConnectionBuilder) GetConnectionManager() *ConnectionManager {
 	if builder.manager == nil {
 		builder.manager = &ConnectionManager{
 			ctx:                 builder.ctx,
-			connectionRetryWait: builder.args.GetConnectionRetryWait(),
+			connectionRetryWait: builder.args.GetRetryWait(),
 			clients:             make(map[string]*Client),
 			clientConnections:   make(map[string]any),
 			connectionProxy:     builder.proxy,
@@ -66,11 +66,11 @@ func (builder *ConnectionBuilder) BuildClientAndRegisterToManager() *Client {
 
 func (builder *ConnectionBuilder) CreateClient(id string) *Client {
 	client := &Client{
-		id:                    id,
-		ctx:                   builder.ctx,
-		operationReadTimeout:  builder.args.GetOperationReadTimeout(),
-		operationWriteTimeout: builder.args.GetOperationWriteTimeout(),
-		operationRetryWait:    builder.args.GetOperationRetryWait(),
+		id:           id,
+		ctx:          builder.ctx,
+		readTimeout:  builder.args.GetReadTimeout(),
+		writeTimeout: builder.args.GetWriteTimeout(),
+		retryWait:    builder.args.GetRetryWait(),
 	}
 	return client
 }

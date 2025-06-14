@@ -11,24 +11,30 @@ import (
 type RabbitMQClient struct {
 	*connection_manager.Client
 
+	currentChannel *amqp.Channel
+
 	declareTimeout time.Duration
 }
 
 func (client *RabbitMQClient) ExecuteClosure(
-	wait time.Duration,
+	timeout time.Duration,
 	closure func(ctx context.Context, ch *amqp.Channel) error,
 ) error {
 	wrapper := func(ctx context.Context, conn any) error {
 		channel, _ := conn.(*amqp.Channel)
 		return closure(ctx, channel)
 	}
-	return client.Client.ExecuteClosure(wait, wrapper)
+	return client.Client.ExecuteClosure(timeout, wrapper)
 }
 
 func (client *RabbitMQClient) GetConnection() *amqp.Channel {
-	connection := client.Client.GetConnection()
-	if channel, ok := connection.(*amqp.Channel); ok {
+	conn := client.Client.GetConnection()
+	if channel, ok := conn.(*amqp.Channel); ok {
 		return channel
 	}
 	return nil
+}
+
+func (client *RabbitMQClient) GetDeclareTimeout() time.Duration {
+	return client.declareTimeout
 }

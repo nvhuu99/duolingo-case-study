@@ -42,7 +42,7 @@ func (proxy *MongoConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	proxy.connectionArgs = mongoArgs
 }
 
-func (proxy *MongoConnectionProxy) GetConnection() (any, error) {
+func (proxy *MongoConnectionProxy) MakeConnection() (any, error) {
 	args := proxy.connectionArgs
 	opts := options.Client()
 	opts.SetConnectTimeout(args.GetConnectionTimeout())
