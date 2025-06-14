@@ -2,9 +2,9 @@ package redis
 
 import (
 	"context"
-	"errors"
+	"duolingo/libraries/connection_manager"
 	"fmt"
-	"net"
+	"strings"
 
 	redis_driver "github.com/redis/go-redis/v9"
 )
@@ -41,9 +41,7 @@ func (proxy *RedisConnectionProxy) SetArgsPanicIfInvalid(args any) {
 }
 
 func (proxy *RedisConnectionProxy) GetConnection() (any, error) {
-	args := proxy.connectionArgs
-	url := fmt.Sprintf("redis://%v:%v", args.GetHost(), args.GetPort())
-	opt, err := redis_driver.ParseURL(url)
+	opt, err := redis_driver.ParseURL(proxy.connectionArgs.GetURI())
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +57,11 @@ func (proxy *RedisConnectionProxy) Ping(connection any) error {
 }
 
 func (proxy *RedisConnectionProxy) IsNetworkErr(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr)
+	mssg := err.Error()
+	return connection_manager.IsNetworkErr(err) ||
+			strings.Contains(mssg, "client is closed") || 
+			strings.Contains(mssg, "connection pool exhausted") || 
+			strings.Contains(mssg, "connection pool timeout")
 }
 
 func (proxy *RedisConnectionProxy) CloseConnection(connection any) {
