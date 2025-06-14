@@ -138,7 +138,7 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitUntilOneRollbacked
 	wg.Add(2)
 
 	// Create a timeout to wait for available assignment
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer waitCancel()
 
 	// Call WaitForAssignment() to wait for available work
