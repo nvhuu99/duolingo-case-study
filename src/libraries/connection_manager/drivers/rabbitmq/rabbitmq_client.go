@@ -11,8 +11,6 @@ import (
 type RabbitMQClient struct {
 	*connection_manager.Client
 
-	currentChannel *amqp.Channel
-
 	declareTimeout time.Duration
 }
 

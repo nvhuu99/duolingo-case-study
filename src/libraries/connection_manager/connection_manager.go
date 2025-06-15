@@ -79,6 +79,25 @@ func (manager *ConnectionManager) GetClientConnection(client *Client) any {
 	return manager.clientConnections[client.GetClientId()]
 }
 
+func (manager *ConnectionManager) RenewClientConnection(client *Client) error {
+	manager.clientsMutex.Lock()
+	defer manager.clientsMutex.Unlock()
+
+	currConn := manager.clientConnections[client.GetClientId()]
+	if currConn != nil {
+		manager.connectionProxy.CloseConnection(currConn)
+	}
+	manager.clientConnections[client.GetClientId()] = nil
+
+	newConn, err := manager.makeConnection()
+	if err != nil {
+		return err
+	}
+	manager.clientConnections[client.GetClientId()] = newConn
+
+	return nil
+}
+
 func (manager *ConnectionManager) discardAllClientConnections() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()

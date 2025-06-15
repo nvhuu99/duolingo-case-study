@@ -2,10 +2,11 @@ package rabbitmq
 
 import (
 	"context"
-	"duolingo/libraries/connection_manager"
 	"errors"
 	"fmt"
 	"sync"
+
+	"duolingo/libraries/connection_manager"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -50,8 +51,8 @@ func (proxy *RabbitMQConnectionProxy) MakeConnection() (any, error) {
 }
 
 func (proxy *RabbitMQConnectionProxy) Ping(connection any) error {
-	if rabbitMQConn, ok := connection.(*amqp.Connection); ok {
-		if rabbitMQConn.IsClosed() {
+	if rabbitMQChan, ok := connection.(*amqp.Channel); ok {
+		if rabbitMQChan.IsClosed() {
 			return ErrConnectionIsClosed
 		}
 		return nil
@@ -61,8 +62,8 @@ func (proxy *RabbitMQConnectionProxy) Ping(connection any) error {
 
 func (proxy *RabbitMQConnectionProxy) IsNetworkErr(err error) bool {
 	return connection_manager.IsNetworkErr(err) ||
-		errors.As(err, amqp.ErrClosed) ||
-		errors.As(err, amqp.ErrChannelMax)
+		errors.As(err, &amqp.ErrClosed) ||
+		errors.As(err, &amqp.ErrChannelMax)
 }
 
 func (proxy *RabbitMQConnectionProxy) CloseConnection(connection any) {
@@ -102,7 +103,7 @@ func (proxy *RabbitMQConnectionProxy) getAMQPConnection() (
 	defer proxy.connectionMu.Unlock()
 
 	// Reuse the current connection
-	if proxy.currentConnection == nil || !proxy.currentConnection.IsClosed() {
+	if proxy.currentConnection != nil && !proxy.currentConnection.IsClosed() {
 		return proxy.currentConnection, nil
 	}
 

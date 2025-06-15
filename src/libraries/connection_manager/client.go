@@ -51,6 +51,14 @@ func (client *Client) IsNetworkErr(err error) bool {
 	return client.connectionManager.IsNetworkErr(err)
 }
 
+func (client *Client) NotifyNetworkFailure() {
+	client.connectionManager.NotifyNetworkFailure()
+}
+
+func (client *Client) RenewConnection() error {
+	return client.connectionManager.RenewClientConnection(client)
+}
+
 func (client *Client) ExecuteClosure(
 	timeout time.Duration,
 	closure func(ctx context.Context, connection any) error,
@@ -94,23 +102,21 @@ func (client *Client) executeClosureWithRetryOnNetworkErr(
 		case <-timeoutCtx.Done():
 			return
 		default:
-			// retry getting connection
-			conn := client.connectionManager.GetClientConnection(client)
-			if conn == nil {
-				time.Sleep(client.retryWait)
-				continue
+			if conn := client.connectionManager.GetClientConnection(client); conn != nil {
+				err := closure(timeoutCtx, conn)
+				// exit normally
+				if err == nil {
+					return
+				}
+				// exit normally with an error
+				if !client.IsNetworkErr(err) {
+					errChan <- err
+					return
+				}
 			}
-			// retry on network err
-			err := closure(timeoutCtx, conn)
-			if client.IsNetworkErr(err) {
-				time.Sleep(client.retryWait)
-				continue
-			}
-			// exit normally
-			if err != nil {
-				errChan <- err
-			}
-			return
+			// retry on network failure
+			client.NotifyNetworkFailure()
+			time.Sleep(client.retryWait)
 		}
 	}
 }
