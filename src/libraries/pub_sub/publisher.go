@@ -1,5 +1,7 @@
 package pub_sub
 
 type Publisher interface {
-	Notify(topic *Topic, data any) error
+	AddSubscriber(topic string, subscriber Subscriber) error
+	RemoveSubscriber(subscriber Subscriber) error
+	Notify(topic string, message string) error
 }
