@@ -2,9 +2,14 @@ package mongodb
 
 import (
 	"context"
+
+	"duolingo/models"
+	driver_cmd "duolingo/repositories/user_repository/drivers/mongodb/commands"
+	driver_results "duolingo/repositories/user_repository/drivers/mongodb/commands/results"
+	cmd "duolingo/repositories/user_repository/external/commands"
+	results "duolingo/repositories/user_repository/external/commands/results"
+
 	connection "duolingo/libraries/connection_manager/drivers/mongodb"
-	cmd "duolingo/repositories/user_repository/drivers/mongodb/command_builders"
-	"duolingo/repositories/user_repository/models"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -44,70 +49,45 @@ func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, err
 		_, insertErr := collection.InsertMany(ctx, bsonData)
 		return insertErr
 	})
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
+	return users, err
 }
 
 func (repo *UserRepo) DeleteUsersByIds(ids []string) error {
-	builder := new(cmd.UserDeleteCommandBuilder)
-	builder.WithUserIdsFilter(ids)
-	return repo.deleteUsers(builder)
+	deletion := driver_cmd.NewDeleteUsersCommand()
+	deletion.SetFilterIds(ids)
+	return repo.DeleteUsers(deletion)
 }
 
-func (repo *UserRepo) DeleteUsersByCampaign(campaign string) error {
-	builder := new(cmd.UserDeleteCommandBuilder)
-	builder.WithCampaignFilter(campaign)
-	return repo.deleteUsers(builder)
+func (repo *UserRepo) DeleteUsers(command cmd.DeleteUsersCommand) error {
+	mongoCmd, ok := command.(*driver_cmd.DeleteUsersCommand)
+	if !ok {
+		panic(ErrInvalidCommandType)
+	}
+	if err := mongoCmd.Build(); err != nil {
+		return err
+	}
+	var err error
+	timeout := repo.GetWriteTimeout()
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		_, deleteErr := collection.DeleteMany(ctx, mongoCmd.GetFilters())
+		return deleteErr
+	})
+	return err
 }
 
 func (repo *UserRepo) GetListUsersByIds(ids []string) ([]*models.User, error) {
-	builder := new(cmd.UserListCommandBuilder)
-	builder.WithUserIdsFilter(ids)
-	return repo.getListUsers(builder)
+	command := driver_cmd.NewListUsersCommand()
+	command.SetFilterIds(ids)
+	return repo.GetListUsers(command)
 }
 
-func (repo *UserRepo) GetListUsersByCampaign(campaign string) ([]*models.User, error) {
-	builder := new(cmd.UserListCommandBuilder)
-	builder.WithCampaignFilter(campaign)
-	return repo.getListUsers(builder)
-}
-
-func (repo *UserRepo) CountUserDevicesForCampaign(campaign string) (uint64, error) {
-	builder := new(cmd.UserDevicesAggregationCommandBuilder)
-	builder.WithCampaignFilter(campaign)
-	builder.WithEmailVerifiedOnlyFilter()
-	builder.WithSumUserDevicesAggregation()
-	if err := builder.Build(); err != nil {
-		return 0, err
+func (repo *UserRepo) GetListUsers(command cmd.ListUsersCommand) ([]*models.User, error) {
+	mongoCmd, ok := command.(*driver_cmd.ListUsersCommand)
+	if !ok {
+		panic(ErrInvalidCommandType)
 	}
-	var err error
-	var total uint64
-	timeout := repo.GetReadTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
-		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		cursor, cursorErr := collection.Aggregate(ctx, builder.GetPipeline())
-		if cursorErr != nil {
-			return cursorErr
-		}
-		defer cursor.Close(ctx)
-		if cursor.Next(ctx) {
-			var result struct {
-				Total uint64 `bson:"total"`
-			}
-			if decodeErr := cursor.Decode(&result); decodeErr != nil {
-				return decodeErr
-			}
-			total = result.Total
-		}
-		return nil
-	})
-	return total, err
-}
-
-func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*models.User, error) {
-	if err := builder.Build(); err != nil {
+	if err := mongoCmd.Build(); err != nil {
 		return nil, err
 	}
 	var err error
@@ -115,7 +95,11 @@ func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*mode
 	timeout := repo.GetReadTimeout()
 	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		cursor, cursorErr := collection.Find(ctx, builder.GetFilters(), builder.GetOptions())
+		cursor, cursorErr := collection.Find(
+			ctx,
+			mongoCmd.GetFilters(),
+			mongoCmd.GetOptions(),
+		)
 		if cursorErr != nil {
 			return cursorErr
 		}
@@ -125,16 +109,33 @@ func (repo *UserRepo) getListUsers(builder *cmd.UserListCommandBuilder) ([]*mode
 	return users, err
 }
 
-func (repo *UserRepo) deleteUsers(builder *cmd.UserDeleteCommandBuilder) error {
-	if err := builder.Build(); err != nil {
-		return err
+func (repo *UserRepo) AggregateUsers(command cmd.AggregateUsersCommand) (
+	results.UsersAggregationResult,
+	error,
+) {
+	mongoCmd, ok := command.(*driver_cmd.AggregateUsersCommand)
+	if !ok {
+		panic(ErrInvalidCommandType)
+	}
+	if err := mongoCmd.Build(); err != nil {
+		return nil, err
 	}
 	var err error
-	timeout := repo.GetWriteTimeout()
+	var result = new(driver_results.UsersAggregationResult)
+	timeout := repo.GetReadTimeout()
 	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
-		_, deleteErr := collection.DeleteMany(ctx, builder.GetFilters())
-		return deleteErr
+		cursor, cursorErr := collection.Aggregate(ctx, mongoCmd.GetPipeline())
+		if cursorErr != nil {
+			return cursorErr
+		}
+		defer cursor.Close(ctx)
+		if cursor.Next(ctx) {
+			if decodeErr := cursor.Decode(result); decodeErr != nil {
+				return decodeErr
+			}
+		}
+		return nil
 	})
-	return err
+	return result, err
 }

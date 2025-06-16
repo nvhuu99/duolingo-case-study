@@ -4,21 +4,21 @@ import (
 	"context"
 	"testing"
 
-	mongo "duolingo/libraries/connection_manager/drivers/mongodb"
+	connection "duolingo/libraries/connection_manager/drivers/mongodb"
 	facade "duolingo/libraries/connection_manager/facade"
-	repo_driver "duolingo/repositories/user_repository/drivers/mongodb"
-	"duolingo/repositories/user_repository/test/test_suites"
+	mongodb "duolingo/repositories/user_repository/drivers/mongodb"
+	"duolingo/repositories/user_repository/external/test/test_suites"
 
 	"github.com/stretchr/testify/suite"
 )
 
 func TestMongoDBUserRepository(t *testing.T) {
-	client := facade.Provider(context.Background()).InitMongo(mongo.
+	client := facade.Provider(context.Background()).InitMongo(connection.
 		DefaultMongoConnectionArgs().
 		SetCredentials("root", "12345"),
 	).GetMongoClient()
 
-	repo := repo_driver.NewUserRepo(client, "duolingo", "users")
+	factory := mongodb.NewUserRepoFactory(client)
 
-	suite.Run(t, test_suites.NewUserRepositoryTestSuite(repo))
+	suite.Run(t, test_suites.NewUserRepositoryTestSuite(factory))
 }

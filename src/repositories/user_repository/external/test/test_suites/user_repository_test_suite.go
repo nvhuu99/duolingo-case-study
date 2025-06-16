@@ -1,12 +1,11 @@
 package test_suites
 
 import (
-	user_repository "duolingo/repositories/user_repository"
-	"duolingo/repositories/user_repository/models"
+	"duolingo/models"
+	user_repo "duolingo/repositories/user_repository/external"
 	"math/rand"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -17,57 +16,57 @@ var (
 
 type UserRepositoryTestSuite struct {
 	suite.Suite
-	repo         user_repository.UserRepository
+	factory      user_repo.UserRepoFactory
+	repo         user_repo.UserRepository
 	testUsersMap map[string]*models.User
 	testUserIds  []string
 }
 
-func NewUserRepositoryTestSuite(repo user_repository.UserRepository) *UserRepositoryTestSuite {
+func NewUserRepositoryTestSuite(factory user_repo.UserRepoFactory) *UserRepositoryTestSuite {
 	return &UserRepositoryTestSuite{
-		repo: repo,
+		factory: factory,
+		repo:    factory.MakeUserRepo(),
 	}
 }
 
 func (s *UserRepositoryTestSuite) SetupTest() {
 	insertedUsrs, err := s.insertFakeUsers()
 	if err != nil {
-		s.T().Log(err)
-		panic("fail to setup test")
+		s.FailNow(err.Error())
 	}
 	s.testUsersMap = make(map[string]*models.User)
 	s.testUserIds = make([]string, len(insertedUsrs))
 	for i := range insertedUsrs {
 		s.testUsersMap[insertedUsrs[i].Id] = insertedUsrs[i]
-		s.testUserIds = append(s.testUserIds, insertedUsrs[i].Id)
+		s.testUserIds[i] = insertedUsrs[i].Id
 	}
 }
 
 func (s *UserRepositoryTestSuite) TearDownTest() {
-	s.repo.DeleteUsersByCampaign(testOnlyCampaign)
+	s.repo.DeleteUsersByIds(s.testUserIds)
 }
 
-func (s *UserRepositoryTestSuite) TestInsertManyUsers() {
+func (s *UserRepositoryTestSuite) Test_InsertManyUsers() {
 	users := []*models.User{
-		{Id: uuid.NewString(), Campaigns: []string{testOnlyCampaign}},
-		{Id: uuid.NewString(), Campaigns: []string{testOnlyCampaign}},
-	}
-	userIdsMap := map[string]*models.User{
-		users[0].Id: users[0],
-		users[1].Id: users[1],
+		{Campaigns: []string{testOnlyCampaign}},
+		{Campaigns: []string{testOnlyCampaign}},
 	}
 	insertedUsers, err := s.repo.InsertManyUsers(users)
+	defer s.repo.DeleteUsersByIds([]string{
+		insertedUsers[0].Id,
+		insertedUsers[1].Id,
+	})
 
 	s.Assert().NoError(err)
 	s.Assert().Equal(len(users), len(insertedUsers))
 	for i := range insertedUsers {
-		s.Assert().NotNil(userIdsMap[insertedUsers[i].Id])
 		if s.Assert().NotZero(len(insertedUsers[i].Campaigns)) {
 			s.Assert().Equal(testOnlyCampaign, insertedUsers[i].Campaigns[0])
 		}
 	}
 }
 
-func (s *UserRepositoryTestSuite) TestDeleteUsersByIds() {
+func (s *UserRepositoryTestSuite) Test_DeleteUsersByIds() {
 	err := s.repo.DeleteUsersByIds(s.testUserIds)
 	if s.Assert().NoError(err) {
 		listResult, err := s.repo.GetListUsersByIds(s.testUserIds)
@@ -76,16 +75,7 @@ func (s *UserRepositoryTestSuite) TestDeleteUsersByIds() {
 	}
 }
 
-func (s *UserRepositoryTestSuite) TestDeleteUsersByCampaign() {
-	err := s.repo.DeleteUsersByCampaign(testOnlyCampaign)
-	if s.Assert().NoError(err) {
-		listResult, err := s.repo.GetListUsersByCampaign(testOnlyCampaign)
-		s.Assert().NoError(err)
-		s.Assert().Equal(0, len(listResult))
-	}
-}
-
-func (s *UserRepositoryTestSuite) TestGetListUsersByIds() {
+func (s *UserRepositoryTestSuite) Test_GetListUsersByIds() {
 	listResult, err := s.repo.GetListUsersByIds(s.testUserIds)
 	if s.Assert().NoError(err) && s.Assert().NotEmpty(listResult) {
 		for i := range listResult {
@@ -94,20 +84,32 @@ func (s *UserRepositoryTestSuite) TestGetListUsersByIds() {
 	}
 }
 
-func (s *UserRepositoryTestSuite) TestGetListUsersByCampaign() {
-	listResult, err := s.repo.GetListUsersByCampaign(testOnlyCampaign)
+func (s *UserRepositoryTestSuite) Test_GetListUsers_By_Campaign_And_Email_Verified() {
+	command := s.factory.MakeListUsersCommand()
+	command.SetFilterCampaign(testOnlyCampaign)
+	command.SetFilterOnlyEmailVerified()
+
+	listResult, err := s.repo.GetListUsers(command)
 	if s.Assert().NoError(err) && s.Assert().NotEmpty(listResult) {
+		s.Assert().Equal(len(listResult), len(s.testUserIds))
 		for i := range listResult {
 			s.Assert().NotNil(s.testUsersMap[listResult[i].Id])
 		}
 	}
 }
 
-func (s *UserRepositoryTestSuite) TestCountUserDevicesForCampaign() {
-	count, err := s.repo.CountUserDevicesForCampaign(testOnlyCampaign)
-	if s.Assert().NoError(err) {
+func (s *UserRepositoryTestSuite) Test_AggregateUsers_SumUserDevices_Of_CampaignMessageReceivers() {
+	aggregation := s.factory.MakeAggregateUsersCommand()
+	aggregation.SetFilterCampaign(testOnlyCampaign)
+	aggregation.SetFilterOnlyEmailVerified()
+	aggregation.AddAggregationSumUserDevices()
+
+	result, err := s.repo.AggregateUsers(aggregation)
+	if s.Assert().NotNil(result) && s.Assert().NoError(err) {
 		expectedCount := uint64(len(s.testUsersMap) * len(testDeviceTokens))
-		s.Assert().Equal(expectedCount, count)
+		actualCount := result.GetCountUserDevices()
+
+		s.Assert().Equal(expectedCount, actualCount)
 	}
 }
 
@@ -116,10 +118,9 @@ func (s *UserRepositoryTestSuite) insertFakeUsers() ([]*models.User, error) {
 	usrs := make([]*models.User, n)
 	for i := range n {
 		usrs[i] = &models.User{
-			Id:              uuid.NewString(),
 			Campaigns:       []string{testOnlyCampaign},
 			DeviceTokens:    testDeviceTokens,
-			EmailVerifiedAt: time.Now().Add(-1 * time.Hour), // 1 hour ago
+			EmailVerifiedAt: time.Now().Add(-1 * time.Hour),
 		}
 	}
 	return s.repo.InsertManyUsers(usrs)

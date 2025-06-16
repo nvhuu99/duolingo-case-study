@@ -1,4 +1,4 @@
-package campaign_message
+package models
 
 import "encoding/json"
 
