@@ -32,16 +32,22 @@ func NewPubSubTestSuite(
 }
 
 func (s *PubSubTestSuite) SetupSuite() {
+	if topicErr := s.publisher.DeclareTopic(TestTopic); topicErr != nil {
+		s.FailNow("failed to declare the test topic")
+	}
 	for _, sub := range s.subscribers {
-		s.publisher.AddSubscriber(TestTopic, sub)
+		if subscribeErr := sub.Subscribe(TestTopic); subscribeErr != nil {
+			s.FailNow("fail to subscribe to the test topic")
+		}
 	}
 }
 
-func (s *PubSubTestSuite) TeardownSuite() {
+func (s *PubSubTestSuite) TearDownSuite() {
 	s.T().Log("Teardown")
 	for _, sub := range s.subscribers {
-		s.publisher.RemoveSubscriber(sub)
+		sub.UnSubscribe(TestTopic)
 	}
+	s.publisher.RemoveTopic(TestTopic)
 }
 
 func (s *PubSubTestSuite) Test_Notify_And_Consuming() {

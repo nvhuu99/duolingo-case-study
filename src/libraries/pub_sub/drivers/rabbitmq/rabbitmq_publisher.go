@@ -4,7 +4,6 @@ import (
 	"context"
 
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
-	"duolingo/libraries/pub_sub"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -20,19 +19,12 @@ func NewRabbitMQPublisher(client *connection.RabbitMQClient) *RabbitMQPublisher 
 	}
 }
 
-func (p *RabbitMQPublisher) AddSubscriber(topic string, subscriber pub_sub.Subscriber) error {
-	if exchangeErr := p.DeclareExchange(topic); exchangeErr != nil {
-		return exchangeErr
-	}
-	queueName := subscriber.GetChannel()
-	if queueErr := p.DeclareQueue(queueName, "", topic); queueErr != nil {
-		return queueErr
-	}
-	return nil
+func (p *RabbitMQPublisher) DeclareTopic(topic string) error {
+	return p.DeclareExchange(topic)
 }
 
-func (p *RabbitMQPublisher) RemoveSubscriber(sub pub_sub.Subscriber) error {
-	return p.DeleteQueue(sub.GetChannel())
+func (p *RabbitMQPublisher) RemoveTopic(topic string) error {
+	return p.DeleteExchange(topic)
 }
 
 func (p *RabbitMQPublisher) Notify(topic string, message string) error {

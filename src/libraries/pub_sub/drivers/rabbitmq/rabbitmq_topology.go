@@ -69,6 +69,13 @@ func (client *RabbitMQTopology) DeclareQueue(
 	})
 }
 
+func (client *RabbitMQTopology) DeleteExchange(name string) error {
+	timeout := client.GetWriteTimeout()
+	return client.ExecuteClosure(timeout, func(ctx context.Context, ch *amqp.Channel) error {
+		return ch.ExchangeDelete(name, false, false)
+	})
+}
+
 func (client *RabbitMQTopology) DeleteQueue(name string) error {
 	timeout := client.GetWriteTimeout()
 	return client.ExecuteClosure(timeout, func(ctx context.Context, ch *amqp.Channel) error {

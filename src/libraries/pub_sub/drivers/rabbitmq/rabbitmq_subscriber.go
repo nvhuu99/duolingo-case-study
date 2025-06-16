@@ -12,20 +12,28 @@ import (
 )
 
 type RabbitMQSubscriber struct {
-	*connection.RabbitMQClient
+	*RabbitMQTopology
 
 	id string
 }
 
 func NewRabbitMQSubscriber(client *connection.RabbitMQClient) *RabbitMQSubscriber {
 	return &RabbitMQSubscriber{
-		RabbitMQClient: client,
+		RabbitMQTopology: NewRabbitMQTopology(client),
 		id:             uuid.NewString(),
 	}
 }
 
 func (sub *RabbitMQSubscriber) GetChannel() string {
 	return sub.id
+}
+
+func (sub *RabbitMQSubscriber) Subscribe(topic string) error {
+	return sub.DeclareQueue(sub.GetChannel(), "", topic)
+}
+
+func (sub *RabbitMQSubscriber) UnSubscribe(topic string) error {
+	return sub.DeleteQueue(sub.GetChannel())
 }
 
 func (sub *RabbitMQSubscriber) Consuming(
