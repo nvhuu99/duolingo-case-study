@@ -1,5 +1,0 @@
-package campaign_message
-
-const (
-	PUBSUB_TOPIC_CAMPAIGN_INPUT_MESSAGE = "PUB_SUB_TOPIC_CAMPAIGN_INPUT_MESSAGE"
-)

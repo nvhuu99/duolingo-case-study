@@ -5,11 +5,11 @@ type Membership string
 type NativeLanguage string
 
 const (
-	MEMBERSHIP_PREMIUM      Membership = "premium"
-	MEMBERSHIP_FREE_TIER    Membership = "free_tier"
-	MEMBERSHIP_SUBSCRIPTION Membership = "subscription"
+	MembershipPremium      Membership = "premium"
+	MembershipFreeTier     Membership = "free_tier"
+	MembershipSubscription Membership = "subscription"
 
-	LANGUAGE_EN NativeLanguage = "en"
-	LANGUAGE_VN NativeLanguage = "vn"
-	LANGUAGE_JP NativeLanguage = "JP"
+	LanguageEN NativeLanguage = "en"
+	LanguageVN NativeLanguage = "vn"
+	LanguageJP NativeLanguage = "JP"
 )

@@ -20,7 +20,7 @@ type RabbitMQSubscriber struct {
 func NewRabbitMQSubscriber(client *connection.RabbitMQClient) *RabbitMQSubscriber {
 	return &RabbitMQSubscriber{
 		RabbitMQTopology: NewRabbitMQTopology(client),
-		id:             uuid.NewString(),
+		id:               uuid.NewString(),
 	}
 }
 

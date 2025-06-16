@@ -3,6 +3,6 @@ package command_builders
 type SortOrder int
 
 const (
-	ORDER_ASC  SortOrder = 1
-	ORDER_DESC SortOrder = -1
+	OrderASC  SortOrder = 1
+	OrderDesc SortOrder = -1
 )
