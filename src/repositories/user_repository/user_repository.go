@@ -1,7 +1,7 @@
 package external
 
 import (
-	"duolingo/repositories/campaign_message/user_repository/models"
+	"duolingo/repositories/user_repository/models"
 )
 
 type UserRepository interface {

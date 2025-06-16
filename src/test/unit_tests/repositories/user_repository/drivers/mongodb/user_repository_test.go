@@ -6,8 +6,8 @@ import (
 
 	mongo "duolingo/libraries/connection_manager/drivers/mongodb"
 	facade "duolingo/libraries/connection_manager/facade"
-	repo_driver "duolingo/repositories/campaign_message/user_repository/drivers/mongodb"
-	"duolingo/repositories/campaign_message/user_repository/test/test_suites"
+	repo_driver "duolingo/repositories/user_repository/drivers/mongodb"
+	"duolingo/repositories/user_repository/test/test_suites"
 
 	"github.com/stretchr/testify/suite"
 )

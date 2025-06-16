@@ -3,8 +3,8 @@ package mongodb
 import (
 	"context"
 	connection "duolingo/libraries/connection_manager/drivers/mongodb"
-	cmd "duolingo/repositories/campaign_message/user_repository/drivers/mongodb/command_builders"
-	"duolingo/repositories/campaign_message/user_repository/models"
+	cmd "duolingo/repositories/user_repository/drivers/mongodb/command_builders"
+	"duolingo/repositories/user_repository/models"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"

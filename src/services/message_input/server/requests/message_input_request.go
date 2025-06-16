@@ -2,40 +2,47 @@ package requests
 
 import "errors"
 
-type SendMessageForCampaignRequest struct {
+type MessageInputRequest struct {
 	campaign      string
 	messageTitle  string
 	messageBody   string
 	validationErr error
 }
 
-func NewSendMessageForCampaignRequest(
+func NewMessageInputRequest(
 	campaign string,
 	messageTitle string,
 	messageBody string,
-) *SendMessageForCampaignRequest {
-	return &SendMessageForCampaignRequest{
+) (
+	*MessageInputRequest,
+	error,
+) {
+	req := &MessageInputRequest{
 		campaign:     campaign,
 		messageTitle: messageTitle,
 		messageBody:  messageBody,
 	}
+	if !req.Validate() {
+		return nil, req.GetValidationError()
+	}
+	return req, nil
 }
 
-func (req *SendMessageForCampaignRequest) GetCampaign() string {
+func (req *MessageInputRequest) GetCampaign() string {
 	return req.campaign
 }
 
-func (req *SendMessageForCampaignRequest) GetMessageTitle() string {
+func (req *MessageInputRequest) GetMessageTitle() string {
 	return req.messageTitle
 }
 
-func (req *SendMessageForCampaignRequest) GetMessageBody() string {
+func (req *MessageInputRequest) GetMessageBody() string {
 	return req.messageBody
 }
 
 /* Implement interface Request */
 
-func (req *SendMessageForCampaignRequest) Validate() bool {
+func (req *MessageInputRequest) Validate() bool {
 	if req.validationErr == nil {
 		if req.campaign == "" {
 			req.validationErr = errors.New("campaign must not empty")
@@ -50,6 +57,6 @@ func (req *SendMessageForCampaignRequest) Validate() bool {
 	return req.validationErr == nil
 }
 
-func (req *SendMessageForCampaignRequest) GetValidationError() error {
+func (req *MessageInputRequest) GetValidationError() error {
 	return req.validationErr
 }
