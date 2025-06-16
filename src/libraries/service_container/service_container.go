@@ -55,13 +55,13 @@ func BindSingleton[Abstract any](closure func(ctx ctx.Context) any) {
 	c.bindings[typ] = &binding{bindSingleton, closure}
 }
 
-func MustResolve[Abstract any]() (Abstract, bool) {
+func MustResolve[Abstract any]() Abstract {
 	instance, ok := Resolve[Abstract]()
 	if !ok {
 		typ := reflect.TypeOf((*Abstract)(nil)).Elem()
 		panic(errors.New("fail to resolve: " + typ.String()))
 	}
-	return instance, true
+	return instance
 }
 
 func Resolve[Abstract any]() (Abstract, bool) {
