@@ -1,5 +1,7 @@
 package constants
 
 const (
-	PubSubTopicMessageInput = "pub_sub_topic_message_input"
+	TopicMessageInputs    = "message_inputs"
+	TopicNotiBuilderJobs  = "noti_builder_jobs"
+	TopicPushNotiMessages = "push_noti_messages"
 )
