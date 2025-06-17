@@ -43,6 +43,21 @@ func (assignment *Assignment) Validate() error {
 	return nil
 }
 
+func (assignment *Assignment) WorkStartAt() uint64 {
+	if assignment.Progress > assignment.StartIndex {
+		return assignment.Progress + 1
+	}
+	return assignment.StartIndex
+}
+
+func (assignment *Assignment) WorkEndAt() uint64 {
+	return assignment.EndIndex
+}
+
+func (assignment *Assignment) IsCompleted() bool {
+	return assignment.Progress == assignment.EndIndex
+}
+
 func (assignment *Assignment) Equal(target *Assignment) bool {
 	return target != nil && assignment.Id == target.Id
 }

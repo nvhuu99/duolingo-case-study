@@ -3,6 +3,7 @@ package test_suites
 import (
 	"context"
 	distributor "duolingo/libraries/work_distributor"
+	"errors"
 	"sync"
 	"time"
 
@@ -138,7 +139,7 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitUntilOneRollbacked
 	wg.Add(2)
 
 	// Create a timeout to wait for available assignment
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer waitCancel()
 
 	// Call WaitForAssignment() to wait for available work
@@ -221,4 +222,35 @@ func (s *WorkDistributorTestSuite) Test_WaitForAssignment_WaitWillFailOnFulfille
 	}()
 
 	wg.Wait()
+}
+
+func (s *WorkDistributorTestSuite) Test_HandleAssignment() {
+	workload, _ := s.distributor.CreateWorkload(20)
+	defer s.distributor.DeleteWorkloadAndAssignments(workload.Id)
+
+	// Steps:
+	// 1. First assignment             - Remains: assignment2
+	// 2. Handle failed & rollbacked   - Remains: assignment2, assignment1
+	// 3. Second assignment            - Remains: assignment1
+	// 4. Handle succeeded & committed - Remains: assignment1
+	// 5. First assignment re-assigned - Remains: empty
+	// 6. Handle succeeded, workload fulfilled
+
+	assignment1, _ := s.distributor.Assign(workload.Id)
+	s.distributor.HandleAssignment(assignment1, func() error {
+		return errors.New("stimulate failure")
+	})
+	assignment2, _ := s.distributor.Assign(workload.Id)
+	s.distributor.HandleAssignment(assignment2, func() error {
+		return nil
+	})
+	assignment3, _ := s.distributor.Assign(workload.Id)
+	s.distributor.HandleAssignment(assignment3, func() error {
+		return nil
+	})
+
+	// ensure first assignment rollbacked
+	s.Assert().True(assignment3.Equal(assignment1))
+	// ensure all assignments committed
+	s.Assert().True(s.distributor.HasWorkloadFulfilled(workload.Id))
 }

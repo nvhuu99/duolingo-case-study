@@ -116,6 +116,16 @@ func (dist *WorkDistributor) WaitForAssignment(
 	}
 }
 
+func (dist *WorkDistributor) HandleAssignment(
+	assignment *Assignment,
+	closure func() error,
+) error {
+	if handleErr := closure(); handleErr != nil {
+		return dist.Rollback(assignment)
+	}
+	return dist.Commit(assignment)
+}
+
 func (dist *WorkDistributor) Commit(assignment *Assignment) error {
 	return dist.proxy.GetAndUpdateWorkload(assignment.WorkloadId, func(w *Workload) error {
 		return w.IncreaseTotalCommittedAssignments()
@@ -129,6 +139,9 @@ func (dist *WorkDistributor) Rollback(assignment *Assignment) error {
 
 func (dist *WorkDistributor) CommitProgress(assignment *Assignment, newProgres uint64) error {
 	assignment.Progress = newProgres
+	if assignment.IsCompleted() {
+		return dist.Commit(assignment)
+	}
 	return dist.proxy.PushAssignmentToQueue(assignment)
 }
 
