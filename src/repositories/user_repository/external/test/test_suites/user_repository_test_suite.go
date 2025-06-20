@@ -11,7 +11,10 @@ import (
 
 var (
 	testOnlyCampaign = "testOnlyCampaign"
-	testDeviceTokens = []string{"fake_token_1", "fake_token_2"}
+	testDevices      = []*models.UserDevice{
+		{Token: "fake_token_1"},
+		{Token: "fake_token_2"},
+	}
 )
 
 type UserRepositoryTestSuite struct {
@@ -106,7 +109,7 @@ func (s *UserRepositoryTestSuite) Test_AggregateUsers_SumUserDevices_Of_Campaign
 
 	result, err := s.repo.AggregateUsers(aggregation)
 	if s.Assert().NotNil(result) && s.Assert().NoError(err) {
-		expectedCount := uint64(len(s.testUsersMap) * len(testDeviceTokens))
+		expectedCount := uint64(len(s.testUsersMap) * len(testDevices))
 		actualCount := result.GetCountUserDevices()
 
 		s.Assert().Equal(expectedCount, actualCount)
@@ -119,7 +122,7 @@ func (s *UserRepositoryTestSuite) insertFakeUsers() ([]*models.User, error) {
 	for i := range n {
 		usrs[i] = &models.User{
 			Campaigns:       []string{testOnlyCampaign},
-			DeviceTokens:    testDeviceTokens,
+			Devices:         testDevices,
 			EmailVerifiedAt: time.Now().Add(-1 * time.Hour),
 		}
 	}

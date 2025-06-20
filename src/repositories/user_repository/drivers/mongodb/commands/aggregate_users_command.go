@@ -25,7 +25,7 @@ func NewAggregateUsersCommand() *AggregateUsersCommand {
 func (command *AggregateUsersCommand) AddAggregationSumUserDevices() {
 	command.pipelineSteps = append(command.pipelineSteps,
 		b.D{{Key: "$project", Value: b.M{
-			"count": b.M{"$size": "$device_tokens"},
+			"count": b.M{"$size": "$user_devices"},
 		}}},
 		b.D{{Key: "$group", Value: b.M{
 			"_id":                nil,

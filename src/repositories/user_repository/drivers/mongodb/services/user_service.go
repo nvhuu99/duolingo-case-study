@@ -50,7 +50,9 @@ func (service *UserService) GetDeviceTokensForCampaign(
 
 	tokens := []string{}
 	for i := range len(users) {
-		tokens = append(tokens, users[i].DeviceTokens...)
+		for j := range len(users[i].Devices) {
+			tokens = append(tokens, users[i].Devices[j].Token)
+		}
 	}
 
 	return tokens, nil

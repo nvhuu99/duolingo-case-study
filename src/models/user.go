@@ -11,7 +11,7 @@ type User struct {
 	Username        string         `json:"username" bson:"username"`
 	Email           string         `json:"email" bson:"email"`
 	Campaigns       []string       `json:"campaigns" bson:"campaigns"`
-	DeviceTokens    []string       `json:"device_tokens" bson:"device_tokens"`
+	Devices         []*UserDevice  `json:"user_devices" bson:"user_devices"`
 	NativeLanguage  NativeLanguage `json:"native_lan_enum" bson:"native_lan_enum"`
 	Membership      Membership     `json:"membership_enum" bson:"membership_enum"`
 	EmailVerifiedAt time.Time      `json:"email_verified_at" bson:"email_verified_at"`
