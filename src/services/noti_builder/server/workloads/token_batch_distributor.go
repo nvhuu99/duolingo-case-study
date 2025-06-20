@@ -67,7 +67,7 @@ func (d *TokenBatchDistributor) ConsumeIncomingBatches(
 			continue
 		}
 		lastErr = d.HandleAssignment(assignment, func() error {
-			tokens, tokenErr := d.GetDeviceTokensForCampaign(
+			tokens, tokenErr := d.GetDevicesForCampaign(
 				job.Message.Campaign,
 				assignment.WorkStartAt(),
 				assignment.WorkEndAt(),

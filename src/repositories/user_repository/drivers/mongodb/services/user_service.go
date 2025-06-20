@@ -1,6 +1,7 @@
 package services
 
 import (
+	"duolingo/models"
 	user_repo "duolingo/repositories/user_repository/external"
 	"errors"
 )
@@ -33,11 +34,11 @@ func (service *UserService) CountDevicesForCampaign(campaign string) (uint64, er
 	return result.GetCountUserDevices(), nil
 }
 
-func (service *UserService) GetDeviceTokensForCampaign(
+func (service *UserService) GetDevicesForCampaign(
 	campaign string,
 	offset uint64,
 	limit uint64,
-) ([]string, error) {
+) ([]*models.UserDevice, error) {
 	query := service.MakeListUsersCommand()
 	query.SetFilterCampaign(campaign)
 	query.SetFilterOnlyEmailVerified()
@@ -45,15 +46,13 @@ func (service *UserService) GetDeviceTokensForCampaign(
 
 	users, err := service.GetListUsers(query)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	tokens := []string{}
+	devices := []*models.UserDevice{}
 	for i := range len(users) {
-		for j := range len(users[i].Devices) {
-			tokens = append(tokens, users[i].Devices[j].Token)
-		}
+		devices = append(devices, users[i].Devices...)
 	}
 
-	return tokens, nil
+	return devices, nil
 }

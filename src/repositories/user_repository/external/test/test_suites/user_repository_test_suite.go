@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var (
-	testOnlyCampaign = "testOnlyCampaign"
-	testDevices      = []*models.UserDevice{
-		{Token: "fake_token_1"},
-		{Token: "fake_token_2"},
-	}
-)
-
 type UserRepositoryTestSuite struct {
 	suite.Suite
 	factory      user_repo.UserRepoFactory
