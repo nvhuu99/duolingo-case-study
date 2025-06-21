@@ -67,7 +67,7 @@ func (s *BufferTestSuite) Test_Buffer_Flush_Interval() {
 		}).
 		Start()
 
-	timeout := time.After(50 * time.Millisecond)
+	timeout := time.After(20 * time.Millisecond)
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 	go func() {

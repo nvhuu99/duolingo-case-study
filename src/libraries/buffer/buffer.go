@@ -67,9 +67,11 @@ func (b *Buffer[T]) Stop() {
 	}
 }
 
-func (b *Buffer[T]) Write(item T) {
+func (b *Buffer[T]) Write(items ...T) {
 	if b.started.Load() {
-		b.writeCh <- item
+		for i := range items {
+			b.writeCh <- items[i]
+		}
 	}
 }
 
