@@ -16,7 +16,7 @@ type BufferTestSuite struct {
 
 func (s *BufferTestSuite) Test_Buffer_Limit() {
 	done := make(chan bool, 1)
-	buff := buffer.NewBuffer[string](context.Background())
+	buff := buffer.NewBuffer[string]()
 	buff.SetLimit(3).
 		SetInterval(100*time.Second). // this amount ensure the flush trigger by limit
 		SetConsumeFunc(true, func(items []string) {
@@ -28,7 +28,7 @@ func (s *BufferTestSuite) Test_Buffer_Limit() {
 				}
 			}
 		}).
-		Start()
+		Start(context.Background())
 
 	timeout := time.After(10 * time.Millisecond)
 	wg := new(sync.WaitGroup)
@@ -53,7 +53,7 @@ func (s *BufferTestSuite) Test_Buffer_Limit() {
 
 func (s *BufferTestSuite) Test_Buffer_Flush_Interval() {
 	done := make(chan bool, 1)
-	buff := buffer.NewBuffer[string](context.Background())
+	buff := buffer.NewBuffer[string]()
 	buff.SetLimit(10000). // this amount ensure the flush trigger by interval
 				SetInterval(10*time.Millisecond).
 				SetConsumeFunc(true, func(items []string) {
@@ -65,7 +65,7 @@ func (s *BufferTestSuite) Test_Buffer_Flush_Interval() {
 				}
 			}
 		}).
-		Start()
+		Start(context.Background())
 
 	timeout := time.After(20 * time.Millisecond)
 	wg := new(sync.WaitGroup)

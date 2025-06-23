@@ -18,16 +18,14 @@ type Buffer[T any] struct {
 	started  atomic.Bool
 	flushing atomic.Bool
 
-	ctx          context.Context
 	bufferCtx    context.Context
 	bufferCancel context.CancelFunc
 }
 
-func NewBuffer[T any](ctx context.Context) *Buffer[T] {
+func NewBuffer[T any]() *Buffer[T] {
 	return &Buffer[T]{
 		limit:    1000,
 		interval: 2 * time.Second,
-		ctx:      ctx,
 	}
 }
 
@@ -47,7 +45,7 @@ func (b *Buffer[T]) SetConsumeFunc(wait bool, consumeFunc func([]T)) *Buffer[T] 
 	return b
 }
 
-func (b *Buffer[T]) Start() {
+func (b *Buffer[T]) Start(ctx context.Context) {
 	if b.started.Load() {
 		return
 	}
@@ -55,7 +53,7 @@ func (b *Buffer[T]) Start() {
 
 	b.bufferCh = make(chan T, b.limit)
 	b.writeCh = make(chan T, b.limit)
-	b.bufferCtx, b.bufferCancel = context.WithCancel(b.ctx)
+	b.bufferCtx, b.bufferCancel = context.WithCancel(ctx)
 
 	go b.run()
 }
@@ -73,6 +71,10 @@ func (b *Buffer[T]) Write(items ...T) {
 			b.writeCh <- items[i]
 		}
 	}
+}
+
+func (b *Buffer[T]) Size() int {
+	return int(b.buffered.Load())
 }
 
 func (b *Buffer[T]) Flush() {

@@ -18,7 +18,7 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 	done := make(chan bool, 1)
 
 	flushCount := 0
-	grp := buffer.NewBufferGroup[string, string](context.Background())
+	grp := buffer.NewBufferGroup[string, string]()
 	grp.
 		SetLimit(3).
 		SetInterval(100*time.Second). // this amount ensure the flush trigger by limit
@@ -37,7 +37,7 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 			}
 		})
 
-	grp.Start()
+	grp.Start(context.Background())
 	defer grp.Stop()
 
 	timeout := time.After(20 * time.Millisecond)
@@ -70,7 +70,7 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Flush_Interval() {
 	done := make(chan bool, 1)
 
 	flushCount := 0
-	grp := buffer.NewBufferGroup[string, string](context.Background())
+	grp := buffer.NewBufferGroup[string, string]()
 	grp.
 		SetInterval(10*time.Millisecond).
 		SetLimit(1000). // this amount ensure the flush trigger by interval
@@ -89,7 +89,7 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Flush_Interval() {
 			}
 		})
 
-	grp.Start()
+	grp.Start(context.Background())
 	defer grp.Stop()
 
 	timeout := time.After(20 * time.Millisecond)
