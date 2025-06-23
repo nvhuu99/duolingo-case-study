@@ -24,7 +24,7 @@ func (s *PushServiceTestSuite) Test_SendMulticast_For_Android() {
 	}
 	target := &message.MulticastTarget{
 		DeviceTokens: []string{"fakeToken1", "fakeToken2", "fakeToken3"},
-		Platform:     message.Android,
+		Platforms:    []message.Platform{message.Android, message.IOS},
 	}
 	result, err := s.service.SendMulticast(context.Background(), msg, target)
 

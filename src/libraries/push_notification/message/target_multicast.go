@@ -6,17 +6,18 @@ import (
 )
 
 var (
-	ErrMulticastDeviceTokenMissing = errors.New("multicast device tokens must not be empty string")
+	ErrMulticastTargetInadequate = errors.New("multicast device tokens, and platforms must be specified")
 )
 
 type MulticastTarget struct {
-	Platform
+	Platforms    []Platform
 	DeviceTokens []string
 }
 
 func (t *MulticastTarget) Validate() error {
-	if len(t.DeviceTokens) == 0 || slices.Contains(t.DeviceTokens, "") {
-		return ErrMulticastDeviceTokenMissing
+	if len(t.DeviceTokens) == 0 || slices.Contains(t.DeviceTokens, "") ||
+		len(t.Platforms) == 0 {
+		return ErrMulticastTargetInadequate
 	}
 	return nil
 }

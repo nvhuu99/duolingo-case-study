@@ -22,7 +22,7 @@ func (s *MessageBuilderTestSuite) Test_Message_Validate() {
 func (s *MessageBuilderTestSuite) Test_MulticastTarget_Validate() {
 	target := message.MulticastTarget{}
 	validation := target.Validate()
-	s.Assert().Equal(validation, message.ErrMulticastDeviceTokenMissing)
+	s.Assert().Equal(validation, message.ErrMulticastTargetInadequate)
 }
 
 func (s *MessageBuilderTestSuite) Test_BuildMulticast_For_Android() {
@@ -38,7 +38,7 @@ func (s *MessageBuilderTestSuite) Test_BuildMulticast_For_Android() {
 	}
 	target := &message.MulticastTarget{
 		DeviceTokens: []string{"fake_token"},
-		Platform:     message.Android,
+		Platforms:    []message.Platform{message.Android, message.IOS},
 	}
 	multicast, err := driver.NewFirebaseMessagebuilder().BuildMulticast(msg, target)
 

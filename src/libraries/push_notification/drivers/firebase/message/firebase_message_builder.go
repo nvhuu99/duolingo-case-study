@@ -2,6 +2,8 @@ package message
 
 import (
 	msg "duolingo/libraries/push_notification/message"
+	"slices"
+
 	fcm "firebase.google.com/go/v4/messaging"
 )
 
@@ -29,8 +31,11 @@ func (builder *FirebaseMessagebuilder) BuildMulticast(
 			Body:  message.Body,
 		},
 	}
-	if target.Platform == msg.Android {
+	if slices.Contains(target.Platforms, msg.Android) {
 		multicast.Android = NewAndroidMessage(message).Build()
+	}
+	if slices.Contains(target.Platforms, msg.IOS) {
+		multicast.APNS = NewIOSMessage(message).Build()
 	}
 	return multicast, nil
 }
