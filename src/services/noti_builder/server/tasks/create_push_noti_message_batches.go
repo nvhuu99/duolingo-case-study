@@ -14,9 +14,9 @@ func CreatePushNotiMessageBatches(ctx context.Context, job *workloads.TokenBatch
 	publisher := container.MustResolve[pub_sub.Publisher]()
 	return distributor.ConsumeIncomingBatches(ctx, job, func(
 		input *models.MessageInput,
-		tokens []string,
+		devices []*models.UserDevice,
 	) error {
 		return publisher.Notify(constants.TopicPushNotiMessages,
-			string(models.NewPushNotiMessage(input, tokens).Encode()))
+			string(models.NewPushNotiMessage(input, devices).Encode()))
 	})
 }

@@ -3,6 +3,7 @@ package models
 import "encoding/json"
 
 type MessageInput struct {
+	Id       string `json:"id"`
 	Campaign string `json:"campaign"`
 	Title    string `json:"title"`
 	Body     string `json:"body"`

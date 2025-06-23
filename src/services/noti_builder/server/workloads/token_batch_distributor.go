@@ -44,7 +44,7 @@ func (d *TokenBatchDistributor) CreateBatchJob(input *models.MessageInput) error
 func (d *TokenBatchDistributor) ConsumeIncomingBatches(
 	ctx context.Context,
 	job *TokenBatchJob,
-	closure func(input *models.MessageInput, deviceTokens []string) error,
+	closure func(input *models.MessageInput, devices []*models.UserDevice) error,
 ) error {
 	consumeCtx, consumeCancel := context.WithCancel(ctx)
 	defer consumeCancel()
@@ -63,24 +63,24 @@ func (d *TokenBatchDistributor) ConsumeIncomingBatches(
 			return lastErr
 		}
 		if assignment, lastErr = d.WaitForAssignment(consumeCtx, interval, jobId); lastErr != nil {
-			lastErr = fulfilledOrErr(lastErr)
+			lastErr = d.fulfilledOrErr(lastErr)
 			continue
 		}
 		lastErr = d.HandleAssignment(assignment, func() error {
-			tokens, tokenErr := d.GetDevicesForCampaign(
+			devices, queryErr := d.GetDevicesForCampaign(
 				job.Message.Campaign,
 				assignment.WorkStartAt(),
 				assignment.WorkEndAt(),
 			)
-			if tokenErr != nil {
-				return tokenErr
+			if queryErr != nil {
+				return queryErr
 			}
-			return closure(job.Message, tokens)
+			return closure(job.Message, devices)
 		})
 	}
 }
 
-func fulfilledOrErr(err error) error {
+func (d *TokenBatchDistributor) fulfilledOrErr(err error) error {
 	if err == work_distributor.ErrWorkloadHasAlreadyFulfilled {
 		return nil
 	}

@@ -19,3 +19,11 @@ const (
 	VisibilityPrivate Visibility = "private"
 	VisibilitySecret  Visibility = "secret"
 )
+
+func Platforms(p ...string) []Platform {
+	result := make([]Platform, len(p))
+	for i := range p {
+		result = append(result, Platform(p[i]))
+	}
+	return result
+}

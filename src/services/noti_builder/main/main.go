@@ -32,7 +32,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		err := inputConsumer.Consuming(ctx, inputTopic, func(str string) pub_sub.ConsumeAction {
-			return acceptOrRequeue(
+			return acceptOrReject(
 				tasks.HandleMessageInput(models.MessageInputDecode([]byte(str))),
 			)
 		})
@@ -43,7 +43,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		err := jobConsumer.Consuming(ctx, jobTopic, func(str string) pub_sub.ConsumeAction {
-			return acceptOrRequeue(
+			return acceptOrReject(
 				tasks.CreatePushNotiMessageBatches(ctx, workloads.JobDecode([]byte(str))),
 			)
 		})
@@ -54,9 +54,9 @@ func main() {
 	wg.Wait()
 }
 
-func acceptOrRequeue(err error) pub_sub.ConsumeAction {
+func acceptOrReject(err error) pub_sub.ConsumeAction {
 	if err != nil {
 		return pub_sub.ActionAccept
 	}
-	return pub_sub.ActionRequeue
+	return pub_sub.ActionReject
 }
