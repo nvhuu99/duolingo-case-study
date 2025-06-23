@@ -6,8 +6,12 @@ import (
 )
 
 type BufferGroup[K comparable, T any] struct {
-	groups map[K]*Buffer[T]
-	ctx    context.Context
+	groups      map[K]*Buffer[T]
+	ctx         context.Context
+	limit       int
+	interval    time.Duration
+	consumeWait bool
+	consumeFunc func(K, []T)
 }
 
 func NewBufferGroup[K comparable, T any](ctx context.Context) *BufferGroup[K, T] {
@@ -17,32 +21,35 @@ func NewBufferGroup[K comparable, T any](ctx context.Context) *BufferGroup[K, T]
 	}
 }
 
-func (gb *BufferGroup[K, T]) AddGroup(key K) *BufferGroup[K, T] {
-	gb.groups[key] = NewBuffer[T](gb.ctx)
-	return gb
-}
-
 func (gb *BufferGroup[K, T]) SetLimit(limit int) *BufferGroup[K, T] {
-	for key := range gb.groups {
-		gb.groups[key].SetLimit(limit)
-	}
+	gb.limit = limit
 	return gb
 }
 
 func (gb *BufferGroup[K, T]) SetInterval(interval time.Duration) *BufferGroup[K, T] {
-	for key := range gb.groups {
-		gb.groups[key].SetInterval(interval)
-	}
+	gb.interval = interval
 	return gb
 }
 
 func (gb *BufferGroup[K, T]) SetConsumeFunc(wait bool, consumeFunc func(K, []T)) *BufferGroup[K, T] {
-	for key := range gb.groups {
-		gb.groups[key].SetConsumeFunc(wait, func(t []T) {
-			consumeFunc(key, t)
-		})
-	}
+	gb.consumeWait = wait
+	gb.consumeFunc = consumeFunc
 	return gb
+}
+
+func (gb *BufferGroup[K, T]) AddGroup(key K) *BufferGroup[K, T] {
+	gb.groups[key] = NewBuffer[T](gb.ctx).
+		SetLimit(gb.limit).
+		SetInterval(gb.interval).
+		SetConsumeFunc(gb.consumeWait, func(t []T) { gb.consumeFunc(key, t) })
+	return gb
+}
+
+func (gb *BufferGroup[K, T]) RemoveGroup(key K) {
+	if grp, exist := gb.groups[key]; exist {
+		delete(gb.groups, key)
+		grp.Stop()
+	}
 }
 
 func (gb *BufferGroup[K, T]) Start() {
