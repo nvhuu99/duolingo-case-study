@@ -15,9 +15,11 @@ var (
 type ServiceContainer struct {
 	ctx ctx.Context
 
-	mu        sync.Mutex
-	instances map[reflect.Type]any
-	bindings  map[reflect.Type]*binding
+	instancesMu sync.Mutex
+	instances   map[reflect.Type]any
+
+	bindingsMu sync.Mutex
+	bindings   map[reflect.Type]*binding
 }
 
 func Init(ctx ctx.Context) {
@@ -39,8 +41,8 @@ func Container() *ServiceContainer {
 
 func Bind[Abstract any](closure func(ctx ctx.Context) any) {
 	c := Container()
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.bindingsMu.Lock()
+	defer c.bindingsMu.Unlock()
 
 	typ := reflect.TypeOf((*Abstract)(nil)).Elem()
 	c.bindings[typ] = &binding{bindTransient, closure}
@@ -48,8 +50,8 @@ func Bind[Abstract any](closure func(ctx ctx.Context) any) {
 
 func BindSingleton[Abstract any](closure func(ctx ctx.Context) any) {
 	c := Container()
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.bindingsMu.Lock()
+	defer c.bindingsMu.Unlock()
 
 	typ := reflect.TypeOf((*Abstract)(nil)).Elem()
 	c.bindings[typ] = &binding{bindSingleton, closure}
@@ -66,22 +68,23 @@ func MustResolve[Abstract any]() Abstract {
 
 func Resolve[Abstract any]() (Abstract, bool) {
 	c := Container()
-	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	var zero Abstract
 	typ := reflect.TypeOf((*Abstract)(nil)).Elem()
 
+	c.bindingsMu.Lock()
 	binding, bound := c.bindings[typ]
+	c.bindingsMu.Unlock()
+
 	if !bound {
 		return zero, false
 	}
 
 	var instance any
 	if binding.bindingType == bindSingleton {
-		if _, resolved := c.instances[typ]; resolved {
-			instance = c.instances[typ]
-		}
+		c.instancesMu.Lock()
+		instance = c.instances[typ]
+		c.instancesMu.Unlock()
 	}
 	if instance == nil {
 		instance = binding.closure(c.ctx)
@@ -93,7 +96,9 @@ func Resolve[Abstract any]() (Abstract, bool) {
 	}
 
 	if binding.bindingType == bindSingleton {
+		c.instancesMu.Lock()
 		c.instances[typ] = casted
+		c.instancesMu.Unlock()
 	}
 
 	return casted, true
