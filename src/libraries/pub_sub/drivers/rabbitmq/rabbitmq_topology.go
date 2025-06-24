@@ -26,7 +26,7 @@ func (client *RabbitMQTopology) DeclareExchange(name string) error {
 	) error {
 		return ch.ExchangeDeclare(
 			name,
-			"fanout",
+			"topic",
 			// TODO: allow options
 			false, // durable
 			false, // auto-delete

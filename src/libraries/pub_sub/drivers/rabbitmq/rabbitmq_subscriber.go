@@ -5,6 +5,7 @@ import (
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
 	"duolingo/libraries/pub_sub"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,26 +15,36 @@ import (
 type RabbitMQSubscriber struct {
 	*RabbitMQTopology
 
-	id string
+	id     string
+	queues map[string]string
 }
 
 func NewRabbitMQSubscriber(client *connection.RabbitMQClient) *RabbitMQSubscriber {
 	return &RabbitMQSubscriber{
 		RabbitMQTopology: NewRabbitMQTopology(client),
 		id:               uuid.NewString(),
+		queues:           make(map[string]string),
 	}
 }
 
-func (sub *RabbitMQSubscriber) GetChannel() string {
-	return sub.id
-}
-
 func (sub *RabbitMQSubscriber) Subscribe(topic string) error {
-	return sub.DeclareQueue(sub.GetChannel(), "", topic)
+	if _, exist := sub.queues[topic]; exist {
+		return fmt.Errorf("topic \"%v\" subscribed already", topic)
+	}
+	sub.queues[topic] = fmt.Sprintf("%v_%v", topic, sub.id)
+
+	if declareErr := sub.DeclareExchange(topic); declareErr != nil {
+		return declareErr
+	}
+
+	return sub.DeclareQueue(sub.queues[topic], topic, topic)
 }
 
 func (sub *RabbitMQSubscriber) UnSubscribe(topic string) error {
-	return sub.DeleteQueue(sub.GetChannel())
+	if _, exist := sub.queues[topic]; exist {
+		return sub.DeleteQueue(sub.queues[topic])
+	}
+	return fmt.Errorf("unsubscribe failed, topic \"%v\" has never subscribed", topic)
 }
 
 func (sub *RabbitMQSubscriber) Consuming(
@@ -45,7 +56,12 @@ func (sub *RabbitMQSubscriber) Consuming(
 	var channel *amqp.Channel
 	var fatalErr error
 
-	deliveries, channel, fatalErr = sub.waitForDeliveriesChanReady(ctx)
+	queue, exist := sub.queues[topic]
+	if !exist {
+		return fmt.Errorf("consuming an unsubscribed topic \"%v\"", topic)
+	}
+
+	deliveries, channel, fatalErr = sub.waitForDeliveriesChanReady(ctx, queue)
 	if fatalErr != nil {
 		return fatalErr
 	}
@@ -64,7 +80,7 @@ func (sub *RabbitMQSubscriber) Consuming(
 			return nil
 		case delivery, connectionAlive := <-deliveries:
 			if !connectionAlive {
-				deliveries, channel, fatalErr = sub.waitForDeliveriesChanReady(ctx)
+				deliveries, channel, fatalErr = sub.waitForDeliveriesChanReady(ctx, queue)
 				if fatalErr != nil {
 					return fatalErr
 				}
@@ -98,6 +114,7 @@ func (sub *RabbitMQSubscriber) Consuming(
 
 func (sub *RabbitMQSubscriber) waitForDeliveriesChanReady(
 	ctx context.Context,
+	queue string,
 ) (
 	<-chan amqp.Delivery,
 	*amqp.Channel,
@@ -111,7 +128,7 @@ func (sub *RabbitMQSubscriber) waitForDeliveriesChanReady(
 		}
 		if ch := sub.GetConnection(); ch != nil {
 			deliveries, err := ch.Consume(
-				sub.GetChannel(),
+				queue,
 				"",    // consumer tag (empty string for auto-generated)
 				false, // auto-ack (manual acknowledgment)
 				false, // exclusive

@@ -33,7 +33,7 @@ func (p *RabbitMQPublisher) Notify(topic string, message string) error {
 		return ch.PublishWithContext(
 			ctx,
 			topic,
-			"",    // fanout publish
+			topic,
 			true,  // mandatory (message must be routed to at least one queue)
 			false, // immediate (queue message even when no consumers)
 			amqp.Publishing{
