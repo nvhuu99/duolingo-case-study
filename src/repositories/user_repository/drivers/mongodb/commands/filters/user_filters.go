@@ -24,7 +24,10 @@ func (f *UserFilters) SetFilterCampaign(campaign string) {
 }
 
 func (f *UserFilters) SetFilterOnlyEmailVerified() {
-	f.filters["email_verified_at"] = b.M{"$lte": time.Now()}
+	f.filters["$and"] = []b.M{
+		{"email_verified_at": b.M{"$ne": nil}},
+		{"email_verified_at": b.M{"$lte": time.Now().UTC()}},
+	}
 }
 
 func (f *UserFilters) GetFilters() b.M {

@@ -11,14 +11,14 @@ import (
 type ListUsersCommand struct {
 	*filters.UserFilters
 	options *mongo.FindOptions
-	sorts   b.D
+	sorts   b.M
 }
 
 func NewListUsersCommand() *ListUsersCommand {
 	return &ListUsersCommand{
 		UserFilters: filters.NewUserFilters(),
 		options:     &mongo.FindOptions{},
-		sorts:       b.D{},
+		sorts:       b.M{},
 	}
 }
 
@@ -29,9 +29,9 @@ func (command *ListUsersCommand) SetPagination(offset uint64, limit uint64) {
 
 func (command *ListUsersCommand) SetSortById(ord cmd.SortOrder) {
 	if ord == cmd.OrderASC {
-		command.sorts = append(command.sorts, b.E{Key: "user_id", Value: 1})
+		command.sorts["user_id"] = 1
 	} else {
-		command.sorts = append(command.sorts, b.E{Key: "user_id", Value: -1})
+		command.sorts["user_id"] = -1
 	}
 }
 

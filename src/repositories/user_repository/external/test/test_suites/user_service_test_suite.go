@@ -1,77 +1,66 @@
 package test_suites
 
 import (
-	"duolingo/models"
 	user_repo "duolingo/repositories/user_repository/external"
 	"duolingo/repositories/user_repository/external/services"
-	"math/rand"
-	"strings"
-	"time"
+	"duolingo/repositories/user_repository/external/test/fixtures/data"
 
 	"github.com/stretchr/testify/suite"
 )
 
 type UserServiceTestSuite struct {
 	suite.Suite
-	factory      user_repo.UserRepoFactory
-	repo         user_repo.UserRepository
-	service      services.UserService
-	testUsersMap map[string]*models.User
-	testUserIds  []string
+	factory user_repo.UserRepoFactory
+	repo    user_repo.UserRepository
+	service services.UserService
 }
 
-func NewUserServiceTestSuite(factory user_repo.UserRepoFactory) *UserServiceTestSuite {
+func NewUserServiceTestSuite(
+	factory user_repo.UserRepoFactory,
+	repo user_repo.UserRepository,
+	service services.UserService,
+) *UserServiceTestSuite {
 	return &UserServiceTestSuite{
 		factory: factory,
-		service: factory.MakeUserService(),
-		repo:    factory.MakeUserRepo(),
+		repo:    repo,
+		service: service,
 	}
 }
 
 func (s *UserServiceTestSuite) SetupTest() {
-	insertedUsrs, err := s.insertFakeUsers()
-	if err != nil {
-		s.FailNow(err.Error())
-	}
-	s.testUsersMap = make(map[string]*models.User)
-	s.testUserIds = make([]string, len(insertedUsrs))
-	for i := range insertedUsrs {
-		s.testUsersMap[insertedUsrs[i].Id] = insertedUsrs[i]
-		s.testUserIds[i] = insertedUsrs[i].Id
-	}
+	s.repo.InsertManyUsers(data.TestUsers)
+	s.repo.InsertManyUsers(data.TestUsersEmailUnverified)
 }
 
 func (s *UserServiceTestSuite) TearDownTest() {
-	s.repo.DeleteUsersByIds(s.testUserIds)
+	s.repo.DeleteUsersByIds(data.TestUserIds)
+	s.repo.DeleteUsersByIds(data.TestUsersEmailUnverifiedIds)
 }
 
 func (s *UserServiceTestSuite) Test_CountDevicesForCampaign() {
-	count, err := s.service.CountDevicesForCampaign(testOnlyCampaign)
+	count, err := s.service.CountDevicesForCampaign(data.TestCampaignPrimary)
 	s.Assert().NoError(err)
-	s.Assert().Equal(uint64(len(s.testUserIds)*len(testDevices)), count)
+	s.Assert().Equal(uint64(len(data.TestDevices)), count)
 }
 
 func (s *UserServiceTestSuite) Test_GetDevicesForCampaign() {
-	devices, err := s.service.GetDevicesForCampaign(testOnlyCampaign, 0, 100)
-	s.Assert().NoError(err)
+	size := 2
+	total := (len(data.TestDevices) + 1) / size // ceiling(len/size)
+	for page := range total {
+		devices, err := s.service.GetDevicesForCampaign(
+			data.TestCampaignPrimary,
+			uint64(page*size),
+			uint64(size),
+		)
 
-	if s.Assert().Equal(len(s.testUserIds)*len(testDevices), len(devices)) {
-		for _, device := range devices {
-			s.Assert().Equal(device.Platform, "fake_platform")
-			s.Assert().True(strings.HasPrefix(device.Token, "fake_token_"))
+		if !s.Assert().NoError(err) || !s.Assert().NotEmpty(devices) {
+			return
+		}
+
+		for i := range size {
+			if j := page*size + i; j < len(data.TestDevices) {
+				s.Assert().Equal(*data.TestDevices[j], *devices[i])
+			}
 		}
 	}
-}
-
-func (s *UserServiceTestSuite) insertFakeUsers() ([]*models.User, error) {
-	n := rand.Intn(5) + 1
-	usrs := make([]*models.User, n)
-	for i := range n {
-		usrs[i] = &models.User{
-			Campaigns:       []string{testOnlyCampaign},
-			Devices:         testDevices,
-			EmailVerifiedAt: time.Now().Add(-1 * time.Hour),
-		}
-	}
-	return s.repo.InsertManyUsers(usrs)
 }

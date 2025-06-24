@@ -3,6 +3,7 @@ package services
 import (
 	"duolingo/models"
 	user_repo "duolingo/repositories/user_repository/external"
+	"duolingo/repositories/user_repository/external/commands"
 	"errors"
 )
 
@@ -39,20 +40,15 @@ func (service *UserService) GetDevicesForCampaign(
 	offset uint64,
 	limit uint64,
 ) ([]*models.UserDevice, error) {
-	query := service.MakeListUsersCommand()
+	query := service.MakeListUserDevicesCommand()
 	query.SetFilterCampaign(campaign)
 	query.SetFilterOnlyEmailVerified()
 	query.SetPagination(offset, limit)
+	query.SetSortById(commands.OrderASC)
 
-	users, err := service.GetListUsers(query)
+	devices, err := service.GetListUserDevices(query)
 	if err != nil {
 		return nil, err
 	}
-
-	devices := []*models.UserDevice{}
-	for i := range len(users) {
-		devices = append(devices, users[i].Devices...)
-	}
-
 	return devices, nil
 }

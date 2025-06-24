@@ -79,6 +79,7 @@ func (repo *UserRepo) DeleteUsers(command cmd.DeleteUsersCommand) error {
 func (repo *UserRepo) GetListUsersByIds(ids []string) ([]*models.User, error) {
 	command := driver_cmd.NewListUsersCommand()
 	command.SetFilterIds(ids)
+	command.SetSortById(cmd.OrderASC)
 	return repo.GetListUsers(command)
 }
 
@@ -107,6 +108,32 @@ func (repo *UserRepo) GetListUsers(command cmd.ListUsersCommand) ([]*models.User
 		return cursor.All(ctx, &users)
 	})
 	return users, err
+}
+
+func (repo *UserRepo) GetListUserDevices(command cmd.ListUserDevicesCommand) (
+	[]*models.UserDevice,
+	error,
+) {
+	mongoCmd, ok := command.(*driver_cmd.ListUserDevicesCommand)
+	if !ok {
+		panic(ErrInvalidCommandType)
+	}
+	if err := mongoCmd.Build(); err != nil {
+		return nil, err
+	}
+	var err error
+	var userDevices []*models.UserDevice
+	timeout := repo.GetReadTimeout()
+	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
+		cursor, cursorErr := collection.Aggregate(ctx, mongoCmd.GetPipeline())
+		if cursorErr != nil {
+			return cursorErr
+		}
+		defer cursor.Close(ctx)
+		return cursor.All(ctx, &userDevices)
+	})
+	return userDevices, err
 }
 
 func (repo *UserRepo) AggregateUsers(command cmd.AggregateUsersCommand) (

@@ -35,6 +35,10 @@ func (factory *UserRepoFactory) MakeListUsersCommand() cmd.ListUsersCommand {
 	return mongo_cmd.NewListUsersCommand()
 }
 
+func (factory *UserRepoFactory) MakeListUserDevicesCommand() cmd.ListUserDevicesCommand {
+	return mongo_cmd.NewListUserDevicesCommand()
+}
+
 func (factory *UserRepoFactory) MakeDeleteUsersCommand() cmd.DeleteUsersCommand {
 	return mongo_cmd.NewDeleteUsersCommand()
 }

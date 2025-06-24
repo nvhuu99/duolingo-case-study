@@ -9,6 +9,7 @@ type UserRepoFactory interface {
 	MakeUserRepo() UserRepository
 	MakeUserService() services.UserService
 	MakeListUsersCommand() commands.ListUsersCommand
+	MakeListUserDevicesCommand() commands.ListUserDevicesCommand
 	MakeDeleteUsersCommand() commands.DeleteUsersCommand
 	MakeAggregateUsersCommand() commands.AggregateUsersCommand
 }

@@ -14,6 +14,7 @@ type UserRepository interface {
 
 	GetListUsersByIds(ids []string) ([]*models.User, error)
 	GetListUsers(cmd commands.ListUsersCommand) ([]*models.User, error)
+	GetListUserDevices(cmd commands.ListUserDevicesCommand) ([]*models.UserDevice, error)
 
 	AggregateUsers(cmd commands.AggregateUsersCommand) (results.UsersAggregationResult, error)
 }
