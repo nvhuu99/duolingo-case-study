@@ -121,7 +121,6 @@ func (s *PubSubTestSuite) Test_Notify_And_Consuming() {
 		})
 		s.Assert().NoError(err)
 	}()
-
 	wg.Wait()
 }
 
@@ -184,4 +183,74 @@ func (s *PubSubTestSuite) Test_Reject_Message() {
 		}()
 	}
 	wg.Wait()
+}
+
+func (s *PubSubTestSuite) Test_MainTopic() {
+	mainTopic := "test_main_topic"
+
+	declareErr := s.publisher.DeclareMainTopic()
+	subErr1 := s.firstSubscriber.SubscribeMainTopic()
+	subErr2 := s.secondSubscriber.SubscribeMainTopic()
+	s.Assert().Error(declareErr, "main topic is not set")
+	s.Assert().Error(subErr1, "main topic is not set")
+	s.Assert().Error(subErr2, "main topic is not set")
+
+	s.publisher.SetMainTopic(mainTopic)
+	s.firstSubscriber.SetMainTopic(mainTopic)
+	s.secondSubscriber.SetMainTopic(mainTopic)
+	declareErr = s.publisher.DeclareMainTopic()
+	subErr1 = s.firstSubscriber.SubscribeMainTopic()
+	subErr2 = s.secondSubscriber.SubscribeMainTopic()
+	s.Assert().NoError(declareErr)
+	s.Assert().NoError(subErr1)
+	s.Assert().NoError(subErr2)
+
+	publishErr := s.publisher.NotifyMainTopic("test message")
+	if !s.Assert().NoError(publishErr) {
+		return
+	}
+
+	firstSubReceived := false
+	secondSubReceived := false
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	wg := new(sync.WaitGroup)
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		if !firstSubReceived || !secondSubReceived {
+			s.FailNow("main topic message is not delivered")
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		err := s.firstSubscriber.ConsumingMainTopic(ctx, func(msg string) ps.ConsumeAction {
+			if s.Assert().Equal("test message", msg) {
+				firstSubReceived = true
+			}
+			return ps.ActionAccept
+		})
+		s.Assert().NoError(err)
+	}()
+	go func() {
+		defer wg.Done()
+		err := s.secondSubscriber.ConsumingMainTopic(ctx, func(msg string) ps.ConsumeAction {
+			if s.Assert().Equal("test message", msg) {
+				secondSubReceived = true
+			}
+			return ps.ActionAccept
+		})
+		s.Assert().NoError(err)
+	}()
+	wg.Wait()
+
+	removeErr := s.publisher.RemoveMainTopic()
+	unSubErr1 := s.firstSubscriber.UnSubscribeMainTopic()
+	unSubErr2 := s.secondSubscriber.UnSubscribeMainTopic()
+	s.Assert().NoError(removeErr)
+	s.Assert().NoError(unSubErr1)
+	s.Assert().NoError(unSubErr2)
 }

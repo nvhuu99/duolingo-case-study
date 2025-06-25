@@ -12,11 +12,16 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+var (
+	ErrSubscriberMainTopicEmpty = errors.New("subscriber's main topic is empty")
+)
+
 type RabbitMQSubscriber struct {
 	*RabbitMQTopology
 
-	id     string
-	queues map[string]string
+	id        string
+	queues    map[string]string
+	mainTopic string
 }
 
 func NewRabbitMQSubscriber(client *connection.RabbitMQClient) *RabbitMQSubscriber {
@@ -27,24 +32,51 @@ func NewRabbitMQSubscriber(client *connection.RabbitMQClient) *RabbitMQSubscribe
 	}
 }
 
+func (sub *RabbitMQSubscriber) SetMainTopic(topic string) {
+	sub.mainTopic = topic
+}
+
+func (sub *RabbitMQSubscriber) SubscribeMainTopic() error {
+	if sub.mainTopic == "" {
+		return ErrSubscriberMainTopicEmpty
+	}
+	return sub.Subscribe(sub.mainTopic)
+}
+
+func (sub *RabbitMQSubscriber) UnSubscribeMainTopic() error {
+	if sub.mainTopic == "" {
+		return ErrSubscriberMainTopicEmpty
+	}
+	return sub.Subscribe(sub.mainTopic)
+}
+
+func (sub *RabbitMQSubscriber) ConsumingMainTopic(
+	ctx context.Context,
+	closure func(string) pub_sub.ConsumeAction,
+) error {
+	if sub.mainTopic == "" {
+		return ErrSubscriberMainTopicEmpty
+	}
+	return sub.Consuming(ctx, sub.mainTopic, closure)
+}
+
 func (sub *RabbitMQSubscriber) Subscribe(topic string) error {
-	if _, exist := sub.queues[topic]; exist {
-		return fmt.Errorf("topic \"%v\" subscribed already", topic)
+	if _, exist := sub.queues[topic]; !exist {
+		sub.queues[topic] = fmt.Sprintf("%v_%v", topic, sub.id)
+		if declareErr := sub.DeclareExchange(topic); declareErr != nil {
+			return declareErr
+		}
+		return sub.DeclareQueue(sub.queues[topic], topic, topic)
 	}
-	sub.queues[topic] = fmt.Sprintf("%v_%v", topic, sub.id)
-
-	if declareErr := sub.DeclareExchange(topic); declareErr != nil {
-		return declareErr
-	}
-
-	return sub.DeclareQueue(sub.queues[topic], topic, topic)
+	return nil
 }
 
 func (sub *RabbitMQSubscriber) UnSubscribe(topic string) error {
-	if _, exist := sub.queues[topic]; exist {
-		return sub.DeleteQueue(sub.queues[topic])
+	if queue, exist := sub.queues[topic]; exist {
+		delete(sub.queues, topic)
+		return sub.DeleteQueue(queue)
 	}
-	return fmt.Errorf("unsubscribe failed, topic \"%v\" has never subscribed", topic)
+	return nil
 }
 
 func (sub *RabbitMQSubscriber) Consuming(
