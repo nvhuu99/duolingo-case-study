@@ -121,5 +121,8 @@ func MustResolveAlias[Abstract any](alias string) Abstract {
 
 func getTypeAlias[Abstract any]() string {
 	typ := reflect.TypeOf((*Abstract)(nil)).Elem()
+	if typ.PkgPath() == "" {
+		return typ.String()
+	}
 	return strings.Join([]string{typ.PkgPath(), typ.String()}, "/")
 }
