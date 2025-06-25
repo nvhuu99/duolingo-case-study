@@ -17,7 +17,42 @@ func (s *ServiceContainerTestSuite) SetupSuite() {
 	container.Init(context.Background())
 }
 
-func (s *ServiceContainerTestSuite) Test_BindTransient() {
+func (s *ServiceContainerTestSuite) Test_Bind_Alias_Transient() {
+	container.BindAlias("dog_as_animal", func(ctx context.Context) any {
+		return &fake.Dog{Id: uuid.NewString()}
+	})
+
+	firstDog, firstResolve := container.ResolveAlias[fake.Animal]("dog_as_animal")
+	secondDog, secondResolved := container.ResolveAlias[fake.Animal]("dog_as_animal")
+
+	s.Assert().True(firstResolve)
+	s.Assert().NotNil(firstDog)
+
+	s.Assert().True(secondResolved)
+	s.Assert().NotNil(secondDog)
+
+	s.Assert().NotSame(firstDog, secondDog)
+	s.Assert().NotEqual(firstDog.MakeSound(), secondDog.MakeSound())
+}
+
+func (s *ServiceContainerTestSuite) Test_Bind_Alias_Singleton() {
+	container.BindSingletonAlias("dog_as_animal", func(ctx context.Context) any {
+		return &fake.Dog{Id: uuid.NewString()}
+	})
+	firstDog, firstResolve := container.ResolveAlias[fake.Animal]("dog_as_animal")
+	secondDog, secondResolved := container.ResolveAlias[fake.Animal]("dog_as_animal")
+
+	s.Assert().True(firstResolve)
+	s.Assert().NotNil(firstDog)
+
+	s.Assert().True(secondResolved)
+	s.Assert().NotNil(secondDog)
+
+	s.Assert().Same(firstDog, secondDog)
+	s.Assert().Equal(firstDog.MakeSound(), secondDog.MakeSound())
+}
+
+func (s *ServiceContainerTestSuite) Test_Bind_Transient() {
 	container.Bind[fake.Animal](func(ctx context.Context) any {
 		return &fake.Dog{Id: uuid.NewString()}
 	})
@@ -35,7 +70,7 @@ func (s *ServiceContainerTestSuite) Test_BindTransient() {
 	s.Assert().NotEqual(firstDog.MakeSound(), secondDog.MakeSound())
 }
 
-func (s *ServiceContainerTestSuite) Test_BindSingleton() {
+func (s *ServiceContainerTestSuite) Test_Bind_Singleton() {
 	container.BindSingleton[fake.Animal](func(ctx context.Context) any {
 		return &fake.Dog{Id: uuid.NewString()}
 	})
@@ -52,7 +87,7 @@ func (s *ServiceContainerTestSuite) Test_BindSingleton() {
 	s.Assert().Equal(firstDog.MakeSound(), secondDog.MakeSound())
 }
 
-func (s *ServiceContainerTestSuite) Test_Bind_Concrete_Alias() {
+func (s *ServiceContainerTestSuite) Test_Bind_Concrete() {
 	dog := &fake.Dog{Id: uuid.NewString()}
 	container.BindSingleton[*fake.Dog](func(ctx context.Context) any {
 		return dog
