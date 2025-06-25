@@ -1,24 +1,28 @@
 package mongodb
 
 import (
-	"context"
 	"testing"
 
-	connection "duolingo/libraries/connection_manager/drivers/mongodb"
-	facade "duolingo/libraries/connection_manager/facade"
-	mongodb "duolingo/repositories/user_repository/drivers/mongodb"
+	container "duolingo/libraries/service_container"
+	"duolingo/repositories/user_repository/drivers/mongodb"
+	"duolingo/repositories/user_repository/drivers/mongodb/services"
 	"duolingo/repositories/user_repository/external/test/test_suites"
+	"duolingo/test/fixtures/bootstrap"
+	cnst "duolingo/test/fixtures/constants"
 
 	"github.com/stretchr/testify/suite"
 )
 
 func TestMongoDBUserService(t *testing.T) {
-	client := facade.Provider(context.Background()).InitMongo(connection.
-		DefaultMongoConnectionArgs().
-		SetCredentials("root", "12345"),
-	).GetMongoClient()
+	bootstrap.Bootstrap()
 
-	factory := mongodb.NewUserRepoFactory(client)
+	factory := container.MustResolveAlias[*mongodb.UserRepoFactory](cnst.UserRepoFactory)
+	repo := container.MustResolveAlias[*mongodb.UserRepo](cnst.UserRepo)
+	service := container.MustResolveAlias[*services.UserService](cnst.UserService)
 
-	suite.Run(t, test_suites.NewUserServiceTestSuite(factory))
+	suite.Run(t, test_suites.NewUserServiceTestSuite(
+		factory,
+		repo,
+		service,
+	))
 }

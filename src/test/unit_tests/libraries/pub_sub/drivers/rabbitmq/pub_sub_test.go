@@ -6,7 +6,6 @@ import (
 
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
 	facade "duolingo/libraries/connection_manager/facade"
-	"duolingo/libraries/pub_sub"
 	"duolingo/libraries/pub_sub/drivers/rabbitmq"
 	"duolingo/libraries/pub_sub/test/test_suites"
 
@@ -18,12 +17,10 @@ func TestPubSub(t *testing.T) {
 		DefaultRabbitMQConnectionArgs().
 		SetCredentials("root", "12345"),
 	)
-	publisher := rabbitmq.NewRabbitMQPublisher(provider.GetRabbitMQClient())
-	subscribers := []pub_sub.Subscriber{
-		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
-		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
-		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
-	}
 
-	suite.Run(t, test_suites.NewPubSubTestSuite(publisher, subscribers))
+	suite.Run(t, test_suites.NewPubSubTestSuite(
+		rabbitmq.NewRabbitMQPublisher(provider.GetRabbitMQClient()),
+		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
+		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
+	))
 }
