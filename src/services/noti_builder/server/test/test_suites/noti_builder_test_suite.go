@@ -6,8 +6,8 @@ import (
 	"duolingo/models"
 	"duolingo/repositories/user_repository/external"
 	"duolingo/services/noti_builder/server"
-	"duolingo/test/fixtures/data"
 	cnst "duolingo/test/fixtures/constants"
+	"duolingo/test/fixtures/data"
 	"sync"
 	"time"
 

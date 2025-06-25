@@ -16,7 +16,7 @@ func main() {
 		"message title",
 		"message body",
 	)
-	publisher := container.MustResolveAlias[ps.Publisher](cnst.MesgInputPublisher)	
+	publisher := container.MustResolveAlias[ps.Publisher](cnst.MesgInputPublisher)
 	handler := handlers.NewMessageInputRequestHandler(publisher)
 	handler.Handle(request)
 }

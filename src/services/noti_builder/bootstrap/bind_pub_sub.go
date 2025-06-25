@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	cnst "duolingo/constants"
 	facade "duolingo/libraries/connection_manager/facade"
 	"duolingo/libraries/pub_sub/drivers/rabbitmq"
 	container "duolingo/libraries/service_container"
-	cnst "duolingo/constants"
 )
 
 func BindPublisher() {

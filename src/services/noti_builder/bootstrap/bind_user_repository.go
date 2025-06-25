@@ -2,10 +2,10 @@ package bootstrap
 
 import (
 	"context"
+	cnst "duolingo/constants"
 	"duolingo/libraries/connection_manager/facade"
 	container "duolingo/libraries/service_container"
 	"duolingo/repositories/user_repository/drivers/mongodb"
-	cnst "duolingo/constants"
 )
 
 func BindUserRepo() {

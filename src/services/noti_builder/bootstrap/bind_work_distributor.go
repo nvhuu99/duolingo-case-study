@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 
+	cnst "duolingo/constants"
 	facade "duolingo/libraries/connection_manager/facade"
 	ps "duolingo/libraries/pub_sub"
 	container "duolingo/libraries/service_container"
@@ -10,7 +11,6 @@ import (
 	redis "duolingo/libraries/work_distributor/drivers/redis"
 	"duolingo/repositories/user_repository/external/services"
 	wrkl "duolingo/services/noti_builder/server/workloads"
-	cnst "duolingo/constants"
 )
 
 func BindWorkDistributor() {
