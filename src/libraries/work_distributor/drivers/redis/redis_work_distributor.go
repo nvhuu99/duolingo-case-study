@@ -10,5 +10,5 @@ func NewRedisWorkDistributor(
 	distributionSize uint64,
 ) *work_distributor.WorkDistributor {
 	proxy := NewRedisWorkStorageProxy(client)
-	return work_distributor.NewWorkDistributor(proxy, 10)
+	return work_distributor.NewWorkDistributor(proxy, distributionSize)
 }
