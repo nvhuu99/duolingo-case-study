@@ -1,6 +1,10 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type MessageInput struct {
 	Id       string `json:"id"`
@@ -11,6 +15,7 @@ type MessageInput struct {
 
 func NewMessageInput(campaign string, title string, body string) *MessageInput {
 	return &MessageInput{
+		Id:       uuid.NewString(),
 		Campaign: campaign,
 		Title:    title,
 		Body:     body,

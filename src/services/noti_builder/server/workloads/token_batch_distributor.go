@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"duolingo/constants"
 	"duolingo/libraries/pub_sub"
 	"duolingo/libraries/work_distributor"
 	"duolingo/models"
@@ -12,19 +11,24 @@ import (
 
 type TokenBatchDistributor struct {
 	*work_distributor.WorkDistributor
-	services.UserService
-	pub_sub.Publisher
+
+	jobPublisher  pub_sub.Publisher
+	jobSubscriber pub_sub.Subscriber
+
+	userService services.UserService
 }
 
 func NewTokenBatchDistributor(
 	base *work_distributor.WorkDistributor,
+	jobPublisher pub_sub.Publisher,
+	jobSubscriber pub_sub.Subscriber,
 	userService services.UserService,
-	publisher pub_sub.Publisher,
 ) *TokenBatchDistributor {
 	return &TokenBatchDistributor{
 		WorkDistributor: base,
-		UserService:     userService,
-		Publisher:       publisher,
+		jobPublisher:    jobPublisher,
+		jobSubscriber:   jobSubscriber,
+		userService:     userService,
 	}
 }
 
@@ -32,20 +36,34 @@ func (d *TokenBatchDistributor) CreateBatchJob(input *models.MessageInput) error
 	var err error
 	var count uint64
 	var workload *work_distributor.Workload
-	if count, err = d.CountDevicesForCampaign(input.Campaign); err == nil && count != 0 {
+	if count, err = d.userService.CountDevicesForCampaign(input.Campaign); err == nil && count != 0 {
 		if workload, err = d.CreateWorkload(count); err == nil {
-			return d.Notify(constants.TopicNotiBuilderJobs,
-				string(NewTokenBatchJob(workload.Id, input).Encode()))
+			job := NewTokenBatchJob(workload.Id, input)
+			err = d.jobPublisher.NotifyMainTopic(string(job.Encode()))
 		}
 	}
 	return err
 }
 
-func (d *TokenBatchDistributor) ConsumeIncomingBatches(
+func (d *TokenBatchDistributor) ConsumingTokenBatches(
+	ctx context.Context,
+	batchConsumer func(input *models.MessageInput, devices []*models.UserDevice) error,
+) error {
+	return d.jobSubscriber.ConsumingMainTopic(ctx, func(str string) pub_sub.ConsumeAction {
+		return d.acceptOrReject(
+			d.startJobBatching(ctx, JobDecode([]byte(str)), batchConsumer))
+	})
+}
+
+func (d *TokenBatchDistributor) startJobBatching(
 	ctx context.Context,
 	job *TokenBatchJob,
 	closure func(input *models.MessageInput, devices []*models.UserDevice) error,
 ) error {
+	if jobErr := job.Validate(); jobErr != nil {
+		return jobErr
+	}
+
 	consumeCtx, consumeCancel := context.WithCancel(ctx)
 	defer consumeCancel()
 
@@ -63,14 +81,16 @@ func (d *TokenBatchDistributor) ConsumeIncomingBatches(
 			return lastErr
 		}
 		if assignment, lastErr = d.WaitForAssignment(consumeCtx, interval, jobId); lastErr != nil {
-			lastErr = d.fulfilledOrErr(lastErr)
+			if lastErr == work_distributor.ErrWorkloadHasAlreadyFulfilled {
+				return nil
+			}
 			continue
 		}
 		lastErr = d.HandleAssignment(assignment, func() error {
-			devices, queryErr := d.GetDevicesForCampaign(
+			devices, queryErr := d.userService.GetDevicesForCampaign(
 				job.Message.Campaign,
-				assignment.WorkStartAt(),
-				assignment.WorkEndAt(),
+				assignment.WorkStartAt()-1,                        // offset
+				assignment.WorkEndAt()-assignment.WorkStartAt()+1, // limit
 			)
 			if queryErr != nil {
 				return queryErr
@@ -80,9 +100,9 @@ func (d *TokenBatchDistributor) ConsumeIncomingBatches(
 	}
 }
 
-func (d *TokenBatchDistributor) fulfilledOrErr(err error) error {
-	if err == work_distributor.ErrWorkloadHasAlreadyFulfilled {
-		return nil
+func (d *TokenBatchDistributor) acceptOrReject(err error) pub_sub.ConsumeAction {
+	if err != nil {
+		return pub_sub.ActionAccept
 	}
-	return err
+	return pub_sub.ActionReject
 }

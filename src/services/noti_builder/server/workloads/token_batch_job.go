@@ -3,6 +3,7 @@ package workloads
 import (
 	"duolingo/models"
 	"encoding/json"
+	"errors"
 )
 
 type TokenBatchJob struct {
@@ -15,6 +16,13 @@ func NewTokenBatchJob(jobId string, message *models.MessageInput) *TokenBatchJob
 		JobId:   jobId,
 		Message: message,
 	}
+}
+
+func (job *TokenBatchJob) Validate() error {
+	if job.Message == nil || job.JobId == "" {
+		return errors.New("message or job id missing")
+	}
+	return nil
 }
 
 func (job *TokenBatchJob) Encode() []byte {

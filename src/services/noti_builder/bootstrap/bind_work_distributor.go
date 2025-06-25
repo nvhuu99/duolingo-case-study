@@ -4,28 +4,31 @@ import (
 	"context"
 
 	facade "duolingo/libraries/connection_manager/facade"
-	"duolingo/libraries/pub_sub"
+	ps "duolingo/libraries/pub_sub"
 	container "duolingo/libraries/service_container"
 	"duolingo/libraries/work_distributor"
 	redis "duolingo/libraries/work_distributor/drivers/redis"
 	"duolingo/repositories/user_repository/external/services"
-	"duolingo/services/noti_builder/server/workloads"
+	wrkl "duolingo/services/noti_builder/server/workloads"
+	cnst "duolingo/constants"
 )
 
 func BindWorkDistributor() {
 	container.BindSingleton[*work_distributor.WorkDistributor](func(ctx context.Context) any {
 		provider := container.MustResolve[*facade.ConnectionProvider]()
-		return redis.NewRedisWorkDistributor(provider.GetRedisClient(), 10)
+		return redis.NewRedisWorkDistributor(provider.GetRedisClient(), cnst.DistributionSize)
 	})
 
-	container.BindSingleton[*workloads.TokenBatchDistributor](func(ctx context.Context) any {
-		userService := container.MustResolve[services.UserService]()
+	container.BindSingleton[*wrkl.TokenBatchDistributor](func(ctx context.Context) any {
+		userService := container.MustResolveAlias[services.UserService](cnst.UserService)
 		distributor := container.MustResolve[*work_distributor.WorkDistributor]()
-		publisher := container.MustResolve[pub_sub.Publisher]()
-		return workloads.NewTokenBatchDistributor(
+		jobPublisher := container.MustResolveAlias[ps.Publisher](cnst.NotiBuilderJobPublisher)
+		jobSubscriber := container.MustResolveAlias[ps.Subscriber](cnst.NotiBuilderJobSubscriber)
+		return wrkl.NewTokenBatchDistributor(
 			distributor,
+			jobPublisher,
+			jobSubscriber,
 			userService,
-			publisher,
 		)
 	})
 }

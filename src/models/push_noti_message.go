@@ -18,7 +18,7 @@ func NewPushNotiMessage(input *MessageInput, devices []*UserDevice) *PushNotiMes
 }
 
 func (m *PushNotiMessage) GetTargetTokens(platforms []string) []string {
-	tokens := make([]string, len(m.TargetDevices))
+	tokens := []string{}
 	for i := range m.TargetDevices {
 		if slices.Contains(platforms, m.TargetDevices[i].Platform) {
 			if m.TargetDevices[i].Token != "" {
