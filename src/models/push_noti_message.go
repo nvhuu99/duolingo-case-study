@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 )
 
@@ -15,6 +16,16 @@ func NewPushNotiMessage(input *MessageInput, devices []*UserDevice) *PushNotiMes
 		MessageInput:  input,
 		TargetDevices: devices,
 	}
+}
+
+func (m *PushNotiMessage) Validate() error {
+	if m.MessageInput == nil || m.MessageInput.Title == "" || m.MessageInput.Body == "" {
+		return errors.New("push notification message is empty")
+	}
+	if len(m.TargetDevices) == 0 {
+		return errors.New("push notification target devices is empty")
+	}
+	return nil
 }
 
 func (m *PushNotiMessage) GetTargetTokens(platforms []string) []string {

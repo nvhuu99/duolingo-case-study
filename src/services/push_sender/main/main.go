@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
-	"duolingo/constants"
+	cnst "duolingo/constants"
+	ps "duolingo/libraries/pub_sub"
+	"duolingo/libraries/push_notification"
+	container "duolingo/libraries/service_container"
 	"duolingo/services/push_sender/bootstrap"
 	"duolingo/services/push_sender/server"
 	"time"
@@ -11,16 +14,18 @@ import (
 func main() {
 	bootstrap.Bootstrap()
 
-	topic := constants.TopicPushNotiMessages
+	notiSubscriber := container.MustResolveAlias[ps.Subscriber](cnst.PushNotiSubscriber)
+	pushService := container.MustResolve[push_notification.PushService]()
+
 	platforms := []string{
-		"android", 
+		"android",
 		"ios",
 	}
 	bufferLimit := 500
 	flushInterval := 100 * time.Millisecond
-
 	sender := server.NewSender(
-		topic,
+		notiSubscriber,
+		pushService,
 		platforms,
 		bufferLimit,
 		flushInterval,

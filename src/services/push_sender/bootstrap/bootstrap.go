@@ -7,6 +7,7 @@ import (
 
 func Bootstrap() {
 	container.Init(context.Background())
+	BindConnections()
 	BindPublisher()
 	BindPushService()
 }

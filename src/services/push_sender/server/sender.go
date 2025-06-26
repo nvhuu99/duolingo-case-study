@@ -7,19 +7,17 @@ import (
 	"duolingo/libraries/push_notification"
 	"duolingo/libraries/push_notification/message"
 	"duolingo/libraries/push_notification/results"
-	"duolingo/libraries/service_container"
 	"duolingo/models"
 	"time"
 )
 
 type Sender struct {
-	// Subscribe to the topic for receiving incoming push notification messages
-	topic string
-	pub_sub.Subscriber
+	// Subscriber receiving incoming push notification messages
+	notiSubscriber pub_sub.Subscriber
 
 	// Sending notifications to supported platforms (e.g., Android, IOS).
-	platforms []string
-	push_notification.PushService
+	platforms   []string
+	pushService push_notification.PushService
 
 	// The PushService may limit the number of device tokens that can be included
 	// in each send request, or the system may need to manage the sending rate.
@@ -28,39 +26,45 @@ type Sender struct {
 	// each message is stored in a token buffer. When the buffer reaches its size
 	// limit, the Sender is then able to flush the tokens and submit a send request
 	// to the PushService.
-	*buffer.BufferGroup[models.MessageInput, string]
+	buffer *buffer.BufferGroup[models.MessageInput, string]
 }
 
 func NewSender(
-	topic string,
+	notiSubscriber pub_sub.Subscriber,
+	pushService push_notification.PushService,
 	platforms []string,
 	bufferLimit int,
 	bufferInterval time.Duration,
 ) *Sender {
-	sub := service_container.MustResolve[pub_sub.Subscriber]()
 	grp := buffer.NewBufferGroup[models.MessageInput, string]()
 	grp.SetLimit(bufferLimit).SetInterval(bufferInterval)
 	return &Sender{
-		Subscriber:  sub,
-		BufferGroup: grp,
+		notiSubscriber: notiSubscriber,
+		pushService:    pushService,
+		buffer:         grp,
+		platforms:      platforms,
 	}
 }
 
 func (sender *Sender) Start(ctx context.Context) error {
 	// When the buffer reaches size limit, flush the tokens and submit a send
 	// request to the PushService.
-	sender.SetConsumeFunc(false, func(input models.MessageInput, tokens []string) {
+	sender.buffer.SetConsumeFunc(false, func(input models.MessageInput, tokens []string) {
 		sender.sendPushNoti(ctx, &input, tokens)
 	})
 	// Stored incoming push notification message in a token buffer
-	return sender.Consuming(ctx, sender.topic, func(s string) pub_sub.ConsumeAction {
-		sender.bufferMessage(models.PushNotiMessageDecode([]byte(s)))
+	return sender.notiSubscriber.ConsumingMainTopic(ctx, func(s string) pub_sub.ConsumeAction {
+		msg := models.PushNotiMessageDecode([]byte(s))
+		if err := msg.Validate(); err == nil {
+			sender.bufferMessage(ctx, msg)
+		}
 		return pub_sub.ActionAccept
 	})
 }
 
-func (sender *Sender) bufferMessage(message *models.PushNotiMessage) {
-	sender.BufferGroup.Write(
+func (sender *Sender) bufferMessage(ctx context.Context, message *models.PushNotiMessage) {
+	sender.buffer.AddGroup(ctx, *message.MessageInput)
+	sender.buffer.Write(
 		*message.MessageInput,
 		message.GetTargetTokens(sender.platforms)...,
 	)
@@ -82,5 +86,5 @@ func (sender *Sender) sendPushNoti(
 		DeviceTokens: tokens,
 		Platforms:    message.Platforms(sender.platforms...),
 	}
-	return sender.SendMulticast(ctx, noti, target)
+	return sender.pushService.SendMulticast(ctx, noti, target)
 }
