@@ -17,13 +17,15 @@ type BufferGroupTestSuite struct {
 func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 	done := make(chan bool, 1)
 
-	flushCount := 0
 	grp := buffer.NewBufferGroup[string, string]()
+	defer grp.Stop()
+
+	flushCount := 0
 	grp.
 		SetLimit(3).
 		SetInterval(100*time.Second). // this amount ensure the flush trigger by limit
-		AddGroup("grp_1").
-		AddGroup("grp_2").
+		AddGroup(context.Background(), "grp_1").
+		AddGroup(context.Background(), "grp_2").
 		SetConsumeFunc(true, func(name string, items []string) {
 			if s.Assert().True(name == "grp_1" || name == "grp_2") {
 				if s.Assert().Equal(len(items), 3) {
@@ -36,9 +38,6 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 				}
 			}
 		})
-
-	grp.Start(context.Background())
-	defer grp.Stop()
 
 	timeout := time.After(20 * time.Millisecond)
 	wg := new(sync.WaitGroup)
@@ -67,15 +66,16 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 }
 
 func (s *BufferGroupTestSuite) Test_BufferGroup_Flush_Interval() {
-	done := make(chan bool, 1)
-
-	flushCount := 0
 	grp := buffer.NewBufferGroup[string, string]()
+	defer grp.Stop()
+
+	done := make(chan bool, 1)
+	flushCount := 0
 	grp.
 		SetInterval(10*time.Millisecond).
 		SetLimit(1000). // this amount ensure the flush trigger by interval
-		AddGroup("grp_1").
-		AddGroup("grp_2").
+		AddGroup(context.Background(), "grp_1").
+		AddGroup(context.Background(), "grp_2").
 		SetConsumeFunc(true, func(name string, items []string) {
 			if s.Assert().True(name == "grp_1" || name == "grp_2") {
 				if s.Assert().Equal(3, len(items)) {
@@ -88,9 +88,6 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Flush_Interval() {
 				}
 			}
 		})
-
-	grp.Start(context.Background())
-	defer grp.Stop()
 
 	timeout := time.After(20 * time.Millisecond)
 	wg := new(sync.WaitGroup)
