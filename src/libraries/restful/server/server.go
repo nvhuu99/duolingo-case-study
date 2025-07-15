@@ -1,7 +1,9 @@
-package restful
+package server
 
 import (
+	"duolingo/libraries/restful"
 	"duolingo/libraries/restful/router"
+	"duolingo/libraries/restful/server/pipelines"
 	"net/http"
 	"strings"
 )
@@ -9,14 +11,14 @@ import (
 type Server struct {
 	addr           string
 	router         *router.Router
-	pipelineGroups *PipelineGroups
+	pipelineGroups *restful.PipelineGroups
 }
 
 func NewServer(addr string) *Server {
 	return &Server{
 		addr:           addr,
 		router:         router.NewRouter(),
-		pipelineGroups: NewPipelineGroups(),
+		pipelineGroups: restful.NewPipelineGroups(),
 	}
 }
 
@@ -25,23 +27,27 @@ func (server *Server) Serve() {
 	server.startServer()
 }
 
-func (server *Server) Get(path string, handler func(*Request, *Response)) {
+func (server *Server) Get(path string, handler func(*restful.Request, *restful.Response)) {
 	server.addRoute("GET", path, handler)
 }
 
-func (server *Server) Post(path string, handler func(*Request, *Response)) {
+func (server *Server) Post(path string, handler func(*restful.Request, *restful.Response)) {
 	server.addRoute("POST", path, handler)
 }
 
-func (server *Server) Put(path string, handler func(*Request, *Response)) {
+func (server *Server) Put(path string, handler func(*restful.Request, *restful.Response)) {
 	server.addRoute("PUT", path, handler)
 }
 
-func (server *Server) Delete(path string, handler func(*Request, *Response)) {
+func (server *Server) Delete(path string, handler func(*restful.Request, *restful.Response)) {
 	server.addRoute("DELETE", path, handler)
 }
 
-func (server *Server) addRoute(method string, path string, handler func(*Request, *Response)) {
+func (server *Server) addRoute(
+	method string,
+	path string,
+	handler func(*restful.Request, *restful.Response),
+) {
 	if strings.Trim(path, "/") == "" {
 		panic("'/' is not a valid route")
 	}
@@ -52,15 +58,15 @@ func (server *Server) addRoute(method string, path string, handler func(*Request
 
 func (server *Server) configServer() {
 	server.pipelineGroups.Push("requestFilter",
-		&handleRequestPreflight{},
-		&validateCORS{},
-		&routeRequest{Router: server.router},
+		&pipelines.HandlePreflightRequest{},
+		&pipelines.ValidateCORS{},
+		&pipelines.RouteRequestSetHandler{Router: server.router},
 	)
 	server.pipelineGroups.Push("handlingRequest",
-		&executeRequestHandler{},
+		&pipelines.ExecuteRequestHandler{},
 	)
 	server.pipelineGroups.Push("requestHandled",
-		&fallbackNoContent{},
+		&pipelines.FallbackNoContent{},
 	)
 }
 
@@ -72,15 +78,15 @@ func (server *Server) startServer() {
 }
 
 func (server *Server) handleRequest(rw http.ResponseWriter, req *http.Request) {
-	request := &Request{base: req}
-	response := &Response{base: rw}
+	request := restful.NewRequest(req)
+	response := restful.NewResponse(rw)
 	defer server.panicHandler(response)
 	server.pipelineGroups.ExecuteAll(request, response)
 }
 
-func (server *Server) panicHandler(response *Response) {
+func (server *Server) panicHandler(response *restful.Response) {
 	if r := recover(); r != nil {
-		if !response.sent {
+		if !response.Sent() {
 			response.ServerErr("Internal Server Error")
 		}
 	}

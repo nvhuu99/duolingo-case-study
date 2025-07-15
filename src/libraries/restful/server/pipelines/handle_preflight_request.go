@@ -1,14 +1,15 @@
-package restful
+package pipelines
 
 import (
+	"duolingo/libraries/restful"
 	"net/http"
 )
 
-type handleRequestPreflight struct {
-	BasePipeline
+type HandlePreflightRequest struct {
+	restful.BasePipeline
 }
 
-func (pipeline *handleRequestPreflight) Handle(req *Request, res *Response) {
+func (pipeline *HandlePreflightRequest) Handle(req *restful.Request, res *restful.Response) {
 	if req.Method() == http.MethodOptions {
 		res.SetHeader("Allow", "GET, POST, PUT, DELETE, OPTIONS")
 		res.SetHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")

@@ -16,6 +16,10 @@ type Request struct {
 	handler  func(*Request, *Response)
 }
 
+func NewRequest(base *http.Request) *Request {
+	return &Request{base: base}
+}
+
 func (request *Request) Method() string {
 	return request.base.Method
 }

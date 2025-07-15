@@ -14,35 +14,39 @@ func NewResponse(base http.ResponseWriter) *Response {
 	return &Response{base: base}
 }
 
+func (res *Response) Sent() bool {
+	return res.sent
+}
+
 func (res *Response) SetHeader(key string, value string) {
 	res.base.Header().Set(key, value)
 }
 
 func (res *Response) Ok(message string, data any) {
-	res.send(http.StatusOK, true, message, nil, data)
+	res.Send(http.StatusOK, true, message, nil, data)
 }
 
 func (res *Response) Created(message string, data any) {
-	res.send(http.StatusCreated, true, message, nil, data)
+	res.Send(http.StatusCreated, true, message, nil, data)
 }
 
 func (res *Response) NotFound(message string) {
-	res.send(http.StatusNotFound, false, message, nil, nil)
+	res.Send(http.StatusNotFound, false, message, nil, nil)
 }
 
 func (res *Response) BadRequest(message string, errs any) {
-	res.send(http.StatusBadRequest, false, message, errs, nil)
+	res.Send(http.StatusBadRequest, false, message, errs, nil)
 }
 
 func (res *Response) ServerErr(message string) {
-	res.send(http.StatusInternalServerError, false, "", nil, nil)
+	res.Send(http.StatusInternalServerError, false, "", nil, nil)
 }
 
 func (res *Response) NoContent() {
-	res.send(http.StatusNoContent, true, "", nil, nil)
+	res.Send(http.StatusNoContent, true, "", nil, nil)
 }
 
-func (res *Response) send(
+func (res *Response) Send(
 	status int,
 	success bool,
 	message string,
