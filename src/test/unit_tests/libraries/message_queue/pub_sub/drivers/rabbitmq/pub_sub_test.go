@@ -6,8 +6,8 @@ import (
 
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
 	facade "duolingo/libraries/connection_manager/facade"
-	"duolingo/libraries/pub_sub/drivers/rabbitmq"
-	"duolingo/libraries/pub_sub/test/test_suites"
+	rabbitmq "duolingo/libraries/message_queue/drivers/rabbitmq/pub_sub"
+	"duolingo/libraries/message_queue/pub_sub/test/test_suites"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -19,8 +19,8 @@ func TestPubSub(t *testing.T) {
 	)
 
 	suite.Run(t, test_suites.NewPubSubTestSuite(
-		rabbitmq.NewRabbitMQPublisher(provider.GetRabbitMQClient()),
-		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
-		rabbitmq.NewRabbitMQSubscriber(provider.GetRabbitMQClient()),
+		rabbitmq.NewPublisher(provider.GetRabbitMQClient()),
+		rabbitmq.NewSubscriber(provider.GetRabbitMQClient()),
+		rabbitmq.NewSubscriber(provider.GetRabbitMQClient()),
 	))
 }

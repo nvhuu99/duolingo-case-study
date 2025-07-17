@@ -1,5 +1,11 @@
 package pub_sub
 
+import "errors"
+
+var (
+	ErrPublisherMainTopicNotSet = errors.New("publisher main topic is not set")
+)
+
 type Publisher interface {
 	DeclareTopic(topic string) error
 	RemoveTopic(topic string) error
