@@ -61,8 +61,6 @@ func (s *PubSubTestSuite) Test_Notify_And_Listening() {
 	if !s.Assert().NoError(subErr1) || !s.Assert().NoError(subErr2) {
 		return
 	}
-	defer s.firstSubscriber.UnSubscribe(tp1)
-	defer s.secondSubscriber.UnSubscribe(tp2)
 	go func() {
 		defer wg.Done()
 		expectMsg := "s1_m1"
@@ -99,14 +97,29 @@ func (s *PubSubTestSuite) Test_Notify_And_Listening() {
 	}()
 
 	// after subscribed, publish messages
+	declareErr1 := s.publisher.DeclareTopic(tp1)
+	declareErr2 := s.publisher.DeclareTopic(tp2)
 	pubErr1 := s.publisher.Notify(tp1, "s1_m1")
 	pubErr2 := s.publisher.Notify(tp1, "s1_m2")
 	pubErr3 := s.publisher.Notify(tp2, "s2_m1")
 	pubErr4 := s.publisher.Notify(tp2, "s2_m2")
-	if !s.Assert().NoError(pubErr1) || !s.Assert().NoError(pubErr2) ||
-		!s.Assert().NoError(pubErr3) || !s.Assert().NoError(pubErr4) {
+	if !s.Assert().NoError(declareErr1) ||
+		!s.Assert().NoError(declareErr2) ||
+		!s.Assert().NoError(pubErr1) ||
+		!s.Assert().NoError(pubErr2) ||
+		!s.Assert().NoError(pubErr3) ||
+		!s.Assert().NoError(pubErr4) {
 		return
 	}
+
+	rmErr1 := s.publisher.RemoveTopic(tp1)
+	rmErr2 := s.publisher.RemoveTopic(tp2)
+	unSubErr1 := s.firstSubscriber.UnSubscribe(tp1)
+	unSubErr2 := s.secondSubscriber.UnSubscribe(tp2)
+	s.Assert().NoError(rmErr1)
+	s.Assert().NoError(rmErr2)
+	s.Assert().NoError(unSubErr1)
+	s.Assert().NoError(unSubErr2)
 
 	wg.Wait()
 }
