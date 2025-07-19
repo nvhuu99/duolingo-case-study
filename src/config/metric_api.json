@@ -1,7 +1,0 @@
-{
-    "server": {
-        "host": "metric-api",
-        "port": "8003",
-        "address": "metric-api:8003"
-    }
-}

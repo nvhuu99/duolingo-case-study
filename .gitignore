@@ -1,8 +1,1 @@
 .vscode/
-bin/
-node_modules
-.env
-**/.tmp
-**/storage/log/*
-**/firebase_service_account_key.json
-**/firebase_service_worker.json
