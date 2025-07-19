@@ -12,13 +12,13 @@ import (
 type UserServiceTestSuite struct {
 	suite.Suite
 	repo    user_repo.UserRepository
-	service user_service.UserService
+	service *user_service.UserService
 }
 
 func NewUserServiceTestSuite() *UserServiceTestSuite {
 	return &UserServiceTestSuite{
 		repo:    container.MustResolve[user_repo.UserRepository](),
-		service: container.MustResolve[user_service.UserService](),
+		service: container.MustResolve[*user_service.UserService](),
 	}
 }
 

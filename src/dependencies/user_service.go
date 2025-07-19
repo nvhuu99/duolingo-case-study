@@ -22,7 +22,7 @@ func (provider *UserService) Shutdown() {
 func (provider *UserService) Bootstrap() {
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
-	container.BindSingleton[user_service.UserService](func(ctx context.Context) any {
+	container.BindSingleton[*user_service.UserService](func(ctx context.Context) any {
 		return user_service.NewUserService(
 			container.MustResolve[user_repo.UserRepoFactory](),
 			container.MustResolve[user_repo.UserRepository](),

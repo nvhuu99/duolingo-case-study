@@ -6,16 +6,20 @@ import (
 
 	"duolingo/dependencies"
 	"duolingo/services/user_service/test/test_suites"
+	"duolingo/test/fixtures"
 
 	"github.com/stretchr/testify/suite"
 )
 
 func TestMongoDBUserService(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	dependencies.RegisterDependencies(ctx)
-	dependencies.BootstrapDependencies()
+	fixtures.SetTestConfigDir()
+	dependencies.RegisterDependencies(context.Background())
+	dependencies.BootstrapDependencies(
+		"common",
+		"connections",
+		"user_repo",
+		"user_service",
+	)
 
 	suite.Run(t, test_suites.NewUserServiceTestSuite())
 }
