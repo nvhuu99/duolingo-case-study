@@ -56,9 +56,9 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		s.Assert().Equal(2, taskCount1)
-		s.Assert().Equal(2, taskCount2)
-		s.Assert().Equal(4, totalTasks)
+		s.Assert().Equal(2, taskCount1, "first consumer receive 2 tasks")
+		s.Assert().Equal(2, taskCount2, "second consumer receive 2 tasks")
+		s.Assert().Equal(4, totalTasks, "all tasks received")
 	}()
 	go func() {
 		defer wg.Done()
@@ -86,7 +86,7 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 				taskCount1++
 				totalTasks++
 			}
-			if taskCount1 == 2 || totalTasks == 4 {
+			if totalTasks == 4 {
 				cancel()
 			}
 		})
@@ -99,7 +99,7 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 				taskCount2++
 				totalTasks++
 			}
-			if taskCount2 == 2 || totalTasks == 4 {
+			if totalTasks == 4 {
 				cancel()
 			}
 		})

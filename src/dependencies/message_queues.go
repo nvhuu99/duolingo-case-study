@@ -15,15 +15,15 @@ type MessageQueues struct {
 }
 
 func NewMessageQueues() *MessageQueues {
-	return &MessageQueues{
-		connections: container.MustResolve[*facade.ConnectionProvider](),
-	}
+	return &MessageQueues{}
 }
 
 func (provider *MessageQueues) Shutdown() {
 }
 
 func (provider *MessageQueues) Bootstrap() {
+	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
+
 	provider.declareTopic(
 		"message_inputs",
 		"message_input_publisher",

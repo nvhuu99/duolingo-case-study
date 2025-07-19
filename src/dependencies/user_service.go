@@ -13,15 +13,15 @@ type UserService struct {
 }
 
 func NewUserService() *UserService {
-	return &UserService{
-		connections: container.MustResolve[*facade.ConnectionProvider](),
-	}
+	return &UserService{}
 }
 
 func (provider *UserService) Shutdown() {
 }
 
 func (provider *UserService) Bootstrap() {
+	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
+
 	container.BindSingleton[user_service.UserService](func(ctx context.Context) any {
 		return user_service.NewUserService(
 			container.MustResolve[user_repo.UserRepoFactory](),

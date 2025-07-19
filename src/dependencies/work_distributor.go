@@ -16,13 +16,13 @@ type WorkDistributor struct {
 }
 
 func NewWorkDistributor() *WorkDistributor {
-	return &WorkDistributor{
-		config:      container.MustResolve[config_reader.ConfigReader](),
-		connections: container.MustResolve[*facade.ConnectionProvider](),
-	}
+	return &WorkDistributor{}
 }
 
 func (provider *WorkDistributor) Bootstrap() {
+	provider.config = container.MustResolve[config_reader.ConfigReader]()
+	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
+
 	container.BindSingleton[*dist.WorkDistributor](func(ctx context.Context) any {
 		return redis.NewRedisWorkDistributor(
 			provider.connections.GetRedisClient(),

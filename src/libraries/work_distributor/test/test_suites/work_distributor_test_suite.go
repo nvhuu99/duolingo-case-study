@@ -12,12 +12,12 @@ import (
 
 type WorkDistributorTestSuite struct {
 	suite.Suite
-	distributor distributor.WorkDistributor
+	distributor *distributor.WorkDistributor
 }
 
 func NewWorkDistributorTestSuite(distributor *distributor.WorkDistributor) *WorkDistributorTestSuite {
 	return &WorkDistributorTestSuite{
-		distributor: *distributor,
+		distributor: distributor,
 	}
 }
 

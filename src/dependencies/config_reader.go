@@ -2,9 +2,11 @@ package dependencies
 
 import (
 	"context"
+	"log"
+	"os"
+
 	"duolingo/libraries/config_reader"
 	container "duolingo/libraries/dependencies_container"
-	"os"
 )
 
 type ConfigReader struct {
@@ -12,11 +14,13 @@ type ConfigReader struct {
 }
 
 func NewConfigReader() *ConfigReader {
-	configDir := ".tmp/configs"
-	if fromEnv := os.Getenv("DUOLINGO_CONFIG_DIR_PATH"); fromEnv != "" {
-		configDir = fromEnv
+	fromEnv := os.Getenv("DUOLINGO_CONFIG_DIR_PATH")
+	if fromEnv == "" {
+		panic("environment variable DUOLINGO_CONFIG_DIR_PATH is not set")
+	} else {
+		log.Printf("%v is use as the configurations files directory\n", fromEnv)
 	}
-	return &ConfigReader{configDir}
+	return &ConfigReader{configDir: fromEnv}
 }
 
 func (c *ConfigReader) Bootstrap() {

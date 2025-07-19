@@ -15,15 +15,15 @@ type PushService struct {
 }
 
 func NewPushService() *PushService {
-	return &PushService{
-		config: container.MustResolve[config_reader.ConfigReader](),
-	}
+	return &PushService{}
 }
 
 func (provider *PushService) Shutdown() {
 }
 
 func (provider *PushService) Bootstrap() {
+	provider.config = container.MustResolve[config_reader.ConfigReader]()
+
 	container.BindSingleton[push_noti.PushService](func(ctx context.Context) any {
 		cred := provider.config.Get("firebase", "credentials")
 		factory, factoryErr := driver.NewFirebasePushNotiFactory(ctx, cred)

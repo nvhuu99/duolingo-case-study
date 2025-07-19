@@ -13,15 +13,15 @@ type UserRepo struct {
 }
 
 func NewUserRepo() *UserRepo {
-	return &UserRepo{
-		connections: container.MustResolve[*facade.ConnectionProvider](),
-	}
+	return &UserRepo{}
 }
 
 func (provider *UserRepo) Shutdown() {
 }
 
 func (provider *UserRepo) Bootstrap() {
+	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
+
 	container.BindSingleton[user_repo.UserRepoFactory](func(ctx context.Context) any {
 		return mongodb.NewUserRepoFactory(provider.connections.GetMongoClient())
 	})
