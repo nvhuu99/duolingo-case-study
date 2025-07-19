@@ -11,11 +11,12 @@ type BaseConnectionArgs struct {
 }
 
 func DefaultConnectionArgs() *BaseConnectionArgs {
+	connectionTimeout := 30 * time.Second
 	return &BaseConnectionArgs{
-		connectionTimeout: 10 * time.Second,
-		readTimeout:       15 * time.Second,
-		writeTimeout:      15 * time.Second,
-		retryWait:         200 * time.Millisecond,
+		connectionTimeout: connectionTimeout,
+		readTimeout:       connectionTimeout + 15*time.Second,
+		writeTimeout:      connectionTimeout + 15*time.Second,
+		retryWait:         100 * time.Millisecond,
 	}
 }
 
@@ -44,6 +45,10 @@ func (args *BaseConnectionArgs) GetWriteTimeout() time.Duration {
 func (args *BaseConnectionArgs) SetWriteTimeout(value time.Duration) ConnectionArgs {
 	args.writeTimeout = value
 	return args
+}
+
+func (args *BaseConnectionArgs) GetOperationTimeout() time.Duration {
+	return max(args.GetReadTimeout(), args.GetWriteTimeout())
 }
 
 func (args *BaseConnectionArgs) GetRetryWait() time.Duration {

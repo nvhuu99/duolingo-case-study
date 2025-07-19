@@ -81,7 +81,7 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 	}()
 	go func() {
 		defer wg.Done()
-		err := s.firstConsumer.Consuming(ctx, func(t string) error {
+		err := s.firstConsumer.Consuming(ctx, func(ctx context.Context, t string) {
 			if s.Assert().True(slices.Contains(tasks, t)) {
 				taskCount1++
 				totalTasks++
@@ -89,13 +89,12 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 			if taskCount1 == 2 || totalTasks == 4 {
 				cancel()
 			}
-			return nil
 		})
 		s.Assert().NoError(err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := s.secConsumer.Consuming(ctx, func(t string) error {
+		err := s.secConsumer.Consuming(ctx, func(ctx context.Context, t string) {
 			if s.Assert().True(slices.Contains(tasks, t)) {
 				taskCount2++
 				totalTasks++
@@ -103,7 +102,6 @@ func (s *TaskQueueTestSuite) Test_Produce_And_Consume() {
 			if taskCount2 == 2 || totalTasks == 4 {
 				cancel()
 			}
-			return nil
 		})
 		s.Assert().NoError(err)
 	}()

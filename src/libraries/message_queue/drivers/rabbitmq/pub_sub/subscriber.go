@@ -1,4 +1,4 @@
-package rabbitmq
+package pub_sub
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func (sub *Subscriber) UnSubscribeMainTopic() error {
 
 func (sub *Subscriber) ListeningMainTopic(
 	ctx context.Context,
-	closure func(string),
+	closure func(context.Context, string),
 ) error {
 	if sub.mainTopic == "" {
 		return ps.ErrSubscriberMainTopicNotSet
@@ -74,7 +74,7 @@ func (sub *Subscriber) UnSubscribe(topic string) error {
 func (sub *Subscriber) Listening(
 	ctx context.Context,
 	topic string,
-	closure func(string),
+	closure func(context.Context, string),
 ) error {
 	if _, exists := sub.queues[topic]; !exists {
 		return ps.ErrSubscriberTopicNotSubscribed
@@ -84,8 +84,11 @@ func (sub *Subscriber) Listening(
 		return bindErr
 	}
 
-	return sub.Consuming(ctx, sub.queues[topic], func(msg string) driver.ConsumeAction {
-		closure(msg)
+	return sub.Consuming(ctx, sub.queues[topic], func(
+		ctx context.Context,
+		msg string,
+	) driver.ConsumeAction {
+		closure(ctx, msg)
 		return driver.ActionAccept
 	})
 }

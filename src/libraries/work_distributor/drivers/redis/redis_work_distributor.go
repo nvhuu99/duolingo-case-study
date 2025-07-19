@@ -7,7 +7,7 @@ import (
 
 func NewRedisWorkDistributor(
 	client *redis.RedisClient,
-	distributionSize uint64,
+	distributionSize int64,
 ) *work_distributor.WorkDistributor {
 	proxy := NewRedisWorkStorageProxy(client)
 	return work_distributor.NewWorkDistributor(proxy, distributionSize)

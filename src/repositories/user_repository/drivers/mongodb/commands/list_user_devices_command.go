@@ -4,6 +4,7 @@ import (
 	"duolingo/repositories/user_repository/drivers/mongodb/commands/filters"
 
 	cmd "duolingo/repositories/user_repository/external/commands"
+
 	b "go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -13,8 +14,8 @@ type ListUserDevicesCommand struct {
 
 	pipeline mongo.Pipeline
 	sorts    b.M
-	offset   uint64
-	limit    uint64
+	offset   int64
+	limit    int64
 }
 
 func NewListUserDevicesCommand() *ListUserDevicesCommand {
@@ -25,7 +26,7 @@ func NewListUserDevicesCommand() *ListUserDevicesCommand {
 	}
 }
 
-func (command *ListUserDevicesCommand) SetPagination(offset uint64, limit uint64) {
+func (command *ListUserDevicesCommand) SetPagination(offset int64, limit int64) {
 	command.offset = offset
 	command.limit = limit
 }

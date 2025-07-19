@@ -15,21 +15,21 @@ var (
 type WorkDistributor struct {
 	proxy WorkStorageProxy
 
-	unitsPerAssignment uint64
+	unitsPerAssignment int64
 }
 
-func NewWorkDistributor(proxy WorkStorageProxy, distributionSize uint64) *WorkDistributor {
+func NewWorkDistributor(proxy WorkStorageProxy, distributionSize int64) *WorkDistributor {
 	return &WorkDistributor{
 		proxy:              proxy,
 		unitsPerAssignment: distributionSize,
 	}
 }
 
-func (dist *WorkDistributor) GetDistributionSize() uint64 {
+func (dist *WorkDistributor) GetDistributionSize() int64 {
 	return dist.unitsPerAssignment
 }
 
-func (dist *WorkDistributor) CreateWorkload(totalWorkUnits uint64) (*Workload, error) {
+func (dist *WorkDistributor) CreateWorkload(totalWorkUnits int64) (*Workload, error) {
 	workload, validateErr := NewWorkload(
 		uuid.NewString(),
 		totalWorkUnits,
@@ -137,7 +137,7 @@ func (dist *WorkDistributor) Rollback(assignment *Assignment) error {
 	return pushErr
 }
 
-func (dist *WorkDistributor) CommitProgress(assignment *Assignment, newProgres uint64) error {
+func (dist *WorkDistributor) CommitProgress(assignment *Assignment, newProgres int64) error {
 	assignment.Progress = newProgres
 	if assignment.IsCompleted() {
 		return dist.Commit(assignment)

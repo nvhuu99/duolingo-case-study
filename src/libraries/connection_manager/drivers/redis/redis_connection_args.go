@@ -27,10 +27,10 @@ func DefaultRedisConnectionArgs() *RedisConnectionArgs {
 		port:                    "6379",
 		user:                    "",
 		password:                "",
-		lockAcquireTimeout:      20 * time.Second,
-		lockAcquireRetryWaitMin: 10 * time.Millisecond,
-		lockAcquireRetryWaitMax: 100 * time.Millisecond,
-		lockTTL:                 15 * time.Second,
+		lockTTL:                 baseArgs.GetOperationTimeout(),
+		lockAcquireTimeout:      baseArgs.GetOperationTimeout() + 2*time.Second,
+		lockAcquireRetryWaitMin: 5 * time.Millisecond,
+		lockAcquireRetryWaitMax: 50 * time.Millisecond,
 	}
 	return redisArgs
 }

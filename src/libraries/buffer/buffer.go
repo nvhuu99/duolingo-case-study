@@ -9,7 +9,7 @@ import (
 type Buffer[T any] struct {
 	interval    time.Duration
 	limit       int
-	consumeFunc func([]T)
+	consumeFunc func(context.Context, []T)
 	consumeWait bool
 
 	bufferCh chan T
@@ -39,7 +39,10 @@ func (b *Buffer[T]) SetInterval(interval time.Duration) *Buffer[T] {
 	return b
 }
 
-func (b *Buffer[T]) SetConsumeFunc(wait bool, consumeFunc func([]T)) *Buffer[T] {
+func (b *Buffer[T]) SetConsumeFunc(
+	wait bool,
+	consumeFunc func(context.Context, []T),
+) *Buffer[T] {
 	b.consumeFunc = consumeFunc
 	b.consumeWait = wait
 	return b
@@ -91,7 +94,7 @@ func (b *Buffer[T]) Flush() {
 		b.buffered.Add(-1)
 	}
 
-	b.callConsumeFunc(items)
+	b.callConsumeFunc(b.bufferCtx, items)
 }
 
 func (b *Buffer[T]) run() {
@@ -121,13 +124,13 @@ func (b *Buffer[T]) checkLimit() bool {
 	return b.buffered.Load() >= int32(b.limit)
 }
 
-func (b *Buffer[T]) callConsumeFunc(items []T) {
+func (b *Buffer[T]) callConsumeFunc(ctx context.Context, items []T) {
 	if len(items) == 0 {
 		return
 	}
 	if b.consumeWait {
-		b.consumeFunc(items)
+		b.consumeFunc(ctx, items)
 	} else {
-		go b.consumeFunc(items)
+		go b.consumeFunc(ctx, items)
 	}
 }

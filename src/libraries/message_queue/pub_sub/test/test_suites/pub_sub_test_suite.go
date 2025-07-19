@@ -64,7 +64,7 @@ func (s *PubSubTestSuite) Test_Notify_And_Listening() {
 	go func() {
 		defer wg.Done()
 		expectMsg := "s1_m1"
-		err := s.firstSubscriber.Listening(ctx, tp1, func(msg string) {
+		err := s.firstSubscriber.Listening(ctx, tp1, func(ctx context.Context, msg string) {
 			if s.Assert().Equal(expectMsg, msg) {
 				msgCount1++
 				msgTotal++
@@ -81,7 +81,7 @@ func (s *PubSubTestSuite) Test_Notify_And_Listening() {
 	go func() {
 		defer wg.Done()
 		expectMsg := "s2_m1"
-		err := s.secondSubscriber.Listening(ctx, tp2, func(msg string) {
+		err := s.secondSubscriber.Listening(ctx, tp2, func(ctx context.Context, msg string) {
 			if s.Assert().Equal(expectMsg, msg) {
 				msgCount2++
 				msgTotal++
@@ -169,7 +169,7 @@ func (s *PubSubTestSuite) Test_MainTopic_Notify_And_Listening() {
 	}
 	go func() {
 		defer wg.Done()
-		err := s.firstSubscriber.ListeningMainTopic(ctx, func(msg string) {
+		err := s.firstSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, msg string) {
 			if s.Assert().Equal("test message", msg) {
 				firstSubReceived = true
 			}
@@ -182,7 +182,7 @@ func (s *PubSubTestSuite) Test_MainTopic_Notify_And_Listening() {
 	}()
 	go func() {
 		defer wg.Done()
-		err := s.secondSubscriber.ListeningMainTopic(ctx, func(msg string) {
+		err := s.secondSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, msg string) {
 			if s.Assert().Equal("test message", msg) {
 				secondSubReceived = true
 			}

@@ -54,7 +54,7 @@ func (res *Response) Send(
 	data any,
 ) {
 	if res.sent {
-		panic("response is already set")
+		return
 	}
 
 	body, err := res.buildBody(status, success, message, errors, data)
@@ -73,8 +73,8 @@ func (res *Response) buildBody(
 	status int,
 	success bool,
 	message string,
-	data any,
 	errors any,
+	data any,
 ) ([]byte, error) {
 	body := map[string]any{
 		"status":  status,

@@ -28,8 +28,8 @@ func DefaultRabbitMQConnectionArgs() *RabbitMQConnectionArgs {
 		port:               "5672",
 		user:               "",
 		password:           "",
-		declareTimeout:     15 * time.Second,
-		heartbeat:          20 * time.Second,
+		declareTimeout:     baseArgs.GetConnectionTimeout() + 15*time.Second,
+		heartbeat:          10 * time.Second,
 		prefetchCount:      1,
 		prefetchLimit:      0, // no size limit for message content
 	}

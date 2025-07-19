@@ -1,21 +1,20 @@
 package handlers_test
 
 import (
-	ps "duolingo/libraries/pub_sub"
-	container "duolingo/libraries/service_container"
-	"duolingo/services/push_sender/server/test/test_suites"
-	"duolingo/test/fixtures/bootstrap"
-	cnst "duolingo/test/fixtures/constants"
+	"context"
+	"duolingo/apps/push_sender/server/test/test_suites"
+	"duolingo/dependencies"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 )
 
 func TestSender(t *testing.T) {
-	bootstrap.Bootstrap()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	notiPublisher := container.MustResolveAlias[ps.Publisher](cnst.PushNotiPublisher)
-	notiSubscriber := container.MustResolveAlias[ps.Subscriber](cnst.PushNotiSubscriber)
+	dependencies.RegisterDependencies(ctx)
+	dependencies.BootstrapDependencies("push_sender")
 
-	suite.Run(t, test_suites.NewSenderTestSuite(notiPublisher, notiSubscriber))
+	suite.Run(t, test_suites.NewSenderTestSuite())
 }

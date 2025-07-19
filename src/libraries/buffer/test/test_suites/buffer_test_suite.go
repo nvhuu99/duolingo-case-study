@@ -19,7 +19,7 @@ func (s *BufferTestSuite) Test_Buffer_Limit() {
 	buff := buffer.NewBuffer[string]()
 	buff.SetLimit(3).
 		SetInterval(100*time.Second). // this amount ensure the flush trigger by limit
-		SetConsumeFunc(true, func(items []string) {
+		SetConsumeFunc(true, func(ctx context.Context, items []string) {
 			defer buff.Stop()
 			defer func() { done <- true }()
 			if s.Assert().Equal(len(items), 3) {
@@ -56,7 +56,7 @@ func (s *BufferTestSuite) Test_Buffer_Flush_Interval() {
 	buff := buffer.NewBuffer[string]()
 	buff.SetLimit(10000). // this amount ensure the flush trigger by interval
 				SetInterval(10*time.Millisecond).
-				SetConsumeFunc(true, func(items []string) {
+				SetConsumeFunc(true, func(ctx context.Context, items []string) {
 			defer buff.Stop()
 			defer func() { done <- true }()
 			if s.Assert().Equal(len(items), 3) {

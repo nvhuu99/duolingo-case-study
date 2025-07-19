@@ -38,8 +38,8 @@ func (s *WorkloadTestSuite) Test_GetExpectTotalAssignments() {
 	w1, _ := distributor.NewWorkload("W1", 100, 10)
 	w2, _ := distributor.NewWorkload("W2", 100, 3)
 
-	s.Assert().Equal(uint64(10), w1.GetExpectTotalAssignments())
-	s.Assert().Equal(uint64(34), w2.GetExpectTotalAssignments())
+	s.Assert().Equal(int64(10), w1.GetExpectTotalAssignments())
+	s.Assert().Equal(int64(34), w2.GetExpectTotalAssignments())
 }
 
 func (s *WorkloadTestSuite) Test_HasWorkloadFulfilled() {

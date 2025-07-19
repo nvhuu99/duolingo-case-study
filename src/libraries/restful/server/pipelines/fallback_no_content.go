@@ -7,8 +7,6 @@ type FallbackNoContent struct {
 }
 
 func (r *FallbackNoContent) Handle(req *restful.Request, res *restful.Response) {
-	if !res.Sent() {
-		res.NoContent()
-	}
+	res.NoContent()
 	r.Next(req, res)
 }

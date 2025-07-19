@@ -15,7 +15,7 @@ type QueueConsumer struct {
 func (c *QueueConsumer) Consuming(
 	ctx context.Context,
 	queue string,
-	closure func(string) ConsumeAction,
+	closure func(context.Context, string) ConsumeAction,
 ) error {
 	var deliveries <-chan amqp.Delivery
 	var channel *amqp.Channel
@@ -62,7 +62,7 @@ func (c *QueueConsumer) Consuming(
 			// Upon receiving a new message, first call the "closure" function,
 			// then send the "confirmation" to the server (acknowledge, reject, etc.)
 			// based on the "consume action" returned by the closure.
-			consumeAction := closure(string(delivery.Body))
+			consumeAction := closure(ctx, string(delivery.Body))
 			actionErr := c.handleConsumeAction(delivery, consumeAction)
 			// If the confirmation fails, the failure will be recorded to be addressed later.
 			if actionErr != nil {

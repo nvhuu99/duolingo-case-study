@@ -1,4 +1,4 @@
-package job_queue
+package task_queue
 
 import (
 	"context"
@@ -23,5 +23,5 @@ type TaskProducer interface {
 
 type TaskConsumer interface {
 	SetQueue(queue string)
-	Consuming(ctx context.Context, handleFunc func(string) error) error
+	Consuming(ctx context.Context, handleFunc func(context.Context, string)) error
 }

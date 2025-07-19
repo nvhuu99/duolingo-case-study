@@ -1,5 +1,5 @@
 package results
 
 type UsersAggregationResult interface {
-	GetCountUserDevices() uint64
+	GetCountUserDevices() int64
 }

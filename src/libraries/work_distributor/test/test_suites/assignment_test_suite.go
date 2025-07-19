@@ -33,10 +33,10 @@ func (s *AssignmentTestSuite) Test_NewAssignment() {
 func (s *AssignmentTestSuite) Test_WorkStartAt_WorkEndAt() {
 	assignment, _ := work_distributor.NewAssignment("A1", "W1", 1, 100)
 
-	s.Assert().Equal(uint64(1), assignment.WorkStartAt())
-	s.Assert().Equal(uint64(100), assignment.WorkEndAt())
+	s.Assert().Equal(int64(1), assignment.WorkStartAt())
+	s.Assert().Equal(int64(100), assignment.WorkEndAt())
 
 	assignment.Progress = 50
 
-	s.Assert().Equal(uint64(51), assignment.WorkStartAt())
+	s.Assert().Equal(int64(51), assignment.WorkStartAt())
 }

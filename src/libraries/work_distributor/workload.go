@@ -11,14 +11,14 @@ var (
 
 type Workload struct {
 	Id                        string `json:"id"`
-	TotalWorkUnits            uint64 `json:"total_units"`
-	TotalUnitsPerAssignment   uint64 `json:"dist_size"`
-	TotalCommittedAssignments uint64 `json:"total_commited"`
+	TotalWorkUnits            int64  `json:"total_units"`
+	TotalUnitsPerAssignment   int64  `json:"dist_size"`
+	TotalCommittedAssignments int64  `json:"total_commited"`
 
 	CreatedAt time.Time
 }
 
-func NewWorkload(id string, totalUnits uint64, unitsPerAssignment uint64) (*Workload, error) {
+func NewWorkload(id string, totalUnits int64, unitsPerAssignment int64) (*Workload, error) {
 	workload := &Workload{
 		Id:                        id,
 		TotalWorkUnits:            totalUnits,
@@ -43,7 +43,7 @@ func (w *Workload) Validate() error {
 	return nil
 }
 
-func (w *Workload) GetExpectTotalAssignments() uint64 {
+func (w *Workload) GetExpectTotalAssignments() int64 {
 	size := w.TotalUnitsPerAssignment
 	return (w.TotalWorkUnits + size - 1) / size // round up division
 }

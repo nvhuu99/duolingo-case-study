@@ -1,12 +1,14 @@
 package test_suites
 
 import (
+	"sort"
+	"time"
+
+	container "duolingo/libraries/dependencies_container"
 	"duolingo/models"
 	user_repo "duolingo/repositories/user_repository/external"
 	"duolingo/repositories/user_repository/external/commands"
-	"duolingo/repositories/user_repository/external/test/fixtures/data"
-	"sort"
-	"time"
+	"duolingo/test/fixtures/data"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -18,10 +20,9 @@ type UserRepositoryTestSuite struct {
 	repo    user_repo.UserRepository
 }
 
-func NewUserRepositoryTestSuite(
-	factory user_repo.UserRepoFactory,
-	repo user_repo.UserRepository,
-) *UserRepositoryTestSuite {
+func NewUserRepositoryTestSuite() *UserRepositoryTestSuite {
+	factory := container.MustResolve[user_repo.UserRepoFactory]()
+	repo := container.MustResolve[user_repo.UserRepository]()
 	return &UserRepositoryTestSuite{
 		factory: factory,
 		repo:    repo,
@@ -185,7 +186,7 @@ func (s *UserRepositoryTestSuite) Test_GetListUsers_WithPagination() {
 		query := s.factory.MakeListUsersCommand()
 		query.SetFilterIds(data.TestUserIds)
 		query.SetSortById(commands.OrderASC)
-		query.SetPagination(uint64(page*size), uint64(size))
+		query.SetPagination(int64(page*size), int64(size))
 
 		listResult, err := s.repo.GetListUsers(query)
 		if s.Assert().NoError(err) && s.Assert().NotEmpty(listResult) {
@@ -230,7 +231,7 @@ func (s *UserRepositoryTestSuite) Test_GetListUserDevices() {
 		query := s.factory.MakeListUserDevicesCommand()
 		query.SetFilterCampaign(data.TestCampaignPrimary)
 		query.SetSortById(commands.OrderASC)
-		query.SetPagination(uint64(page*size), uint64(size))
+		query.SetPagination(int64(page*size), int64(size))
 		devices, err := s.repo.GetListUserDevices(query)
 
 		if !s.Assert().NoError(err) || !s.Assert().NotEmpty(devices) {
@@ -253,7 +254,7 @@ func (s *UserRepositoryTestSuite) Test_AggregateUsers_SumUserDevices_Of_Campaign
 
 	result, err := s.repo.AggregateUsers(aggregation)
 	if s.Assert().NotNil(result) && s.Assert().NoError(err) {
-		expectedCount := uint64(len(data.TestDevices))
+		expectedCount := int64(len(data.TestDevices))
 		actualCount := result.GetCountUserDevices()
 		s.Assert().Equal(expectedCount, actualCount)
 	}

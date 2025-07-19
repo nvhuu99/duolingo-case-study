@@ -12,7 +12,7 @@ type ListUsersCommand interface {
 	SetFilterCampaign(campaign string)
 	SetFilterOnlyEmailVerified()
 
-	SetPagination(offset uint64, limit uint64)
+	SetPagination(offset int64, limit int64)
 	SetSortById(order SortOrder)
 
 	Build() error

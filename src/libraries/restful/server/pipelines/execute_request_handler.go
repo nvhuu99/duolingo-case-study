@@ -1,6 +1,9 @@
 package pipelines
 
-import "duolingo/libraries/restful"
+import (
+	"duolingo/libraries/restful"
+	"log"
+)
 
 type ExecuteRequestHandler struct {
 	restful.BasePipeline
@@ -17,6 +20,7 @@ func (r *ExecuteRequestHandler) Handle(req *restful.Request, res *restful.Respon
 
 func (r *ExecuteRequestHandler) panicHandler(response *restful.Response) {
 	if r := recover(); r != nil {
+		log.Println("failed to handle request", r)
 		response.ServerErr("failed to handle request")
 	}
 }

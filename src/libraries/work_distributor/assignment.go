@@ -9,16 +9,16 @@ var (
 type Assignment struct {
 	Id         string `json:"id"`
 	WorkloadId string `json:"workload_id"`
-	StartIndex uint64 `json:"start_idx"`
-	EndIndex   uint64 `json:"end_idx"`
-	Progress   uint64 `json:"progress"`
+	StartIndex int64  `json:"start_idx"`
+	EndIndex   int64  `json:"end_idx"`
+	Progress   int64  `json:"progress"`
 }
 
 func NewAssignment(
 	id string,
 	workloadId string,
-	startIdx uint64,
-	endIdx uint64,
+	startIdx int64,
+	endIdx int64,
 ) (*Assignment, error) {
 	assignment := &Assignment{
 		Id:         id,
@@ -43,14 +43,14 @@ func (assignment *Assignment) Validate() error {
 	return nil
 }
 
-func (assignment *Assignment) WorkStartAt() uint64 {
+func (assignment *Assignment) WorkStartAt() int64 {
 	if assignment.Progress > assignment.StartIndex {
 		return assignment.Progress + 1
 	}
 	return assignment.StartIndex
 }
 
-func (assignment *Assignment) WorkEndAt() uint64 {
+func (assignment *Assignment) WorkEndAt() int64 {
 	return assignment.EndIndex
 }
 

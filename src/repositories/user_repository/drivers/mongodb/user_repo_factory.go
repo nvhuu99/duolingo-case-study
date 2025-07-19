@@ -1,13 +1,12 @@
 package mongodb
 
 import (
+	"sync"
+
 	connection "duolingo/libraries/connection_manager/drivers/mongodb"
 	mongo_cmd "duolingo/repositories/user_repository/drivers/mongodb/commands"
-	mongo_services "duolingo/repositories/user_repository/drivers/mongodb/services"
 	user_repo "duolingo/repositories/user_repository/external"
 	cmd "duolingo/repositories/user_repository/external/commands"
-	services "duolingo/repositories/user_repository/external/services"
-	"sync"
 )
 
 type UserRepoFactory struct {
@@ -25,10 +24,6 @@ func (factory *UserRepoFactory) MakeUserRepo() user_repo.UserRepository {
 		factory.repo = NewUserRepo(factory.client, "duolingo", "users")
 	})
 	return factory.repo
-}
-
-func (factory *UserRepoFactory) MakeUserService() services.UserService {
-	return mongo_services.NewUserService(factory, factory.MakeUserRepo())
 }
 
 func (factory *UserRepoFactory) MakeListUsersCommand() cmd.ListUsersCommand {

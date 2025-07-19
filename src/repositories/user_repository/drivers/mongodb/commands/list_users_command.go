@@ -22,7 +22,7 @@ func NewListUsersCommand() *ListUsersCommand {
 	}
 }
 
-func (command *ListUsersCommand) SetPagination(offset uint64, limit uint64) {
+func (command *ListUsersCommand) SetPagination(offset int64, limit int64) {
 	command.options.SetSkip(int64(offset))
 	command.options.SetLimit(int64(limit))
 }

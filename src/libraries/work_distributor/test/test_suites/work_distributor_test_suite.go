@@ -42,7 +42,7 @@ func (s *WorkDistributorTestSuite) Test_CreateWorkload_GetWorkload_And_AssignAll
 		assignments = append(assignments, assigned)
 	}
 
-	if !s.Assert().Equal(total, uint64(len(assignments))) {
+	if !s.Assert().Equal(total, int64(len(assignments))) {
 		return
 	}
 
@@ -51,8 +51,8 @@ func (s *WorkDistributorTestSuite) Test_CreateWorkload_GetWorkload_And_AssignAll
 		start := i*size + 1
 		end := start + size - 1
 		s.Assert().Equal(workload.Id, assignments[i].WorkloadId)
-		s.Assert().Equal(uint64(start), assignments[i].StartIndex)
-		s.Assert().Equal(uint64(end), assignments[i].EndIndex)
+		s.Assert().Equal(int64(start), assignments[i].StartIndex)
+		s.Assert().Equal(int64(end), assignments[i].EndIndex)
 		s.Assert().Zero(assignments[i].Progress)
 	}
 }
@@ -83,7 +83,7 @@ func (s *WorkDistributorTestSuite) Test_CommitAssignment_And_HasWorkloadFulfille
 		s.Assert().NoError(commitErr)
 	}
 
-	if s.Assert().Equal(total, uint64(len(assignments))) {
+	if s.Assert().Equal(total, int64(len(assignments))) {
 		isFulfilled, isFulfilledErr := s.distributor.HasWorkloadFulfilled(workload.Id)
 		s.Assert().True(isFulfilled)
 		s.Assert().NoError(isFulfilledErr)

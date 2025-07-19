@@ -1,4 +1,4 @@
-package rabbitmq
+package pub_sub
 
 import (
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"

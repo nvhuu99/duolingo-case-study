@@ -10,7 +10,7 @@ type BufferGroup[K comparable, T any] struct {
 	limit       int
 	interval    time.Duration
 	consumeWait bool
-	consumeFunc func(K, []T)
+	consumeFunc func(context.Context, K, []T)
 
 	groupMu sync.Mutex
 	groups  map[K]*Buffer[T]
@@ -32,21 +32,24 @@ func (gb *BufferGroup[K, T]) SetInterval(interval time.Duration) *BufferGroup[K,
 	return gb
 }
 
-func (gb *BufferGroup[K, T]) SetConsumeFunc(wait bool, consumeFunc func(K, []T)) *BufferGroup[K, T] {
+func (gb *BufferGroup[K, T]) SetConsumeFunc(
+	wait bool,
+	consumeFunc func(context.Context, K, []T),
+) *BufferGroup[K, T] {
 	gb.consumeWait = wait
 	gb.consumeFunc = consumeFunc
 	return gb
 }
 
-func (gb *BufferGroup[K, T]) AddGroup(ctx context.Context, key K) *BufferGroup[K, T] {
+func (gb *BufferGroup[K, T]) DeclareGroup(ctx context.Context, key K) *BufferGroup[K, T] {
 	if gb.isAdded(key) {
 		return gb
 	}
 	buf := NewBuffer[T]()
 	buf.SetLimit(gb.limit).
 		SetInterval(gb.interval).
-		SetConsumeFunc(gb.consumeWait, func(t []T) {
-			gb.consumeFunc(key, t)
+		SetConsumeFunc(gb.consumeWait, func(consumeCtx context.Context, t []T) {
+			gb.consumeFunc(consumeCtx, key, t)
 		}).
 		Start(ctx)
 

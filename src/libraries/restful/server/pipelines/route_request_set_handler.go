@@ -16,15 +16,15 @@ func (r *RouteRequestSetHandler) Handle(req *restful.Request, res *restful.Respo
 		requestBuilder.SetPathArgs(routeResult.GetPathArgs())
 		requestBuilder.SetHandler(routeResult.GetHandler())
 		requestBuilder.Build()
-		r.Next(req, res)
 	}
+	r.Next(req, res)
 }
 
 func (r *RouteRequestSetHandler) route(
 	req *restful.Request,
 	res *restful.Response,
 ) *router.RouteResult {
-	found, routeResult := r.Match(req.URL().Path)
+	found, routeResult := r.Match(req.Method() + "/" + req.URL().Path)
 	if !found {
 		res.NotFound("uri not found: " + req.URL().Path)
 		return nil

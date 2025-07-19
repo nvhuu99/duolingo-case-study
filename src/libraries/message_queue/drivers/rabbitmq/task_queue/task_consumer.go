@@ -27,13 +27,16 @@ func (c *TaskConsumer) SetQueue(queue string) {
 
 func (c *TaskConsumer) Consuming(
 	ctx context.Context,
-	handleFunc func(string) error,
+	handleFunc func(context.Context, string),
 ) error {
 	if c.queue == "" {
 		return tq.ErrInvalidQueueName
 	}
-	return c.QueueConsumer.Consuming(ctx, c.queue, func(msg string) driver.ConsumeAction {
-		handleFunc(msg)
+	return c.QueueConsumer.Consuming(ctx, c.queue, func(
+		ctx context.Context,
+		msg string,
+	) driver.ConsumeAction {
+		handleFunc(ctx, msg)
 		return driver.ActionAccept
 	})
 }

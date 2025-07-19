@@ -24,9 +24,9 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Limit() {
 	grp.
 		SetLimit(3).
 		SetInterval(100*time.Second). // this amount ensure the flush trigger by limit
-		AddGroup(context.Background(), "grp_1").
-		AddGroup(context.Background(), "grp_2").
-		SetConsumeFunc(true, func(name string, items []string) {
+		DeclareGroup(context.Background(), "grp_1").
+		DeclareGroup(context.Background(), "grp_2").
+		SetConsumeFunc(true, func(ctx context.Context, name string, items []string) {
 			if s.Assert().True(name == "grp_1" || name == "grp_2") {
 				if s.Assert().Equal(len(items), 3) {
 					for i := range items {
@@ -74,9 +74,9 @@ func (s *BufferGroupTestSuite) Test_BufferGroup_Flush_Interval() {
 	grp.
 		SetInterval(10*time.Millisecond).
 		SetLimit(1000). // this amount ensure the flush trigger by interval
-		AddGroup(context.Background(), "grp_1").
-		AddGroup(context.Background(), "grp_2").
-		SetConsumeFunc(true, func(name string, items []string) {
+		DeclareGroup(context.Background(), "grp_1").
+		DeclareGroup(context.Background(), "grp_2").
+		SetConsumeFunc(true, func(ctx context.Context, name string, items []string) {
 			if s.Assert().True(name == "grp_1" || name == "grp_2") {
 				if s.Assert().Equal(3, len(items)) {
 					for i := range items {

@@ -13,10 +13,10 @@ var (
 type Subscriber interface {
 	Subscribe(topic string) error
 	UnSubscribe(topic string) error
-	Listening(ctx context.Context, topic string, closure func(string)) error
+	Listening(ctx context.Context, topic string, closure func(context.Context, string)) error
 
 	SetMainTopic(topic string)
 	SubscribeMainTopic() error
 	UnSubscribeMainTopic() error
-	ListeningMainTopic(ctx context.Context, closure func(string)) error
+	ListeningMainTopic(ctx context.Context, closure func(context.Context, string)) error
 }
