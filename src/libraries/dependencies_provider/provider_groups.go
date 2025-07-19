@@ -34,7 +34,7 @@ func AddProvider(provider DependenciesProvider, grps ...string) {
 	}
 }
 
-func BootstrapGroups(grps ...string) {
+func BootstrapGroups(scope string, grps []string) {
 	for _, g := range grps {
 		if providerGroups.bootedGroups[g] {
 			continue
@@ -42,7 +42,7 @@ func BootstrapGroups(grps ...string) {
 		if indexes, exists := providerGroups.groups[g]; exists {
 			for _, i := range indexes {
 				provider := providerGroups.providers[i]
-				provider.Bootstrap()
+				provider.Bootstrap(scope)
 			}
 		}
 		providerGroups.bootedGroups[g] = true

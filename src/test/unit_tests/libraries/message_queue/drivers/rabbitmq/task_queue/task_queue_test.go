@@ -17,7 +17,10 @@ import (
 func TestPubSub(t *testing.T) {
 	fixtures.SetTestConfigDir()
 	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies("common", "connections")
+	dependencies.BootstrapDependencies("test", []string{
+		"common",
+		"connections",
+	})
 
 	provider := container.MustResolve[*facade.ConnectionProvider]()
 

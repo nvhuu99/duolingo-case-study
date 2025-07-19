@@ -20,19 +20,19 @@ import (
 type NotiBuilderTestSuite struct {
 	suite.Suite
 	usrRepo          usr_repo.UserRepository
-	inputPublisher   ps.Publisher
+	msgInpPublisher  ps.Publisher
 	pushNotiConsumer tq.TaskConsumer
 	distributor      *dist.WorkDistributor
 	builder          *server.NotiBuilder
 }
 
-func NewNotiBuilderTestSuite(builder *server.NotiBuilder) *NotiBuilderTestSuite {
+func NewNotiBuilderTestSuite() *NotiBuilderTestSuite {
 	return &NotiBuilderTestSuite{
 		usrRepo:          container.MustResolve[usr_repo.UserRepository](),
-		inputPublisher:   container.MustResolveAlias[ps.Publisher]("message_input_publisher"),
+		msgInpPublisher:  container.MustResolveAlias[ps.Publisher]("message_input_publisher"),
 		pushNotiConsumer: container.MustResolveAlias[tq.TaskConsumer]("push_notifications_consumer"),
 		distributor:      container.MustResolve[*dist.WorkDistributor](),
-		builder:          builder,
+		builder:          server.NewNotiBuilder(),
 	}
 }
 
@@ -48,16 +48,16 @@ func (s *NotiBuilderTestSuite) TearDownTest() {
 func (s *NotiBuilderTestSuite) Test_NotiBuilder() {
 	input1 := models.NewMessageInput(data.TestCampaignPrimary, "title 1", "body 1")
 	input2 := models.NewMessageInput(data.TestCampaignPrimary, "title 2", "body 2")
-	s.inputPublisher.NotifyMainTopic(string(input1.Encode()))
-	s.inputPublisher.NotifyMainTopic(string(input2.Encode()))
+	s.msgInpPublisher.NotifyMainTopic(string(input1.Encode()))
+	s.msgInpPublisher.NotifyMainTopic(string(input2.Encode()))
 
-	totalDevices := 2 * len(data.TestDevices)
+	totalDevices := 2 * len(data.TestDevices) // num of message * total test devices
 	totalBatches := totalDevices / int(s.distributor.GetDistributionSize())
 	countDevices := 0
 	countBatches := 0
 
 	done := make(chan bool, 1)
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup

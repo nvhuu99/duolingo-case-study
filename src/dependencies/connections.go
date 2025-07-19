@@ -17,7 +17,7 @@ func NewConnections() *Connections {
 	return &Connections{}
 }
 
-func (provider *Connections) Bootstrap() {
+func (provider *Connections) Bootstrap(scope string) {
 	container.BindSingleton[*facade.ConnectionProvider](func(ctx context.Context) any {
 		config := container.MustResolve[config_reader.ConfigReader]()
 		return facade.Provider(ctx).

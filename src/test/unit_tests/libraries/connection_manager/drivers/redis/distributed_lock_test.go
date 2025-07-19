@@ -19,7 +19,9 @@ import (
 func TestDistributedLock(t *testing.T) {
 	fixtures.SetTestConfigDir()
 	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies("common")
+	dependencies.BootstrapDependencies("test", []string{
+		"common",
+	})
 
 	config := container.MustResolve[config_reader.ConfigReader]()
 	provider := facade.Provider(context.Background())

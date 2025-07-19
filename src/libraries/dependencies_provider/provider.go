@@ -1,6 +1,6 @@
 package dependencies_provider
 
 type DependenciesProvider interface {
-	Bootstrap()
+	Bootstrap(scope string)
 	Shutdown()
 }

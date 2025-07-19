@@ -4,17 +4,21 @@ import (
 	"context"
 	"duolingo/apps/push_sender/server/test/test_suites"
 	"duolingo/dependencies"
+	"duolingo/test/fixtures"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 )
 
 func TestSender(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	dependencies.RegisterDependencies(ctx)
-	dependencies.BootstrapDependencies("push_sender")
+	fixtures.SetTestConfigDir()
+	dependencies.RegisterDependencies(context.Background())
+	dependencies.BootstrapDependencies("test", []string{
+		"common",
+		"connections",
+		"message_queues",
+		"push_service",
+	})
 
 	suite.Run(t, test_suites.NewSenderTestSuite())
 }

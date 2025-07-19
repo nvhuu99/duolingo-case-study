@@ -23,8 +23,7 @@ type MessageInputRequestTestSuite struct {
 
 	ctx                context.Context
 	messageInputServer *server.MessageInputApiServer
-	inputPublisher     ps.Publisher
-	inputSubscriber    ps.Subscriber
+	msgInpSubscriber   ps.Subscriber
 }
 
 func NewMessageInputRequestTestSuite(
@@ -34,8 +33,7 @@ func NewMessageInputRequestTestSuite(
 	return &MessageInputRequestTestSuite{
 		ctx:                ctx,
 		messageInputServer: messageInputServer,
-		inputPublisher:     container.MustResolveAlias[ps.Publisher]("message_input_publisher"),
-		inputSubscriber:    container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
+		msgInpSubscriber:   container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
 	}
 }
 
@@ -71,7 +69,7 @@ func (s *MessageInputRequestTestSuite) Test_HandleMessageInputRequest() {
 	}()
 	go func() {
 		defer wg.Done()
-		consumeErr := s.inputSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, msg string) {
+		consumeErr := s.msgInpSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, msg string) {
 			defer func() { done <- true }()
 			s.Assert().NotPanics(func() {
 				s.Assert().Equal(response.Data, models.MessageInputDecode([]byte(msg)))

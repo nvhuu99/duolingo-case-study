@@ -13,7 +13,12 @@ func main() {
 	defer cancel()
 
 	dependencies.RegisterDependencies(ctx)
-	dependencies.BootstrapDependencies("push_sender")
+	dependencies.BootstrapDependencies("", []string{
+		"common",
+		"connections",
+		"message_queues",
+		"push_service",
+	})
 
 	sender := server.NewSender()
 	log.Println("running push notification sender")

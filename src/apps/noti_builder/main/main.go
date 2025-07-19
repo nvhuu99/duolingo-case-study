@@ -13,6 +13,14 @@ func main() {
 	defer cancel()
 
 	dependencies.RegisterDependencies(ctx)
+	dependencies.BootstrapDependencies("", []string{
+		"common",
+		"connections",
+		"message_queues",
+		"user_repo",
+		"user_service",
+		"work_distributor",
+	})
 
 	builder := server.NewNotiBuilder()
 	log.Println("running notification builder")

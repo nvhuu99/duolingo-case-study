@@ -1,5 +1,5 @@
 {
   "supported_platforms": ["ios", "android"],
-  "buffer_limit": 500,
+  "buffer_limit": 2,
   "flush_duration": 100
 }

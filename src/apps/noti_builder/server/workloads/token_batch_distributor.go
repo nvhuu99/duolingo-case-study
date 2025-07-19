@@ -14,18 +14,18 @@ import (
 type TokenBatchDistributor struct {
 	*dist.WorkDistributor
 
-	jobPublisher  ps.Publisher
-	jobSubscriber ps.Subscriber
+	buildJobPublisher  ps.Publisher
+	buildJobSubscriber ps.Subscriber
 
-	userService usr_svc.UserService
+	userService *usr_svc.UserService
 }
 
 func NewTokenBatchDistributor() *TokenBatchDistributor {
 	return &TokenBatchDistributor{
-		WorkDistributor: container.MustResolve[*dist.WorkDistributor](),
-		jobPublisher:    container.MustResolveAlias[ps.Publisher]("noti_builder_jobs_publisher"),
-		jobSubscriber:   container.MustResolveAlias[ps.Subscriber]("noti_builder_jobs_subscriber"),
-		userService:     container.MustResolve[usr_svc.UserService](),
+		WorkDistributor:    container.MustResolve[*dist.WorkDistributor](),
+		buildJobPublisher:  container.MustResolveAlias[ps.Publisher]("noti_builder_jobs_publisher"),
+		buildJobSubscriber: container.MustResolveAlias[ps.Subscriber]("noti_builder_jobs_subscriber"),
+		userService:        container.MustResolve[*usr_svc.UserService](),
 	}
 }
 
@@ -36,7 +36,7 @@ func (d *TokenBatchDistributor) CreateBatchJob(input *models.MessageInput) error
 	if count, err = d.userService.CountDevicesForCampaign(input.Campaign); count != 0 && err == nil {
 		if workload, err = d.CreateWorkload(count); err == nil {
 			job := NewTokenBatchJob(workload.Id, input)
-			err = d.jobPublisher.NotifyMainTopic(string(job.Encode()))
+			err = d.buildJobPublisher.NotifyMainTopic(string(job.Encode()))
 		}
 	}
 	return err
@@ -46,7 +46,7 @@ func (d *TokenBatchDistributor) ConsumingTokenBatches(
 	ctx context.Context,
 	batchConsumer func(input *models.MessageInput, devices []*models.UserDevice),
 ) error {
-	return d.jobSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, str string) {
+	return d.buildJobSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, str string) {
 		d.startJobBatching(ctx, JobDecode([]byte(str)), batchConsumer)
 	})
 }

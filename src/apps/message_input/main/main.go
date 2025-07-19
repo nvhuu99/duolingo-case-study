@@ -13,7 +13,11 @@ func main() {
 	defer cancel()
 
 	dependencies.RegisterDependencies(ctx)
-	dependencies.BootstrapDependencies("message_input")
+	dependencies.BootstrapDependencies("", []string{
+		"common",
+		"connections",
+		"message_queues",
+	})
 
 	server := server.NewMessageInputApiServer()
 	server.RegisterRoutes()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"duolingo/apps/push_sender/server/test/fakes"
 	"duolingo/libraries/config_reader"
 	container "duolingo/libraries/dependencies_container"
 	push_noti "duolingo/libraries/push_notification"
@@ -21,9 +22,18 @@ func NewPushService() *PushService {
 func (provider *PushService) Shutdown() {
 }
 
-func (provider *PushService) Bootstrap() {
+func (provider *PushService) Bootstrap(scope string) {
 	provider.config = container.MustResolve[config_reader.ConfigReader]()
 
+	if scope == "test" {
+		provider.bindFakePushService()
+		return
+	}
+
+	provider.bindFirebasePushService()
+}
+
+func (provider *PushService) bindFirebasePushService() {
 	container.BindSingleton[push_noti.PushService](func(ctx context.Context) any {
 		cred := provider.config.Get("firebase", "credentials")
 		factory, factoryErr := driver.NewFirebasePushNotiFactory(ctx, cred)
@@ -37,5 +47,11 @@ func (provider *PushService) Bootstrap() {
 		}
 
 		return service
+	})
+}
+
+func (provider *PushService) bindFakePushService() {
+	container.BindSingleton[push_noti.PushService](func(ctx context.Context) any {
+		return fakes.NewFakePushService()
 	})
 }

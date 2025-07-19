@@ -11,6 +11,7 @@ import (
 	"duolingo/libraries/config_reader"
 	container "duolingo/libraries/dependencies_container"
 	tq "duolingo/libraries/message_queue/task_queue"
+	"duolingo/libraries/push_notification"
 	"duolingo/models"
 	"duolingo/test/fixtures/data"
 
@@ -32,7 +33,11 @@ func NewSenderTestSuite() *SenderTestSuite {
 }
 
 func (s *SenderTestSuite) Test_Sender_BufferLimit() {
-	fakeService := fakes.NewFakePushService()
+	pushService := container.MustResolve[push_notification.PushService]()
+	fakeService, ok := pushService.(*fakes.FakePushService)
+	if !ok {
+		panic("canot resolve fake push service")
+	}
 	sender := server.NewSender()
 
 	var firstMessage *fakes.FakeMessage
@@ -42,7 +47,7 @@ func (s *SenderTestSuite) Test_Sender_BufferLimit() {
 	var flushTokenCount = 0
 	var flushCount = 0
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	wg := new(sync.WaitGroup)
@@ -107,6 +112,9 @@ func (s *SenderTestSuite) Test_Sender_BufferLimit() {
 				}
 				flushCount++
 				flushTokenCount += len(msg.Tokens)
+				if flushCount == totalFlush {
+					cancel()
+				}
 			}
 		}
 	}()

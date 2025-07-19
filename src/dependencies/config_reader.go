@@ -23,7 +23,7 @@ func NewConfigReader() *ConfigReader {
 	return &ConfigReader{configDir: fromEnv}
 }
 
-func (c *ConfigReader) Bootstrap() {
+func (c *ConfigReader) Bootstrap(scope string) {
 	container.BindSingleton[config_reader.ConfigReader](func(ctx context.Context) any {
 		return config_reader.
 			NewJsonConfigReader().

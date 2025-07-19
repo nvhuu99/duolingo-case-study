@@ -19,7 +19,7 @@ func NewUserRepo() *UserRepo {
 func (provider *UserRepo) Shutdown() {
 }
 
-func (provider *UserRepo) Bootstrap() {
+func (provider *UserRepo) Bootstrap(scope string) {
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
 	container.BindSingleton[user_repo.UserRepoFactory](func(ctx context.Context) any {

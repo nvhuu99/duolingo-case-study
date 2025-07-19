@@ -13,18 +13,18 @@ import (
 )
 
 type NotiBuilder struct {
-	inputSubscriber      ps.Subscriber
-	pushNotiTaskProducer tq.TaskProducer
-	tokenDistributor     *wrkl.TokenBatchDistributor
-	errChan              chan error
+	msgInpSubscriber ps.Subscriber
+	pushNotiProducer tq.TaskProducer
+	tokenDistributor *wrkl.TokenBatchDistributor
+	errChan          chan error
 }
 
 func NewNotiBuilder() *NotiBuilder {
 	return &NotiBuilder{
-		inputSubscriber:      container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
-		pushNotiTaskProducer: container.MustResolveAlias[tq.TaskProducer]("push_notifications_producer"),
-		tokenDistributor:     wrkl.NewTokenBatchDistributor(),
-		errChan:              make(chan error, 100),
+		msgInpSubscriber: container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
+		pushNotiProducer: container.MustResolveAlias[tq.TaskProducer]("push_notifications_producer"),
+		tokenDistributor: wrkl.NewTokenBatchDistributor(),
+		errChan:          make(chan error, 100),
 	}
 }
 
@@ -40,7 +40,7 @@ func (b *NotiBuilder) Start(buildCtx context.Context) {
 	go func() {
 		defer wg.Done()
 		defer cancel()
-		if err := b.inputSubscriber.ListeningMainTopic(ctx, b.createBatchJob); err != nil {
+		if err := b.msgInpSubscriber.ListeningMainTopic(ctx, b.createBatchJob); err != nil {
 			panic(err)
 		}
 	}()
@@ -64,7 +64,7 @@ func (b *NotiBuilder) handleErrChannel(wg *sync.WaitGroup, ctx context.Context) 
 			return
 		case err := <-b.errChan:
 			if err != nil {
-				log.Println("err", err)
+				log.Println("noti builder err", err)
 			}
 		}
 	}
@@ -83,7 +83,7 @@ func (b *NotiBuilder) producePushNotiTask(
 	devices []*models.UserDevice,
 ) {
 	serialized := string(models.NewPushNotiMessage(input, devices).Encode())
-	if err := b.pushNotiTaskProducer.Push(serialized); err != nil {
+	if err := b.pushNotiProducer.Push(serialized); err != nil {
 		b.errChan <- err
 	}
 	log.Println("task pushed:", serialized)

@@ -21,7 +21,7 @@ func NewMessageQueues() *MessageQueues {
 func (provider *MessageQueues) Shutdown() {
 }
 
-func (provider *MessageQueues) Bootstrap() {
+func (provider *MessageQueues) Bootstrap(scope string) {
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
 	provider.declareTopic(
@@ -73,6 +73,7 @@ func (provider *MessageQueues) declareTaskQueue(
 	consumerName string,
 ) {
 	taskQueue := task_queue.NewTaskQueue(provider.connections.GetRabbitMQClient())
+	taskQueue.SetQueue(queueName)
 	if err := taskQueue.Declare(); err != nil {
 		panic(fmt.Errorf("failed to declare task queue %v with error: %v", queueName, err))
 	}

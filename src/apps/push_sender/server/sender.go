@@ -17,7 +17,7 @@ import (
 
 type Sender struct {
 	// Consumer receiving incoming push notification task
-	pushNotiTasks tq.TaskConsumer
+	pushNotiConsumer tq.TaskConsumer
 
 	// Sending notifications to supported platforms (e.g., Android, IOS).
 	platforms   []string
@@ -45,15 +45,15 @@ func NewSender() *Sender {
 	grp := buffer.NewBufferGroup[models.MessageInput, string]()
 	grp.SetLimit(bufferLimit).SetInterval(bufferInterval)
 
-	pushNotiTasks := container.MustResolveAlias[tq.TaskConsumer]("push_notifications_consumer")
+	pushNotiConsumer := container.MustResolveAlias[tq.TaskConsumer]("push_notifications_consumer")
 	pushService := container.MustResolve[push_noti.PushService]()
 
 	return &Sender{
-		pushNotiTasks: pushNotiTasks,
-		pushService:   pushService,
-		buffer:        grp,
-		platforms:     platforms,
-		errChan:       make(chan error, 100),
+		pushNotiConsumer: pushNotiConsumer,
+		pushService:      pushService,
+		buffer:           grp,
+		platforms:        platforms,
+		errChan:          make(chan error, 100),
 	}
 }
 
@@ -73,11 +73,13 @@ func (sender *Sender) Start(serverCtx context.Context) {
 		// request to the PushService.
 		sender.buffer.SetConsumeFunc(false, sender.sendPushNoti)
 		// Stored incoming push notifications in a token buffer
-		err := sender.pushNotiTasks.Consuming(ctx, sender.bufferTokens)
+		err := sender.pushNotiConsumer.Consuming(ctx, sender.bufferTokens)
 		if err != nil {
 			panic(err)
 		}
 	}()
+
+	wg.Wait()
 }
 
 func (sender *Sender) handleErrChannel(wg *sync.WaitGroup, ctx context.Context) {
@@ -88,7 +90,7 @@ func (sender *Sender) handleErrChannel(wg *sync.WaitGroup, ctx context.Context) 
 			return
 		case err := <-sender.errChan:
 			if err != nil {
-				log.Println("err", err)
+				log.Println("push sender err", err)
 			}
 		}
 	}

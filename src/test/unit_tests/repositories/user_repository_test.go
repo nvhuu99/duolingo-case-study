@@ -14,12 +14,12 @@ import (
 func TestMongoDBUserRepository(t *testing.T) {
 	fixtures.SetTestConfigDir()
 	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies(
+	dependencies.BootstrapDependencies("test", []string{
 		"common",
 		"connections",
 		"user_repo",
 		"user_service",
-	)
+	})
 
 	suite.Run(t, test_suites.NewUserRepositoryTestSuite())
 }

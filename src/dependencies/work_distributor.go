@@ -19,7 +19,7 @@ func NewWorkDistributor() *WorkDistributor {
 	return &WorkDistributor{}
 }
 
-func (provider *WorkDistributor) Bootstrap() {
+func (provider *WorkDistributor) Bootstrap(scope string) {
 	provider.config = container.MustResolve[config_reader.ConfigReader]()
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
