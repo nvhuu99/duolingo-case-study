@@ -11,11 +11,8 @@ import (
 )
 
 func TestNotiBuilder(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	fixtures.SetTestConfigDir()
-	dependencies.RegisterDependencies(ctx)
+	dependencies.RegisterDependencies(context.Background())
 	dependencies.BootstrapDependencies("test", []string{
 		"common",
 		"connections",

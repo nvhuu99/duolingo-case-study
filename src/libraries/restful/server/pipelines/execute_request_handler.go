@@ -14,6 +14,7 @@ func (r *ExecuteRequestHandler) Handle(req *restful.Request, res *restful.Respon
 	accessor := restful.NewRequestAccessor(req)
 	if handler := accessor.GetRequestHandler(); handler != nil {
 		handler(req, res)
+		log.Println("request handled", req.Method(), req.URL().Path)
 	}
 	r.Next(req, res)
 }
