@@ -1,20 +1,20 @@
 package config_reader
 
 var (
-	ErrSourceNotRegistered = "trying to read an unregistered source %v"
-	ErrSourceFailure       = "%v source error: %v"
-	ErrConfigNotFound      = "%v not found from source %v"
+	ErrSourceIsNotSet = "no config source registered for %v"
+	ErrSourceFailure  = "%v source error: %v"
+	ErrConfigNotFound = "%v not found from source %v"
 )
 
 type Source interface {
-	Load() ([]byte, error)
+	Load(uri string) ([][]byte, error)
 }
 
 type ConfigReader interface {
-	Get(source string, pattern string) string
-	GetInt(source string, pattern string) int
-	GetInt64(source string, pattern string) int64
-	GetArr(source string, pattern string) []string
-	GetIntArr(source string, pattern string) []int
-	GetInt64Arr(source string, pattern string) []int64
+	Get(uri string, pattern string) string
+	GetInt(uri string, pattern string) int
+	GetInt64(uri string, pattern string) int64
+	GetArr(uri string, pattern string) []string
+	GetIntArr(uri string, pattern string) []int
+	GetInt64Arr(uri string, pattern string) []int64
 }

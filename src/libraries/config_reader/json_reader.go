@@ -2,50 +2,41 @@ package config_reader
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/tidwall/gjson"
 )
 
 type JsonConfigReader struct {
-	sources      map[string]Source
-	localFileDir string
+	source Source
+	cache  map[string][][]byte
 }
 
 func NewJsonConfigReader() *JsonConfigReader {
 	return &JsonConfigReader{
-		sources: make(map[string]Source),
+		cache: make(map[string][][]byte),
 	}
 }
 
-func (reader *JsonConfigReader) SetLocalFileDir(dir string) *JsonConfigReader {
-	reader.localFileDir = dir
+func (reader *JsonConfigReader) LoadFromLocalFiles(configDir string) *JsonConfigReader {
+	reader.source = NewLocalFile(configDir).AcceptExtentions(".json")
 	return reader
 }
 
-func (reader *JsonConfigReader) AddLocalFile(name string, filepath string) *JsonConfigReader {
-	if _, exists := reader.sources[name]; !exists {
-		fullpath := path.Join(reader.localFileDir, filepath)
-		reader.sources[name] = NewLocalFile(fullpath)
-	}
-	return reader
+func (reader *JsonConfigReader) Get(uri string, pattern string) string {
+	return reader.get(uri, pattern).String()
 }
 
-func (reader *JsonConfigReader) Get(source string, pattern string) string {
-	return reader.get(source, pattern).String()
+func (reader *JsonConfigReader) GetInt(uri string, pattern string) int {
+	return int(reader.get(uri, pattern).Int())
 }
 
-func (reader *JsonConfigReader) GetInt(source string, pattern string) int {
-	return int(reader.get(source, pattern).Int())
+func (reader *JsonConfigReader) GetInt64(uri string, pattern string) int64 {
+	return reader.get(uri, pattern).Int()
 }
 
-func (reader *JsonConfigReader) GetInt64(source string, pattern string) int64 {
-	return reader.get(source, pattern).Int()
-}
-
-func (reader *JsonConfigReader) GetArr(source string, pattern string) []string {
+func (reader *JsonConfigReader) GetArr(uri string, pattern string) []string {
 	result := []string{}
-	data := reader.get(source, pattern).Array()
+	data := reader.get(uri, pattern).Array()
 	for r := range data {
 		if data[r].Exists() {
 			result = append(result, data[r].String())
@@ -54,9 +45,9 @@ func (reader *JsonConfigReader) GetArr(source string, pattern string) []string {
 	return result
 }
 
-func (reader *JsonConfigReader) GetIntArr(source string, pattern string) []int {
+func (reader *JsonConfigReader) GetIntArr(uri string, pattern string) []int {
 	result := []int{}
-	data := reader.get(source, pattern).Array()
+	data := reader.get(uri, pattern).Array()
 	for r := range data {
 		if data[r].Exists() {
 			result = append(result, int(data[r].Int()))
@@ -76,18 +67,30 @@ func (reader *JsonConfigReader) GetInt64Arr(source string, pattern string) []int
 	return result
 }
 
-func (reader *JsonConfigReader) get(source string, pattern string) gjson.Result {
-	src, exists := reader.sources[source]
-	if !exists {
-		panic(fmt.Errorf(ErrSourceNotRegistered, source))
+func (reader *JsonConfigReader) get(uri string, pattern string) gjson.Result {
+	if reader.source == nil {
+		panic(fmt.Errorf(ErrSourceIsNotSet, "JsonConfigReader"))
 	}
-	raw, err := src.Load()
-	if err != nil {
-		panic(fmt.Errorf(ErrSourceFailure, source, err))
+
+	var rawContents [][]byte
+	var err error
+
+	if _, exists := reader.cache[uri]; exists {
+		rawContents = reader.cache[uri]
+	} else {
+		rawContents, err = reader.source.Load(uri)
+		if err != nil {
+			panic(fmt.Errorf(ErrSourceFailure, reader.source, err))
+		}
+		reader.cache[uri] = rawContents
 	}
-	data := gjson.ParseBytes(raw).Get(pattern)
-	if !data.Exists() {
-		panic(fmt.Errorf(ErrConfigNotFound, pattern, source))
+
+	for _, content := range rawContents {
+		data := gjson.ParseBytes(content).Get(pattern)
+		if data.Exists() {
+			return data
+		}
 	}
-	return data
+
+	panic(fmt.Errorf(ErrConfigNotFound, pattern, reader.source))
 }
