@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: push-sender
+  labels: { app: push-sender }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: push-sender }
+  template:
+    metadata:
+      labels: { app: push-sender }
+    spec:
+      volumes:
+        - name: app-configs
+          configMap: { name: app-configs }
+        - name: app-secrets
+          secret: { secretName: app-secrets }
+      containers:
+        - name: push-sender
+          image: push-sender:latest
+          imagePullPolicy: Never
+          resources:
+            requests: { cpu: "0.5", memory: "1Gi" }
+            limits: { cpu: "0.5", memory: "1Gi" }
+          env:
+            - name: DUOLINGO_CONFIG_DIR_PATH
+              value: /etc/duolingo/configs
+          volumeMounts:
+            - name: app-configs
+              mountPath: /etc/duolingo/configs
+            - name: app-secrets
+              mountPath: /etc/duolingo/configs/secrets
+          ports:
+            - containerPort: 80

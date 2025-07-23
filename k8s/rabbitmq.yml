@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels: { app: rabbitmq }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: rabbitmq }
+  template:
+    metadata:
+      labels: { app: rabbitmq }
+    spec:
+      volumes:
+        - name: rabbitmq-data
+          emptyDir: { sizeLimit: 3Gi }
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3-management
+        resources:
+          requests: { cpu: "0.5", memory: "1Gi" }
+          limits:   { cpu: "0.5", memory: "1Gi" }
+        volumeMounts:
+          - name: rabbitmq-data
+            mountPath: /var/lib/rabbitmq
+        env:
+          - name: RABBITMQ_DEFAULT_USER
+            valueFrom: { secretKeyRef: { name: app-secrets, key: rabbitmq.username }}
+          - name: RABBITMQ_DEFAULT_PASS
+            valueFrom: { secretKeyRef: { name: app-secrets, key: rabbitmq.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  type: ClusterIP
+  selector: { app: rabbitmq }
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: http
+      port: 15672
+      targetPort: 15672
