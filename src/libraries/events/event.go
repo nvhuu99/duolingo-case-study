@@ -4,10 +4,17 @@ import (
 	"context"
 	"time"
 )
-
 type Event struct {
-	ctx       context.Context
 	name      string
+
+	ctx       context.Context
+
 	startedAt time.Time
 	endedAt   time.Time
+}
+
+func NewEvent(name string) *Event {
+	return &Event{
+		name: name,
+	}
 }

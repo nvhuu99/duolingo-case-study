@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -12,13 +11,13 @@ var (
 	eventManagerInitCalled atomic.Bool
 )
 
-type startEvent struct {
+type startEventRequest struct {
 	event                 *Event
 	eventTreeNodeTemplate *EventTreeNodeTemplate
 	startedAt             time.Time
 }
 
-type endEvent struct {
+type endEventRequest struct {
 	event   *Event
 	endedAt time.Time
 }
@@ -50,7 +49,7 @@ func Init(ctx context.Context, collectInterval time.Duration) {
 
 	go eventManager.handleOperationsChannel()
 
-	go eventManager.collectAndNotifyEndedEvents()
+	go eventManager.collectEndedEventsAndNotifySubscribers()
 }
 
 func GetManager() *EventManager {
@@ -65,28 +64,27 @@ func (m *EventManager) NewEvent(
 	ctx context.Context,
 	name string,
 ) (context.Context, *Event) {
-	newEvent := &Event{
-		name: name,
-	}
-
+	newEvent := NewEvent(name)
 	newCtx, newNodeTemplate := m.eventTreeBuilder.NewNodeTemplate(ctx, newEvent)
-
 	newEvent.ctx = newCtx
 
-	m.opsChan <- &startEvent{
+	m.opsChan <- &startEventRequest{
 		event:                 newEvent,
 		eventTreeNodeTemplate: newNodeTemplate,
 		startedAt:             time.Now(),
 	}
 
-	log.Println("queue create event for", name)
+	// log.Println("queue create event for", name)
 
 	return newCtx, newEvent
 }
 
 func (m *EventManager) EndEvent(event *Event, endedAt time.Time) {
-	m.opsChan <- &endEvent{event: event, endedAt: endedAt}
-	log.Println("queue end event for", event.name)
+	m.opsChan <- &endEventRequest{
+		event: event, 
+		endedAt: endedAt,
+	}
+	// log.Println("queue end event for", event.name)
 }
 
 func (m *EventManager) handleOperationsChannel() {
@@ -95,32 +93,34 @@ func (m *EventManager) handleOperationsChannel() {
 		case <-m.ctx.Done():
 			return
 		case operation := <-m.opsChan:
-			if op, start := operation.(*startEvent); start {
+			if op, start := operation.(*startEventRequest); start {
 				m.startEvent(op)
-			} else if op, end := operation.(*endEvent); end {
+			} else if op, end := operation.(*endEventRequest); end {
 				m.endEvent(op)
 			}
 		}
 	}
 }
 
-func (m *EventManager) startEvent(operation *startEvent) {
-	defer log.Println("created event map for", operation.event.name)
+func (m *EventManager) startEvent(operation *startEventRequest) {
+	// defer log.Println("created event map for", operation.event.name)
 
 	event := operation.event
 	event.startedAt = operation.startedAt
 
 	eventNode := m.eventTree.builder.NewNode(operation.eventTreeNodeTemplate)
 	m.eventTree.InsertNode(eventNode)
+
+	go m.handleEventContextCancel(event)
 }
 
-func (m *EventManager) endEvent(op *endEvent) {
+func (m *EventManager) endEvent(op *endEventRequest) {
 	event := op.event
 	m.eventTree.FindNodeFromContextAndFlagEventEnded(event.ctx, op.endedAt)
 }
 
-func (m *EventManager) collectAndNotifyEndedEvents() {
-	ticker := time.NewTicker(2 * time.Second)
+func (m *EventManager) collectEndedEventsAndNotifySubscribers() {
+	ticker := time.NewTicker(m.collectInterval)
 	for {
 		select {
 		case <-m.ctx.Done():
@@ -136,5 +136,13 @@ func (m *EventManager) collectAndNotifyEndedEvents() {
 func (m *EventManager) notifySubscribers(event *Event) {
 	for _, sub := range m.subscribers {
 		sub.Notified(event)
+	}
+}
+
+func (m *EventManager) handleEventContextCancel(event *Event) {
+	<- event.ctx.Done()
+
+	if event.endedAt.IsZero() {
+		m.EndEvent(event, time.Now())
 	}
 }

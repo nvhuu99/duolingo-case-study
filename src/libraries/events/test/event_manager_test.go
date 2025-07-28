@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestEvents(t *testing.T) {
+func TestEventManager(t *testing.T) {
 	events.Init(context.Background(), 2*time.Second)
 
 	manager := events.GetManager()
@@ -17,10 +17,14 @@ func TestEvents(t *testing.T) {
 	ctxA, A := events.New(context.Background(), "A")
 
 	ctxB, B := events.New(ctxA, "B")
+	
 	ctxC, C := events.New(ctxA, "C")
 
 	_, D := events.New(ctxB, "D")
-	ctxE, E := events.New(ctxC, "E")
+	
+	ctxC1, cancelCtxC1 := context.WithCancel(ctxC)
+	ctxE, _ := events.New(ctxC1, "E")
+	
 	_, F := events.New(ctxC, "F")
 
 	_, G := events.New(ctxE, "G")
@@ -39,7 +43,8 @@ func TestEvents(t *testing.T) {
 	events.End(D)
 
 	time.Sleep(100 * time.Millisecond)
-	events.End(E)
+	// events.Interupt(E)
+	cancelCtxC1()
 
 	time.Sleep(100 * time.Millisecond)
 	events.End(F)

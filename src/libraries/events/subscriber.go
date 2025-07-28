@@ -11,5 +11,11 @@ type SubscriberImp struct {
 }
 
 func (sub *SubscriberImp) Notified(event *Event) {
-	log.Println(sub.Name, "received event", event.name, event.startedAt, event.endedAt)
+	log.Println(
+		sub.Name, 
+		"received event",
+		event.name, 
+		event.startedAt, 
+		event.endedAt,
+	)
 }

@@ -25,7 +25,7 @@ func (builder *EventTreeBuilder) NewNodeTemplate(
 
 	newNodeId := uuid.NewString()
 	newNodePath := builder.joinNodePaths(parentNodePath, newNodeId)
-	newNodeCtx := context.WithValue(ctx, CtxValEventTreeNodePath, newNodePath)
+	newNodeCtx := builder.setNodePathToContext(ctx, newNodePath)
 	newNodeTemplate := &EventTreeNodeTemplate{
 		ctx:   newNodeCtx,
 		id:    newNodeId,
@@ -49,6 +49,10 @@ func (builder *EventTreeBuilder) NewNode(template *EventTreeNodeTemplate) *Event
 func (builder *EventTreeBuilder) extractNodePathFromContext(ctx context.Context) string {
 	eventPath, _ := ctx.Value(CtxValEventTreeNodePath).(string)
 	return eventPath
+}
+
+func (builder *EventTreeBuilder) setNodePathToContext(ctx context.Context, path string) context.Context {
+	return context.WithValue(ctx, CtxValEventTreeNodePath, path)
 }
 
 func (builder *EventTreeBuilder) joinNodePaths(parts ...string) string {
