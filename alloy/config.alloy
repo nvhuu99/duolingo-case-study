@@ -1,0 +1,120 @@
+local.file "endpoints" {
+    // The endpoints file is used to define the endpoints, credentials and options
+    // for the Alloy export to.
+    filename = "/etc/alloy/endpoints.json"
+}
+
+// Receive traces, metrics from the upstream clients via OpenTelementry.
+otelcol.receiver.otlp "otlp_receiver" {
+    grpc {
+        endpoint = "0.0.0.0:4317"
+    }
+    http {
+        endpoint = "0.0.0.0:4318"
+    }
+
+    output {
+        traces = [
+            otelcol.processor.batch.default.input,
+        ]
+        metrics = [
+            otelcol.processor.batch.default.input,
+        ]
+    }
+}
+
+// Receive logs. The clients must push their logs via Loki's HTTP REST API
+loki.source.api "default" {
+    http {
+        listen_address = "0.0.0.0"
+        listen_port = "3100"
+    }
+
+    forward_to = [loki.process.default.receiver]
+}
+
+loki.process "default" {
+    // Ensure log timestamp use the original value instead of the time they 
+    // were receied by Alloy.
+    stage.regex {
+        expression=`^.*?loggedtime=(?P<loggedtime>\S+)`
+    }
+    stage.timestamp {
+        source = "loggedtime"
+        format = "2006-01-02T15:04:05.000Z07:00"
+    }
+
+    forward_to = [otelcol.receiver.loki.default.receiver]
+}
+
+otelcol.receiver.loki "default" {
+  output {
+    logs = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Batch telementries
+otelcol.processor.batch "default" {
+    send_batch_size = 1000
+    send_batch_max_size = 2000
+    timeout = "5s"
+    output {
+        traces = [otelcol.exporter.otlp.tempo.input]
+        metrics = [otelcol.exporter.prometheus.default.input]
+        logs = [otelcol.exporter.loki.default.input]
+    }
+}
+
+// Export trace spans to Tempo
+otelcol.auth.headers "tempo" {
+    header {
+        key = "Authorization"
+        value = join(["Basic ", json_path(local.file.endpoints.content, ".traces.basicAuthToken")[0]], "")
+    }
+}
+
+otelcol.exporter.otlp "tempo" {
+    client {
+        auth = otelcol.auth.headers.tempo.handler
+
+        endpoint = json_path(local.file.endpoints.content, ".traces.url")[0]
+
+        tls {
+            insecure = json_path(local.file.endpoints.content, ".traces.tls.insecure")[0]
+            insecure_skip_verify = json_path(local.file.endpoints.content, ".traces.tls.insecureSkipVerify")[0]
+        }
+    }
+}
+
+// Export metrics to Prometheus
+otelcol.exporter.prometheus "default" {
+    // Alloy has a local Prometheus that uses Mimir as its remote storage
+    forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+prometheus.remote_write "mimir" {
+    endpoint {
+        url = json_path(local.file.endpoints.content, ".metrics.url")[0]
+
+        basic_auth {
+            username = json_path(local.file.endpoints.content, ".metrics.basicAuth.username")[0]
+            password = json_path(local.file.endpoints.content, ".metrics.basicAuth.password")[0]
+        }
+    }
+}
+
+// Export logs to Loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+    endpoint {
+        url = json_path(local.file.endpoints.content, ".logs.url")[0]
+
+        basic_auth {
+            username = json_path(local.file.endpoints.content, ".logs.basicAuth.username")[0]
+            password = json_path(local.file.endpoints.content, ".logs.basicAuth.password")[0]
+        }
+    }
+}

@@ -1,0 +1,89 @@
+name: duolingo-stack
+services:
+  mongodb:
+    image: mongo:8.0.4
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root@1234
+    ports:
+      - "27017:27017"
+    # volumes:
+    #   - duolingo-mongodb-data:/data/db
+
+  redis:
+    image: redis:7.4.2-alpine
+    ports:
+      - "6379:6379"
+    # volumes:
+    #   - duolingo-redis-data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: root@1234
+    # volumes:
+    #   - duolingo-rabbitmq-data:/var/lib/rabbitmq
+
+  alloy:
+    image: grafana/alloy:v1.9.1
+    ports:
+      - "12350:12350"
+      - "12347:12345"
+      - "12348:12348"
+      - "6832:6832"
+      - "4317:4317" # OLTP GRPC
+      - "4318:4318" # OLTP HTTP
+      - "3110:3100" # Loki HTTP API
+    volumes:
+      - "./alloy/config.alloy:/etc/alloy/config.alloy"
+      - "./alloy/endpoints.json:/etc/alloy/endpoints.json"
+    command: [
+      "run",
+      "--server.http.listen-addr=0.0.0.0:12345",
+      "--stability.level=public-preview",
+      "/etc/alloy/config.alloy",
+    ]
+  
+  grafana:
+    image: grafana/grafana:12.0.2
+    volumes:
+      - "./grafana/dashboards:/var/lib/grafana/dashboards"
+      - "./grafana/provisioning:/etc/grafana/provisioning"
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_FEATURE_TOGGLES_ENABLE=flameGraph traceqlSearch traceQLStreaming correlations metricsSummary traceqlEditor traceToMetrics traceToProfiles datatrails
+      - GF_INSTALL_PLUGINS=grafana-lokiexplore-app,grafana-exploretraces-app,grafana-pyroscope-app
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+
+  tempo:
+    image: grafana/tempo:2.8.1
+    ports:
+      - "3200:3200"
+      - "9411:9411"
+      - "14250:14250"
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - "./tempo/tempo.yaml:/etc/tempo.yaml"
+
+  loki:
+    image: grafana/loki:3.5.1
+    command: ["--pattern-ingester.enabled=true", "-config.file=/etc/loki/loki.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - "./loki/loki.yaml:/etc/loki/loki.yaml"
+
+  mimir:
+    image: grafana/mimir:2.16.0
+    command: ["-ingester.native-histograms-ingestion-enabled=true", "-config.file=/etc/mimir.yaml"]
+    ports:
+      - "9009:9009"
+    volumes:
+      - "./mimir/mimir.yaml:/etc/mimir.yaml"

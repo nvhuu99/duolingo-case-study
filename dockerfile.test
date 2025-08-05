@@ -1,0 +1,23 @@
+FROM golang:1.23.3
+
+# Environment vars
+ENV SRC_DIR=/var/duolingo/src
+
+# Dev tools (optional)
+RUN apt-get update && \
+    apt-get install -y vim && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy go.mod and go.sum first to leverage caching for downloading dependencies
+WORKDIR ${SRC_DIR}
+COPY ./src/go.mod ./
+COPY ./src/go.sum ./
+RUN go mod download
+
+# Copy src & Build
+COPY ./src/ ./
+
+WORKDIR ${SRC_DIR}
+
+# ENTRYPOINT ["tail"]
+# CMD ["-f","/dev/null"]
