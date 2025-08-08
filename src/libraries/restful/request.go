@@ -1,6 +1,7 @@
 package restful
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
@@ -20,12 +21,32 @@ func NewRequest(base *http.Request) *Request {
 	return &Request{base: base}
 }
 
+func (request *Request) Context() context.Context {
+	return request.base.Context()
+}
+
+func (request *Request) UserAgent() string {
+	return request.base.UserAgent()
+}
+
 func (request *Request) Method() string {
 	return request.base.Method
 }
 
 func (request *Request) URL() *url.URL {
 	return request.base.URL
+}
+
+func (request *Request) FullURL() string {
+    return request.Scheme() + "://" + request.base.Host + request.URL().RequestURI()
+}
+
+func (request *Request) Scheme() string {
+	scheme := "http"
+    if request.base.TLS != nil {
+        scheme = "https"
+    }
+    return scheme
 }
 
 func (request *Request) Header() http.Header {

@@ -19,10 +19,10 @@ func NewPushService() *PushService {
 	return &PushService{}
 }
 
-func (provider *PushService) Shutdown() {
+func (provider *PushService) Shutdown(shutdownCtx context.Context) {
 }
 
-func (provider *PushService) Bootstrap(scope string) {
+func (provider *PushService) Bootstrap(bootstrapCtx context.Context, scope string) {
 	provider.config = container.MustResolve[config_reader.ConfigReader]()
 
 	if scope == "test" {

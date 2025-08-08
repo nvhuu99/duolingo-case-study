@@ -64,6 +64,7 @@ func (root *EventTreeRoot) find(path string) *EventTreeNode {
 	parts := strings.Split(path, ".")
 	travel := root.rootNode
 	for i := range parts {
+		partFound := false
 		for id, node := range travel.childs {
 			if parts[i] != id {
 				continue
@@ -72,7 +73,11 @@ func (root *EventTreeRoot) find(path string) *EventTreeNode {
 				return node
 			}
 			travel = node
+			partFound = true
 			break
+		}
+		if !partFound {
+			return nil
 		}
 	}
 	return nil
@@ -87,6 +92,10 @@ func (root *EventTreeRoot) FindNodeFromContextAndFlagEventEnded(
 
 	path := root.builder.extractNodePathFromContext(ctx)
 	node := root.find(path)
+
+	if node == nil {
+		return
+	}
 
 	node.endedFlag = true
 	node.event.endedAt = endedAt

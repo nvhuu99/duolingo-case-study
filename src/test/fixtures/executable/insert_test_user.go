@@ -23,8 +23,7 @@ func main() {
 	flag.Parse()
 
 	fixtures.SetTestConfigDir()
-	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies("test", []string{
+	dependencies.Bootstrap(context.Background(), "test", []string{
 		"common",
 		"connections",
 		"user_repo",

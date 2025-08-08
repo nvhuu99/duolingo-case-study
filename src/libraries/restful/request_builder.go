@@ -1,6 +1,7 @@
 package restful
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 
@@ -15,6 +16,14 @@ type RequestBuilder struct {
 
 func NewRequestBuilder(req *Request) *RequestBuilder {
 	return &RequestBuilder{request: req}
+}
+
+func (b *RequestBuilder) GetRequestContext() context.Context {
+	return b.request.base.Context()
+}
+
+func (b *RequestBuilder) SetRequestContext(ctx context.Context) {
+	b.request.base = b.request.base.WithContext(ctx)
 }
 
 func (b *RequestBuilder) SetHandler(handler any) {

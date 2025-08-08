@@ -12,8 +12,7 @@ import (
 
 func TestNotiBuilder(t *testing.T) {
 	fixtures.SetTestConfigDir()
-	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies("test", []string{
+	dependencies.Bootstrap(context.Background(), "test", []string{
 		"common",
 		"connections",
 		"message_queues",
@@ -21,6 +20,5 @@ func TestNotiBuilder(t *testing.T) {
 		"user_service",
 		"work_distributor",
 	})
-
 	suite.Run(t, test_suites.NewNotiBuilderTestSuite())
 }

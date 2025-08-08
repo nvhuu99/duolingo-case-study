@@ -16,10 +16,10 @@ func NewUserService() *UserService {
 	return &UserService{}
 }
 
-func (provider *UserService) Shutdown() {
+func (provider *UserService) Shutdown(shutdownCtx context.Context) {
 }
 
-func (provider *UserService) Bootstrap(scope string) {
+func (provider *UserService) Bootstrap(bootstrapCtx context.Context, scope string) {
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
 	container.BindSingleton[*user_service.UserService](func(ctx context.Context) any {

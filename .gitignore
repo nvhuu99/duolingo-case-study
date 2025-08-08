@@ -1,2 +1,4 @@
-.vscode/
-src/.tmp
+/.vscode/
+
+/src/.tmp/*
+!/src/.tmp/configs

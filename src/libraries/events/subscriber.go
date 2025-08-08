@@ -1,21 +1,23 @@
 package events
 
-import "log"
+import "github.com/google/uuid"
 
 type Subscriber interface {
-	Notified(event *Event)
+	Notify(event *Event)
+	GetId() string
 }
 
-type SubscriberImp struct {
-	Name string
+type BaseEventSubscriber struct {
+	subscriberId string
 }
 
-func (sub *SubscriberImp) Notified(event *Event) {
-	log.Println(
-		sub.Name, 
-		"received event",
-		event.name, 
-		event.startedAt, 
-		event.endedAt,
-	)
+func NewBaseEventSubscriber() *BaseEventSubscriber {
+	return &BaseEventSubscriber{ uuid.NewString() }
+}
+
+func (base *BaseEventSubscriber) Notify(event *Event) {
+}
+
+func (base *BaseEventSubscriber) GetId() string {
+	return base.subscriberId
 }

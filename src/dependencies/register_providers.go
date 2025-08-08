@@ -11,11 +11,12 @@ var (
 	registerOnce sync.Once
 )
 
-func RegisterDependencies(ctx context.Context) {
+func registerDependencies(ctx context.Context) {
 	registerOnce.Do(func() {
 		container.Init(ctx)
-		dependencies_provider.Init()
+		dependencies_provider.Init(ctx)
 		dependencies_provider.AddProvider(NewConfigReader(), "common")
+		dependencies_provider.AddProvider(NewEvents(), "event_manager")
 		dependencies_provider.AddProvider(NewConnections(), "connections")
 		dependencies_provider.AddProvider(NewMessageQueues(), "message_queues")
 		dependencies_provider.AddProvider(NewUserRepo(), "user_repo")
@@ -25,6 +26,11 @@ func RegisterDependencies(ctx context.Context) {
 	})
 }
 
-func BootstrapDependencies(scope string, grps []string) {
-	dependencies_provider.BootstrapGroups(scope, grps)
+func Bootstrap(ctx context.Context, scope string, grps []string) {
+	registerDependencies(ctx)
+	dependencies_provider.BootstrapGroups(ctx, scope, grps)
+}
+
+func Shutdown(ctx context.Context) {
+	dependencies_provider.ShutdownAll(ctx)
 }

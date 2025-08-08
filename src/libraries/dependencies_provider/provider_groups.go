@@ -1,6 +1,7 @@
 package dependencies_provider
 
 import (
+	"context"
 	"sync"
 )
 
@@ -15,7 +16,7 @@ type DependenciesProviderGroups struct {
 	bootedGroups map[string]bool
 }
 
-func Init() *DependenciesProviderGroups {
+func Init(ctx context.Context) *DependenciesProviderGroups {
 	ensureSingleton.Do(func() {
 		providerGroups = &DependenciesProviderGroups{
 			groups:       make(map[string][]int),
@@ -34,7 +35,7 @@ func AddProvider(provider DependenciesProvider, grps ...string) {
 	}
 }
 
-func BootstrapGroups(scope string, grps []string) {
+func BootstrapGroups(ctx context.Context, scope string, grps []string) {
 	for _, g := range grps {
 		if providerGroups.bootedGroups[g] {
 			continue
@@ -42,19 +43,19 @@ func BootstrapGroups(scope string, grps []string) {
 		if indexes, exists := providerGroups.groups[g]; exists {
 			for _, i := range indexes {
 				provider := providerGroups.providers[i]
-				provider.Bootstrap(scope)
+				provider.Bootstrap(ctx, scope)
 			}
 		}
 		providerGroups.bootedGroups[g] = true
 	}
 }
 
-func ShutdownGroups(grps ...string) {
-	for _, g := range grps {
+func ShutdownAll(ctx context.Context) {
+	for g := range providerGroups.bootedGroups {
 		if indexes, exists := providerGroups.groups[g]; exists {
 			for i := range indexes {
 				provider := providerGroups.providers[i]
-				provider.Shutdown()
+				provider.Shutdown(ctx)
 			}
 		}
 	}

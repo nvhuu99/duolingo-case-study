@@ -17,10 +17,13 @@ func NewConnections() *Connections {
 	return &Connections{}
 }
 
-func (provider *Connections) Bootstrap(scope string) {
+func (provider *Connections) Bootstrap(bootstrapCtx context.Context, scope string) {
 	container.BindSingleton[*facade.ConnectionProvider](func(ctx context.Context) any {
 		config := container.MustResolve[config_reader.ConfigReader]()
-		return facade.Provider(ctx).
+		
+		facade.InitProvider(bootstrapCtx)
+
+		return facade.Provider().
 			InitRabbitMQ(rabbitmq.
 				DefaultRabbitMQConnectionArgs().
 				SetCredentials(
@@ -47,5 +50,6 @@ func (provider *Connections) Bootstrap(scope string) {
 	})
 }
 
-func (c *Connections) Shutdown() {
+func (c *Connections) Shutdown(shutdownCtx context.Context) {
+	facade.Provider().Shutdown()
 }

@@ -2,89 +2,106 @@ package events
 
 import (
 	"context"
-	"sync/atomic"
+	"regexp"
 	"time"
 )
 
-var (
-	eventManager           *EventManager
-	eventManagerInitCalled atomic.Bool
-)
 
 type startEventRequest struct {
 	event                 *Event
 	eventTreeNodeTemplate *EventTreeNodeTemplate
-	startedAt             time.Time
 }
 
 type endEventRequest struct {
 	event   *Event
 	endedAt time.Time
+	status  EventStatus
+	err     error
 }
 
 type EventManager struct {
+	ctx             context.Context
+
 	eventTree        *EventTreeRoot
 	eventTreeBuilder *EventTreeBuilder
-
-	ctx             context.Context
 	opsChan         chan any
 	collectInterval time.Duration
 
+	eventDecorators *EventPipeline
+	eventFinalizers *EventPipeline
+
 	subscribers []Subscriber
+	subscriberTopics map[string][]*regexp.Regexp // map subscriber id with pattern regexes
 }
 
-func Init(ctx context.Context, collectInterval time.Duration) {
-	if eventManagerInitCalled.Load() {
-		return
-	}
-	defer eventManagerInitCalled.Store(true)
-
-	eventManager = &EventManager{
+func NewEventManager(ctx context.Context, collectInterval time.Duration) *EventManager {
+	return &EventManager{
 		ctx:              ctx,
-		collectInterval:  collectInterval,
-		opsChan:          make(chan any, 500),
 		eventTree:        NewEventTreeRoot(),
 		eventTreeBuilder: &EventTreeBuilder{},
+		collectInterval:  collectInterval,
+		eventDecorators: &EventPipeline{},
+		eventFinalizers: &EventPipeline{},
+		opsChan:          make(chan any, 500),
+		subscriberTopics: make(map[string][]*regexp.Regexp),
 	}
-
-	go eventManager.handleOperationsChannel()
-
-	go eventManager.collectEndedEventsAndNotifySubscribers()
 }
 
-func GetManager() *EventManager {
-	return eventManager
+func (m *EventManager) Start() {
+	go m.handleOperationsChannel()
+	go m.collectEndedEventsAndNotifySubscribers()
 }
 
-func (m *EventManager) AddSubsriber(sub Subscriber) {
-	m.subscribers = append(m.subscribers, sub)
+func (m *EventManager) AddDecorator(decorator EventDecorator) {
+	m.eventDecorators.Push(NewBaseEventProcessor(decorator.Decorate))
 }
 
-func (m *EventManager) NewEvent(
+func (m *EventManager) AddFinalizer(finalizer EventFinalizer) {
+	m.eventFinalizers.Push(NewBaseEventProcessor(finalizer.Finalize))
+}
+
+func (m *EventManager) AddSubsriber(pattern string, subscriber Subscriber) {
+	id := subscriber.GetId()
+	m.subscriberTopics[id] = append(m.subscriberTopics[id], regexp.MustCompile(pattern))
+	m.subscribers = append(m.subscribers, subscriber)
+}
+
+func (m *EventManager) StartEvent(
 	ctx context.Context,
 	name string,
+	data map[string]any,
 ) (context.Context, *Event) {
-	newEvent := NewEvent(name)
-	newCtx, newNodeTemplate := m.eventTreeBuilder.NewNodeTemplate(ctx, newEvent)
-	newEvent.ctx = newCtx
+	newEvent := NewEvent(name, data)
+	preparedCtx, newNodeTemplate := m.eventTreeBuilder.NewNodeTemplate(ctx, newEvent)
+	newEvent.ctx = preparedCtx
+
+	m.eventDecorators.Process(newEvent, NewEventBuilder(newEvent))
 
 	m.opsChan <- &startEventRequest{
 		event:                 newEvent,
 		eventTreeNodeTemplate: newNodeTemplate,
-		startedAt:             time.Now(),
 	}
 
-	// log.Println("queue create event for", name)
-
-	return newCtx, newEvent
+	return newEvent.ctx, newEvent
 }
 
-func (m *EventManager) EndEvent(event *Event, endedAt time.Time) {
+func (m *EventManager) EndEvent(
+	event *Event,
+	endedAt time.Time,
+	status EventStatus,
+	err error,
+	data map[string]any,
+) {
+	event.MergeData(data)
+
+	m.eventFinalizers.Process(event, NewEventBuilder(event))
+
 	m.opsChan <- &endEventRequest{
-		event: event, 
+		event:   event,
 		endedAt: endedAt,
+		status:  EventSuccess,
+		err: err,
 	}
-	// log.Println("queue end event for", event.name)
 }
 
 func (m *EventManager) handleOperationsChannel() {
@@ -94,29 +111,26 @@ func (m *EventManager) handleOperationsChannel() {
 			return
 		case operation := <-m.opsChan:
 			if op, start := operation.(*startEventRequest); start {
-				m.startEvent(op)
+				m.handleStartEventRequest(op)
 			} else if op, end := operation.(*endEventRequest); end {
-				m.endEvent(op)
+				m.handleEndEventRequest(op)
 			}
 		}
 	}
 }
 
-func (m *EventManager) startEvent(operation *startEventRequest) {
-	// defer log.Println("created event map for", operation.event.name)
-
-	event := operation.event
-	event.startedAt = operation.startedAt
-
-	eventNode := m.eventTree.builder.NewNode(operation.eventTreeNodeTemplate)
+func (m *EventManager) handleStartEventRequest(req *startEventRequest) {
+	eventNode := m.eventTree.builder.NewNode(req.eventTreeNodeTemplate)
 	m.eventTree.InsertNode(eventNode)
-
-	go m.handleEventContextCancel(event)
+	m.notifySubscribers(req.event)
+	go m.handleEventContextCancel(req.event)
 }
 
-func (m *EventManager) endEvent(op *endEventRequest) {
-	event := op.event
-	m.eventTree.FindNodeFromContextAndFlagEventEnded(event.ctx, op.endedAt)
+func (m *EventManager) handleEndEventRequest(req *endEventRequest) {
+	event := req.event
+	event.status = req.status
+	event.err = req.err
+	m.eventTree.FindNodeFromContextAndFlagEventEnded(event.ctx, req.endedAt)
 }
 
 func (m *EventManager) collectEndedEventsAndNotifySubscribers() {
@@ -135,14 +149,21 @@ func (m *EventManager) collectEndedEventsAndNotifySubscribers() {
 
 func (m *EventManager) notifySubscribers(event *Event) {
 	for _, sub := range m.subscribers {
-		sub.Notified(event)
+		for _, pattern := range m.subscriberTopics[sub.GetId()] {
+			if pattern.MatchString(event.name) {
+				sub.Notify(event)
+			}
+		} 
 	}
 }
 
 func (m *EventManager) handleEventContextCancel(event *Event) {
-	<- event.ctx.Done()
-
-	if event.endedAt.IsZero() {
-		m.EndEvent(event, time.Now())
+	<-event.ctx.Done()
+	// The context canceled, but endedAt has already set
+	// means the event has ended normally
+	if !event.endedAt.IsZero() {
+		return
 	}
+	// End the event with interupted
+	m.EndEvent(event, time.Now(), EventInterupted, nil, nil)
 }

@@ -13,15 +13,13 @@ import (
 
 func TestMessageInputRequest(t *testing.T) {
 	fixtures.SetTestConfigDir()
-	dependencies.RegisterDependencies(context.Background())
-	dependencies.BootstrapDependencies("test", []string{
+	dependencies.Bootstrap(context.Background(), "test", []string{
 		"common",
 		"connections",
 		"message_queues",
 	})
 
 	server := server.NewMessageInputApiServer()
-	server.RegisterRoutes()
 
 	suite.Run(t, test_suites.NewMessageInputRequestTestSuite(
 		context.Background(),

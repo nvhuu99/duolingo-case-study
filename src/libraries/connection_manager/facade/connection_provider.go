@@ -27,13 +27,16 @@ type ConnectionProvider struct {
 	ctx context.Context
 }
 
-func Provider(ctx context.Context) *ConnectionProvider {
+func InitProvider(ctx context.Context) {
 	providerCreateOnce.Do(func() {
 		if ctx == nil {
 			panic("fail to create ConnectionProvier using nil context")
 		}
 		provider = &ConnectionProvider{ctx: ctx}
 	})
+}
+
+func Provider() *ConnectionProvider {
 	return provider
 }
 
@@ -110,4 +113,16 @@ func (p *ConnectionProvider) InitRabbitMQ(
 
 func (p *ConnectionProvider) GetRabbitMQClient() *rabbitmq.RabbitMQClient {
 	return p.rabbitMQBuilder.BuildClientAndRegisterToManager()
+}
+
+func (p *ConnectionProvider) Shutdown() {
+	if p.redisBuilder != nil {
+		p.redisBuilder.GetConnectionManager().RemoveAllClients()
+	}
+	if p.rabbitMQBuilder != nil {
+		p.rabbitMQBuilder.GetConnectionManager().RemoveAllClients()
+	}
+	if p.mongoBuilder != nil {
+		p.mongoBuilder.GetConnectionManager().RemoveAllClients()
+	}
 }

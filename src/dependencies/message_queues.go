@@ -18,10 +18,10 @@ func NewMessageQueues() *MessageQueues {
 	return &MessageQueues{}
 }
 
-func (provider *MessageQueues) Shutdown() {
+func (provider *MessageQueues) Shutdown(shutdownCtx context.Context) {
 }
 
-func (provider *MessageQueues) Bootstrap(scope string) {
+func (provider *MessageQueues) Bootstrap(bootstrapCtx context.Context, scope string) {
 	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
 
 	provider.declareTopic(

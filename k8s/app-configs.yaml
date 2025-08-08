@@ -10,8 +10,8 @@ data:
   push_sender.json: |
     {
       "supported_platforms": ["ios", "android"],
-      "buffer_limit": 10,
-      "flush_duration": 100
+      "buffer_limit_count": 10,
+      "flush_duration_ms": 100
     }
   work_distributor.json: |
     {

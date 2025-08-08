@@ -8,15 +8,19 @@ import (
 type Response struct {
 	base http.ResponseWriter
 	sent bool
+	status int
+	err error
+	success bool
 }
 
 func NewResponse(base http.ResponseWriter) *Response {
 	return &Response{base: base}
 }
 
-func (res *Response) Sent() bool {
-	return res.sent
-}
+func (res *Response) Sent() bool { return res.sent }
+func (res *Response) Error() error { return res.err }
+func (res *Response) Status() int { return res.status }
+func (res *Response) Success() bool { return res.success }
 
 func (res *Response) SetHeader(key string, value string) {
 	res.base.Header().Set(key, value)
@@ -67,6 +71,9 @@ func (res *Response) Send(
 	res.base.Write(body)
 
 	res.sent = true
+	res.status = status
+	res.err = err
+	res.success = success
 }
 
 func (res *Response) buildBody(

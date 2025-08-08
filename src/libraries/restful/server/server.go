@@ -7,7 +7,6 @@ import (
 	"duolingo/libraries/restful/server/pipelines"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type Server struct {
@@ -33,13 +32,8 @@ func (server *Server) Serve(ctx context.Context) {
 	server.startServer(ctx)
 }
 
-func (server *Server) Shutdown() {
-	shutdownCtx, shutdownCancel := context.WithTimeout(
-		context.Background(),
-		5*time.Second,
-	)
-	defer shutdownCancel()
-	server.instance.Shutdown(shutdownCtx)
+func (server *Server) Shutdown(ctx context.Context) {
+	server.instance.Shutdown(ctx)
 }
 
 func (server *Server) Addr() string {
@@ -77,6 +71,7 @@ func (server *Server) addRoute(
 
 func (server *Server) configServer() {
 	server.pipelineGroups.Push("requestFilter",
+		&pipelines.ReceiveRequest{},
 		&pipelines.HandlePreflightRequest{},
 		&pipelines.ValidateCORS{},
 		&pipelines.RouteRequestSetHandler{Router: server.router},
@@ -106,8 +101,6 @@ func (server *Server) startServer(ctx context.Context) {
 	}()
 
 	<-ctx.Done()
-
-	server.Shutdown()
 }
 
 func (server *Server) handleRequest(rw http.ResponseWriter, req *http.Request) {

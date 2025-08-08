@@ -18,12 +18,12 @@ func NewConfigReader() *ConfigReader {
 	if fromEnv == "" {
 		panic("environment variable DUOLINGO_CONFIG_DIR_PATH is not set")
 	} else {
-		log.Printf("%v is use as the configurations files directory\n", fromEnv)
+		log.Printf("use %v as configuration files directory\n", fromEnv)
 	}
 	return &ConfigReader{configDir: fromEnv}
 }
 
-func (c *ConfigReader) Bootstrap(scope string) {
+func (c *ConfigReader) Bootstrap(bootstrapCtx context.Context, scope string) {
 	container.BindSingleton[config_reader.ConfigReader](func(ctx context.Context) any {
 		return config_reader.
 			NewJsonConfigReader().
@@ -31,5 +31,5 @@ func (c *ConfigReader) Bootstrap(scope string) {
 	})
 }
 
-func (c *ConfigReader) Shutdown() {
+func (c *ConfigReader) Shutdown(shutdownCtx context.Context) {
 }

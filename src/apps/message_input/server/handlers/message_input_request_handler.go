@@ -29,7 +29,9 @@ func (handler *MessageInputRequestHandler) Handle(req *rest.Request, res *rest.R
 		req.Input("body").String(),
 	)
 
-	if err := handler.inputPublisher.NotifyMainTopic(string(message.Encode())); err != nil {
+	reqCtx := req.Context()
+	err := handler.inputPublisher.NotifyMainTopic(reqCtx, string(message.Encode()))
+	if err != nil {
 		res.ServerErr("failed to input campaign message")
 	} else {
 		res.Ok("", message)

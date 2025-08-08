@@ -1,9 +1,12 @@
 package pub_sub
 
 import (
+	"context"
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
+	events "duolingo/libraries/events/facade"
 	driver "duolingo/libraries/message_queue/drivers/rabbitmq"
 	ps "duolingo/libraries/message_queue/pub_sub"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -42,11 +45,11 @@ func (p *Publisher) RemoveMainTopic() error {
 	return p.RemoveTopic(topic)
 }
 
-func (p *Publisher) NotifyMainTopic(message string) error {
+func (p *Publisher) NotifyMainTopic(ctx context.Context, message string) error {
 	if p.mainTopic == "" {
 		return ps.ErrPublisherMainTopicNotSet
 	}
-	return p.Notify(p.mainTopic, message)
+	return p.Notify(ctx, p.mainTopic, message)
 }
 
 func (p *Publisher) DeclareTopic(topic string) error {
@@ -62,8 +65,17 @@ func (p *Publisher) RemoveTopic(topic string) error {
 	return p.DeleteExchange(topic)
 }
 
-func (p *Publisher) Notify(topic string, message string) error {
-	return p.Publish(topic, topic, message, map[string]string{
+func (p *Publisher) Notify(ctx context.Context, topic string, message string) error {
+	var err error
+
+	evtCtx, event := events.Start(ctx, fmt.Sprintf("pub_sub.publisher.notify(%v)", topic), nil)
+	defer func() {
+		events.End(event, err == nil, err, nil)
+	}()
+
+	err = p.Publish(evtCtx, topic, topic, message, map[string]string{
 		"message_id": uuid.NewString(),
 	})
+
+	return err
 }

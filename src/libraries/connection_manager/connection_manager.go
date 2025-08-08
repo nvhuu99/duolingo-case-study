@@ -148,3 +148,4 @@ func (manager *ConnectionManager) makeConnectionAndNotifyIfFails() any {
 func (manager *ConnectionManager) makeConnection() (any, error) {
 	return manager.connectionProxy.MakeConnection()
 }
+

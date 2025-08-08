@@ -40,8 +40,8 @@ type Sender struct {
 func NewSender() *Sender {
 	config := container.MustResolve[config_reader.ConfigReader]()
 	platforms := config.GetArr("push_sender", "supported_platforms")
-	bufferLimit := config.GetInt("push_sender", "buffer_limit")
-	bufferInterval := time.Duration(config.GetInt("push_sender", "flush_duration")) * time.Millisecond
+	bufferLimit := config.GetInt("push_sender", "buffer_limit_count")
+	bufferInterval := time.Duration(config.GetInt("push_sender", "flush_duration_ms")) * time.Millisecond
 	grp := buffer.NewBufferGroup[models.MessageInput, string]()
 	grp.SetLimit(bufferLimit).SetInterval(bufferInterval)
 

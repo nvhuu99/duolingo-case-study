@@ -43,7 +43,7 @@ func (s *SenderTestSuite) Test_Sender_BufferLimit() {
 	var firstMessage *fakes.FakeMessage
 	var secMessage *fakes.FakeMessage
 	var totalToken = 2 * len(data.TestDevices) // nums messages * nums devices
-	var totalFlush = totalToken / s.config.GetInt("push_sender", "buffer_limit")
+	var totalFlush = totalToken / s.config.GetInt("push_sender", "buffer_limit_count")
 	var flushTokenCount = 0
 	var flushCount = 0
 
