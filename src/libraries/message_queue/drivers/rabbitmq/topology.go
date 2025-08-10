@@ -75,9 +75,9 @@ func (client *Topology) DeclareQueue(
 				return bindErr
 			}
 			log.Printf(
-				"Topology: queue %v binded to %x with key %v\n", 
-				queueOpts.name, 
-				binding.exchange, 
+				"Topology: queue %v binded to %x with key %v\n",
+				queueOpts.name,
+				binding.exchange,
 				binding.routingKey,
 			)
 		}
@@ -101,7 +101,7 @@ func (client *Topology) DeleteExchange(ctx ctxt.Context, name string) error {
 func (client *Topology) DeleteQueue(ctx ctxt.Context, name string) error {
 	defer log.Printf("Topology: queue %v name deleted\n", name)
 	return client.ExecuteClosure(ctx, client.GetWriteTimeout(), func(
-		timeoutCtx ctxt.Context, 
+		timeoutCtx ctxt.Context,
 		ch *amqp.Channel,
 	) error {
 		_, err := ch.QueueDelete(name, false, false, false)

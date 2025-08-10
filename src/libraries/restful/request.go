@@ -38,15 +38,15 @@ func (request *Request) URL() *url.URL {
 }
 
 func (request *Request) FullURL() string {
-    return request.Scheme() + "://" + request.base.Host + request.URL().RequestURI()
+	return request.Scheme() + "://" + request.base.Host + request.URL().RequestURI()
 }
 
 func (request *Request) Scheme() string {
 	scheme := "http"
-    if request.base.TLS != nil {
-        scheme = "https"
-    }
-    return scheme
+	if request.base.TLS != nil {
+		scheme = "https"
+	}
+	return scheme
 }
 
 func (request *Request) Header() http.Header {

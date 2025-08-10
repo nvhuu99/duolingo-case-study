@@ -57,9 +57,9 @@ func (c *QueueConsumer) Consuming(
 			id, _ := delivery.Headers["message_id"].(string)
 			if prevFailedAction, found := confirmationFailures[id]; found {
 				retryErr := c.handleConsumeAction(
-					context.Background(), 
-					queue, 
-					delivery, 
+					context.Background(),
+					queue,
+					delivery,
 					prevFailedAction,
 				)
 				if retryErr == nil {
@@ -84,12 +84,12 @@ func (c *QueueConsumer) Consuming(
 					},
 				)
 				defer func() {
-					events.End(evt, true, c.firstError(processErr, ackErr) , nil)
+					events.End(evt, true, c.firstError(processErr, ackErr), nil)
 				}()
 
 				action, processErr = processFunc(evt.Context(), string(delivery.Body))
 				ackErr = c.handleConsumeAction(evt.Context(), queue, delivery, action)
-				// If the confirmation fails, the failure will be recorded 
+				// If the confirmation fails, the failure will be recorded
 				// to be addressed later.
 				if ackErr != nil {
 					confirmationFailures[id] = action
@@ -143,21 +143,14 @@ func (c *QueueConsumer) handleConsumeAction(
 	delivery amqp.Delivery,
 	action ConsumeAction,
 ) error {
-	var err error
-	
-	evt := events.Start(ctx, fmt.Sprintf("mq.consumer.ack(%v, %v)", queue, action), nil)
-	defer events.End(evt, true, err, nil)
-
 	switch action {
 	case ActionReject:
-		err = delivery.Reject(false)
+		return delivery.Reject(false)
 	case ActionRequeue:
-		err = delivery.Reject(true)
+		return delivery.Reject(true)
 	default:
-		err = delivery.Ack(false)
+		return delivery.Ack(false)
 	}
-
-	return err
 }
 
 func (c *QueueConsumer) firstError(err ...error) error {

@@ -18,8 +18,8 @@ func (r *ReceiveRequest) Handle(req *restful.Request, res *restful.Response) {
 		requestCtx,
 		fmt.Sprintf("restful.%v(%v)", req.Method(), req.URL().Path),
 		map[string]any{
-			"scheme": req.Scheme(),
-			"full_url": req.FullURL(),
+			"scheme":     req.Scheme(),
+			"full_url":   req.FullURL(),
 			"user_agent": req.UserAgent(),
 		},
 	)

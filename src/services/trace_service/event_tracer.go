@@ -21,7 +21,7 @@ func NewEventTracer() *EventTracer {
 
 func (tracer *EventTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
 	spanCtx, _ := trace.GetManager().Start(
-		event.Context(), 
+		event.Context(),
 		event.Name(),
 		event.StartTime(),
 		trace.NewDataBag().Merge(event.GetAllData()),
@@ -32,7 +32,7 @@ func (tracer *EventTracer) Decorate(event *events.Event, builder *events.EventBu
 }
 
 func (tracer *EventTracer) Notify(event *events.Event) {
-	if ! event.HasEnded() {
+	if !event.HasEnded() {
 		return
 	}
 
@@ -40,7 +40,7 @@ func (tracer *EventTracer) Notify(event *events.Event) {
 
 	var statusCode codes.Code
 	var message string
-	
+
 	if event.Interupted() {
 		statusCode = codes.Unset
 		message = "span execution has been interupted"

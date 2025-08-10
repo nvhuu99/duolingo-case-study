@@ -17,7 +17,7 @@ type EventFinalizer interface {
 }
 
 type BaseEventProcessor struct {
-	next EventProcessor
+	next        EventProcessor
 	processFunc func(*Event, *EventBuilder)
 }
 
@@ -46,7 +46,7 @@ func (p *BaseEventProcessor) Next(event *Event, builder *EventBuilder) {
 
 type EventPipeline struct {
 	processors []EventProcessor
-	tail int
+	tail       int
 }
 
 func (p *EventPipeline) Push(processor EventProcessor) {
@@ -55,7 +55,7 @@ func (p *EventPipeline) Push(processor EventProcessor) {
 		return
 	} else {
 		p.processors[p.tail].SetNext(processor)
-		p.tail++ 
+		p.tail++
 	}
 }
 

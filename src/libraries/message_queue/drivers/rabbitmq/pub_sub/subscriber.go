@@ -89,7 +89,7 @@ func (sub *Subscriber) Listening(
 		msg string,
 	) (driver.ConsumeAction, error) {
 		err := processFunc(ctx, msg)
-		return driver.ActionAccept, err 
+		return driver.ActionAccept, err
 	})
 }
 

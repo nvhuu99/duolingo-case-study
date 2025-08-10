@@ -80,7 +80,7 @@ func (repo *UserRepo) GetListUsersByIds(ctx context.Context, ids []string) ([]*m
 	command := driver_cmd.NewListUsersCommand()
 	command.SetFilterIds(ids)
 	command.SetSortById(cmd.OrderASC)
-	return repo.GetListUsers(ctx,command)
+	return repo.GetListUsers(ctx, command)
 }
 
 func (repo *UserRepo) GetListUsers(ctx context.Context, command cmd.ListUsersCommand) ([]*models.User, error) {

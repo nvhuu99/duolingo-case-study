@@ -7,10 +7,10 @@ import (
 )
 
 type Response struct {
-	base http.ResponseWriter
-	sent bool
-	status int
-	err error
+	base    http.ResponseWriter
+	sent    bool
+	status  int
+	err     error
 	success bool
 }
 
@@ -18,19 +18,19 @@ func NewResponse(base http.ResponseWriter) *Response {
 	return &Response{base: base}
 }
 
-func (res *Response) Sent() bool { return res.sent }
-func (res *Response) Status() int { return res.status }
+func (res *Response) Sent() bool    { return res.sent }
+func (res *Response) Status() int   { return res.status }
 func (res *Response) Success() bool { return res.success }
 
 func (res *Response) Error() error { return res.err }
 func (res *Response) SetErr(errs any) {
+	if errs == nil {
+		return
+	}
 	if asErr, ok := errs.(error); ok {
 		res.err = asErr
-		return
-	} else {
-		if asString, err := json.Marshal(errs); err == nil {
-			res.err = errors.New(string(asString))
-		}
+	} else if asString, err := json.Marshal(errs); err == nil {
+		res.err = errors.New(string(asString))
 	}
 }
 
@@ -104,5 +104,3 @@ func (res *Response) buildBody(
 	}
 	return json.Marshal(body)
 }
-
-

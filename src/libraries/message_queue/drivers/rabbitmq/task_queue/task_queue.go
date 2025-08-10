@@ -30,7 +30,7 @@ func (q *TaskQueue) Declare(ctx context.Context) error {
 	}
 	var declareErr error
 	declareErr = q.DeclareExchange(
-		ctx, 
+		ctx,
 		driver.
 			DefaultExchangeOpts(q.queue).
 			IsType(driver.DirectExchange).

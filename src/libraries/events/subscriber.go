@@ -12,7 +12,7 @@ type BaseEventSubscriber struct {
 }
 
 func NewBaseEventSubscriber() *BaseEventSubscriber {
-	return &BaseEventSubscriber{ uuid.NewString() }
+	return &BaseEventSubscriber{uuid.NewString()}
 }
 
 func (base *BaseEventSubscriber) Notify(event *Event) {

@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 type startEventRequest struct {
 	event                 *Event
 	eventTreeNodeTemplate *EventTreeNodeTemplate
@@ -21,17 +20,17 @@ type endEventRequest struct {
 }
 
 type EventManager struct {
-	ctx             context.Context
+	ctx context.Context
 
 	eventTree        *EventTreeRoot
 	eventTreeBuilder *EventTreeBuilder
-	opsChan         chan any
-	collectInterval time.Duration
+	opsChan          chan any
+	collectInterval  time.Duration
 
 	eventDecorators *EventPipeline
 	eventFinalizers *EventPipeline
 
-	subscribers []Subscriber
+	subscribers      []Subscriber
 	subscriberTopics map[string][]*regexp.Regexp // map subscriber id with pattern regexes
 }
 
@@ -41,8 +40,8 @@ func NewEventManager(ctx context.Context, collectInterval time.Duration) *EventM
 		eventTree:        NewEventTreeRoot(),
 		eventTreeBuilder: &EventTreeBuilder{},
 		collectInterval:  collectInterval,
-		eventDecorators: &EventPipeline{},
-		eventFinalizers: &EventPipeline{},
+		eventDecorators:  &EventPipeline{},
+		eventFinalizers:  &EventPipeline{},
 		opsChan:          make(chan any, 500),
 		subscriberTopics: make(map[string][]*regexp.Regexp),
 	}
@@ -101,7 +100,7 @@ func (m *EventManager) EndEvent(
 		event:   event,
 		endedAt: endedAt,
 		status:  status,
-		err: err,
+		err:     err,
 	}
 }
 
@@ -155,7 +154,7 @@ func (m *EventManager) notifySubscribers(event *Event) {
 			if pattern.MatchString(event.name) {
 				sub.Notify(event)
 			}
-		} 
+		}
 	}
 }
 

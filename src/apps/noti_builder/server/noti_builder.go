@@ -63,7 +63,7 @@ func (b *NotiBuilder) createBatchJob(ctx context.Context, serialized string) err
 	defer log.Println("create batch job, err:", err)
 
 	err = b.tokenDistributor.CreateBatchJob(
-		evt.Context(), 
+		evt.Context(),
 		models.MessageInputDecode([]byte(serialized)),
 	)
 
@@ -83,7 +83,6 @@ func (b *NotiBuilder) producePushNotiTask(
 
 	serialized := string(models.NewPushNotiMessage(input, devices).Encode())
 	err = b.pushNotiProducer.Push(evt.Context(), serialized)
-
 
 	return err
 }

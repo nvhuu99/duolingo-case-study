@@ -148,7 +148,7 @@ func (manager *ConnectionManager) resetAllConnectionsForNetworkRecovery() {
 	for id := range manager.clients {
 		// Error is ignored, since this function is called only when the network has just recovered.
 		// If the connection failed here, the manager will be notified later.
-		conn, _ := manager.makeConnection() 
+		conn, _ := manager.makeConnection()
 		manager.clientConnections[id] = conn
 	}
 }

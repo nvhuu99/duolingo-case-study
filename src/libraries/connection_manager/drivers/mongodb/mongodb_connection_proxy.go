@@ -35,8 +35,8 @@ func (proxy *MongoConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	if mongoArgs.GetURI() == "" {
 		address := fmt.Sprintf("%v:%v", mongoArgs.GetHost(), mongoArgs.GetPort())
 		credentials := fmt.Sprintf(
-			"%v:%v", 
-			mongoArgs.GetUser(), 
+			"%v:%v",
+			mongoArgs.GetUser(),
 			mongoArgs.GetPassword(),
 		)
 		uri := fmt.Sprintf("mongodb://%v/", address)

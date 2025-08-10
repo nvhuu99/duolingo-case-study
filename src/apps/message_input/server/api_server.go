@@ -13,7 +13,7 @@ import (
 )
 
 type MessageInputApiServer struct {
-	ctx context.Context
+	ctx    context.Context
 	server *restful.Server
 	config config_reader.ConfigReader
 }
@@ -29,7 +29,7 @@ func NewMessageInputApiServer(ctx context.Context) *MessageInputApiServer {
 	config := container.MustResolve[config_reader.ConfigReader]()
 	server := restful.NewServer(config.Get("message_input", "server_address"))
 	return &MessageInputApiServer{
-		ctx: ctx,
+		ctx:    ctx,
 		server: server,
 		config: config,
 	}
@@ -51,7 +51,7 @@ func (api *MessageInputApiServer) Serve() {
 
 func (api *MessageInputApiServer) Shutdown() {
 	timeout := time.Duration(api.config.GetInt("message_input", "server_shutdown_wait"))
-	ctx, cancel := context.WithTimeout(context.Background(), timeout * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout*time.Second)
 	defer cancel()
 
 	dependencies.Shutdown(ctx)

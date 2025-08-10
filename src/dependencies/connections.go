@@ -20,7 +20,7 @@ func NewConnections() *Connections {
 func (provider *Connections) Bootstrap(bootstrapCtx context.Context, scope string) {
 	container.BindSingleton[*facade.ConnectionProvider](func(ctx context.Context) any {
 		config := container.MustResolve[config_reader.ConfigReader]()
-		
+
 		facade.InitProvider(bootstrapCtx)
 
 		return facade.Provider().

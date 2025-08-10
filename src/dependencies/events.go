@@ -26,7 +26,7 @@ func (provider *Events) Shutdown(shutdownCtx context.Context) {
 func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 	eventTracer := trace_service.NewEventTracer()
 	rabbitMQPropagator := trace_service.NewRabbitMQContextPropagator()
-	
+
 	events.InitEventManager(bootstrapCtx, 5*time.Second)
 	events.AddDecorators(
 		rabbitMQPropagator,
@@ -39,8 +39,8 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 		trace.WithDefaultResource("message_input"),
 		trace.WithGRPCExporter("127.0.0.1:4317", false),
 	)
-	
-	trace.GetManager().Decorate("restful.<method>(<path>)", func (
+
+	trace.GetManager().Decorate("restful.<method>(<path>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -59,7 +59,7 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 }
 
 func (provider *Events) describeMessageQueueTraces() {
-	trace.GetManager().Decorate("mq.publisher.publish(<topic>)", func (
+	trace.GetManager().Decorate("mq.publisher.publish(<topic>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -71,17 +71,14 @@ func (provider *Events) describeMessageQueueTraces() {
 			attribute.String("messaging.rabbitmq.routing_key", data.Get("routing_key")),
 		)
 		// Context propagation
-		spanPropagationCtx := otlptrace.ContextWithSpan(
-			context.Background(), 
-			otlptrace.SpanFromContext(data.GetAny("parent_ctx").(context.Context)),
-		)
+		propagationCtx := otlptrace.ContextWithSpan(context.Background(), span)
 		if headers, ok := data.GetAny("message_headers").(amqp091.Table); ok {
 			carrier := trace_service.AMQPHeadersCarrier(headers)
-			otel.GetTextMapPropagator().Inject(spanPropagationCtx, carrier)
+			otel.GetTextMapPropagator().Inject(propagationCtx, carrier)
 		}
 	})
 
-	trace.GetManager().Decorate("mq.consumer.receive(<queue>)", func (
+	trace.GetManager().Decorate("mq.consumer.receive(<queue>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -93,7 +90,7 @@ func (provider *Events) describeMessageQueueTraces() {
 		)
 	})
 
-	trace.GetManager().Decorate("mq.consumer.ack(<queue>, <action>)", func (
+	trace.GetManager().Decorate("mq.consumer.ack(<queue>, <action>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -105,8 +102,8 @@ func (provider *Events) describeMessageQueueTraces() {
 			attribute.String("mq.consumer.comsume_action", data.Get("action")),
 		)
 	})
-	
-	trace.GetManager().Decorate("pub_sub.publisher.notify(<topic>)", func (
+
+	trace.GetManager().Decorate("pub_sub.publisher.notify(<topic>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -117,7 +114,7 @@ func (provider *Events) describeMessageQueueTraces() {
 		)
 	})
 
-	trace.GetManager().Decorate("task_queue.producer.push(<task_queue>)", func (
+	trace.GetManager().Decorate("task_queue.producer.push(<task_queue>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -128,7 +125,7 @@ func (provider *Events) describeMessageQueueTraces() {
 		)
 	})
 
-	trace.GetManager().Decorate("task_queue.comsumer.comsume(<task_queue>)", func (
+	trace.GetManager().Decorate("task_queue.comsumer.comsume(<task_queue>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -139,4 +136,3 @@ func (provider *Events) describeMessageQueueTraces() {
 		)
 	})
 }
-

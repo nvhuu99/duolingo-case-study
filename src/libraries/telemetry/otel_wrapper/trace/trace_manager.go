@@ -10,14 +10,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type SpanProcessorFunc func (span trace.Span, data DataBag)
+type SpanProcessorFunc func(span trace.Span, data DataBag)
 
 type TraceManager struct {
-	tracer trace.Tracer
+	tracer        trace.Tracer
 	traceProvider *sdktrace.TracerProvider
 
-	spanMutex sync.Mutex
-	spans map[string]trace.Span // map by span id
+	spanMutex      sync.Mutex
+	spans          map[string]trace.Span                    // map by span id
 	spanDecorators map[SpanNameTemplate][]SpanProcessorFunc // map by span name template
 	spanFinalizers map[SpanNameTemplate][]SpanProcessorFunc // map by span name template
 }
@@ -40,8 +40,8 @@ func (m *TraceManager) Span(ctx context.Context) trace.Span {
 }
 
 func (m *TraceManager) Start(
-	ctx context.Context, 
-	spanName string, 
+	ctx context.Context,
+	spanName string,
 	timestamp time.Time,
 	data DataBag,
 ) (context.Context, trace.Span) {
@@ -57,12 +57,12 @@ func (m *TraceManager) Start(
 	}
 
 	m.Track(span)
-	
+
 	return spanCtx, span
 }
 
 func (m *TraceManager) End(
-	span trace.Span, 
+	span trace.Span,
 	timestamp time.Time,
 	statusCode codes.Code,
 	message string,
@@ -82,7 +82,7 @@ func (m *TraceManager) End(
 	}
 
 	span.End(trace.WithTimestamp(timestamp))
-	
+
 	m.UnTrack(span)
 }
 
@@ -99,4 +99,3 @@ func (m *TraceManager) UnTrack(span trace.Span) {
 	delete(m.spans, spanId)
 	m.spanMutex.Unlock()
 }
-

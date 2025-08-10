@@ -39,14 +39,14 @@ func (c *TaskConsumer) Consuming(
 		receiveMsg string,
 	) (driver.ConsumeAction, error) {
 		var err error
-		
+
 		func() {
 			evt := events.Start(receiveCtx, fmt.Sprintf("task_queue.consumer.consume(%v)", c.queue), nil)
 			defer events.End(evt, true, err, nil)
 
 			err = handleFunc(evt.Context(), receiveMsg)
 		}()
-		
-		return driver.ActionAccept, err 
+
+		return driver.ActionAccept, err
 	})
 }

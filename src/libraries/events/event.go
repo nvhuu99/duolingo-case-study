@@ -23,7 +23,7 @@ type Event struct {
 	endedAt   time.Time
 	status    EventStatus
 	err       error
-	data 	  map[string]any
+	data      map[string]any
 }
 
 func NewEvent(name string, data map[string]any) *Event {
@@ -31,10 +31,10 @@ func NewEvent(name string, data map[string]any) *Event {
 		data = make(map[string]any)
 	}
 	evt := &Event{
-		name:   name,
-		status: EventStarted,
+		name:      name,
+		status:    EventStarted,
 		startedAt: time.Now(),
-		data: data,
+		data:      data,
 	}
 	return evt
 }
@@ -45,21 +45,21 @@ func (e *Event) Failed() bool     { return e.status == EventFailed || e.err != n
 func (e *Event) Interupted() bool { return e.status == EventInterupted }
 
 func (e *Event) Status() string { return string(e.status) }
-func (e *Event) Name() string { return e.name }
-func (e *Event) Error() error { return e.err }
+func (e *Event) Name() string   { return e.name }
+func (e *Event) Error() error   { return e.err }
 
-func (e *Event) GetData(key string) any { return e.data[key] }
+func (e *Event) GetData(key string) any      { return e.data[key] }
 func (e *Event) SetData(key string, val any) { e.data[key] = val }
-func (e *Event) GetAllData() map[string]any { return e.data }
-func (e *Event) MergeData(source map[string]any) { 
+func (e *Event) GetAllData() map[string]any  { return e.data }
+func (e *Event) MergeData(source map[string]any) {
 	for k, v := range source {
 		e.SetData(k, v)
 	}
 }
 
 func (e *Event) Context() context.Context { return e.ctx }
-func (e *Event) StartTime() time.Time { return e.startedAt }
-func (e *Event) EndTime() time.Time { return e.endedAt }
+func (e *Event) StartTime() time.Time     { return e.startedAt }
+func (e *Event) EndTime() time.Time       { return e.endedAt }
 
 func (e *Event) HasEnded() bool {
 	return e.status == EventSuccess ||

@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	traceManager *TraceManager
+	traceManager      *TraceManager
 	traceManagerReady atomic.Bool
 )
 
@@ -34,13 +34,13 @@ func InitTraceManager(
 	defer traceManagerReady.Store(true)
 
 	traceManager = &TraceManager{
-		spans: make(map[string]trace.Span),
+		spans:          make(map[string]trace.Span),
 		spanDecorators: make(map[SpanNameTemplate][]SpanProcessorFunc),
 		spanFinalizers: make(map[SpanNameTemplate][]SpanProcessorFunc),
 	}
 
 	/* Setup Otel SDK for Tracing */
-	
+
 	traceProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(resource),
@@ -72,11 +72,11 @@ func WithDefaultResource(serviceName string, attrs ...attribute.KeyValue) *resou
 
 func WithGRPCExporter(endpoint string, secure bool, opts ...otlptracegrpc.Option) *otlptrace.Exporter {
 	// Merge exporter options
-	if ! secure {
+	if !secure {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
 	mergedOptions := append(opts, otlptracegrpc.WithEndpoint(endpoint))
-	
+
 	// Create exporter
 	traceExporter, err := otlptracegrpc.New(context.Background(), mergedOptions...)
 	panicIfErr(err)

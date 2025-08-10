@@ -30,7 +30,7 @@ func NewRedisWorkStorageProxy(client *connection.RedisClient) *RedisWorkStorageP
 }
 
 func (proxy *RedisWorkStorageProxy) SaveWorkload(
-	ctx context.Context, 
+	ctx context.Context,
 	w *distributor.Workload,
 ) error {
 	if validateErr := w.Validate(); validateErr != nil {
@@ -142,7 +142,7 @@ func (proxy *RedisWorkStorageProxy) PopAssignmentFromQueue(
 }
 
 func (proxy *RedisWorkStorageProxy) GetAndUpdateWorkload(
-	ctx context.Context, 
+	ctx context.Context,
 	workloadId string,
 	modifier func(*distributor.Workload) error,
 ) error {

@@ -59,5 +59,3 @@ func (data DataBag) GetAny(key string) any {
 	}
 	return data[key]
 }
-
-

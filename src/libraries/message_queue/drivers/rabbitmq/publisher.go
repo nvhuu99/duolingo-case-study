@@ -19,7 +19,7 @@ func (p *Publisher) Publish(
 	message string,
 	headers map[string]any,
 ) error {
-	var err error 
+	var err error
 
 	if headers == nil {
 		headers = make(map[string]any)
@@ -29,16 +29,15 @@ func (p *Publisher) Publish(
 	evt := events.Start(
 		ctx, fmt.Sprintf("mq.publisher.publish(%v)", topic),
 		map[string]any{
-			"routing_key": key,
+			"routing_key":     key,
 			"message_headers": headerTable,
-			"parent_ctx": ctx,
 		},
 	)
 	defer events.End(evt, true, err, nil)
 
 	timeout := p.GetWriteTimeout()
 	err = p.ExecuteClosure(evt.Context(), timeout, func(
-		timeoutCtx context.Context, 
+		timeoutCtx context.Context,
 		ch *amqp.Channel,
 	) error {
 		return ch.PublishWithContext(

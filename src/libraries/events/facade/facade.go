@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	eventManager           *events.EventManager
+	eventManager         *events.EventManager
 	eventManagerInitOnce sync.Once
 )
 
@@ -33,7 +33,6 @@ func AddDecorators(decorators ...events.EventDecorator) {
 	}
 }
 
-
 func AddFinalizer(finalizer events.EventFinalizer) {
 	GetManager().AddFinalizer(finalizer)
 }
@@ -57,4 +56,3 @@ func Succeeded(event *events.Event, data map[string]any) {
 func Failed(event *events.Event, err error, data map[string]any) {
 	GetManager().EndEvent(event, time.Now(), events.EventFailed, err, data)
 }
-

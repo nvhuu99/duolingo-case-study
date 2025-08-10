@@ -71,7 +71,7 @@ func (proxy *RabbitMQConnectionProxy) IsNetworkErr(err error) bool {
 	if result {
 		log.Println(err)
 	}
-	
+
 	return result
 }
 

@@ -45,9 +45,9 @@ func (d *TokenBatchDistributor) CreateBatchJob(ctx context.Context, input *model
 			log.Println("token_distributor: workload empty")
 			return nil
 		}
-		if workload, err = d.CreateWorkload(ctx, count); err == nil {
+		if workload, err = d.CreateWorkload(evt.Context(), count); err == nil {
 			job := NewTokenBatchJob(workload.Id, input)
-			err = d.buildJobPublisher.NotifyMainTopic(ctx, string(job.Encode()))
+			err = d.buildJobPublisher.NotifyMainTopic(evt.Context(), string(job.Encode()))
 			evt.SetData("devices_total", workload.TotalWorkUnits)
 			evt.SetData("batch_size", workload.TotalUnitsPerAssignment)
 			evt.SetData("expected_batches_total", workload.GetExpectTotalAssignments())
@@ -59,8 +59,8 @@ func (d *TokenBatchDistributor) CreateBatchJob(ctx context.Context, input *model
 func (d *TokenBatchDistributor) ConsumingTokenBatches(
 	ctx context.Context,
 	batchConsumer func(
-		ctx context.Context, 
-		input *models.MessageInput, 
+		ctx context.Context,
+		input *models.MessageInput,
 		devices []*models.UserDevice,
 	) error,
 ) error {
@@ -73,8 +73,8 @@ func (d *TokenBatchDistributor) startJobBatching(
 	ctx context.Context,
 	job *TokenBatchJob,
 	batchReceiver func(
-		ctx context.Context, 
-		input *models.MessageInput, 
+		ctx context.Context,
+		input *models.MessageInput,
 		devices []*models.UserDevice,
 	) error,
 ) error {
@@ -119,7 +119,7 @@ func (d *TokenBatchDistributor) startJobBatching(
 			devices, queryErr := d.userService.GetDevicesForCampaign(
 				assignmentCtx,
 				job.Message.Campaign,
-				assignment.WorkStartAt()-1,                        // offset
+				assignment.WorkStartAt()-1, // offset
 				assignment.WorkEndAt()-assignment.WorkStartAt()+1, // limit
 			)
 			if queryErr != nil {
