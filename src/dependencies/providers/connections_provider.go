@@ -1,4 +1,4 @@
-package dependencies
+package providers
 
 import (
 	"context"
@@ -10,14 +10,10 @@ import (
 	container "duolingo/libraries/dependencies_container"
 )
 
-type Connections struct {
+type ConnectionsProvider struct {
 }
 
-func NewConnections() *Connections {
-	return &Connections{}
-}
-
-func (provider *Connections) Bootstrap(bootstrapCtx context.Context, scope string) {
+func (provider *ConnectionsProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
 	container.BindSingleton[*facade.ConnectionProvider](func(ctx context.Context) any {
 		config := container.MustResolve[config_reader.ConfigReader]()
 
@@ -50,6 +46,6 @@ func (provider *Connections) Bootstrap(bootstrapCtx context.Context, scope strin
 	})
 }
 
-func (c *Connections) Shutdown(shutdownCtx context.Context) {
+func (c *ConnectionsProvider) Shutdown(shutdownCtx context.Context) {
 	facade.Provider().Shutdown()
 }

@@ -3,35 +3,44 @@ package trace_service
 import (
 	"duolingo/libraries/events"
 	trace "duolingo/libraries/telemetry/otel_wrapper/trace"
-	"log"
 
 	"go.opentelemetry.io/otel/codes"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-type EventTracer struct {
+type GlobalEventTracer struct {
 	*events.BaseEventSubscriber
 }
 
-func NewEventTracer() *EventTracer {
-	return &EventTracer{
+func NewGlobalEventTracer() *GlobalEventTracer {
+	return &GlobalEventTracer{
 		BaseEventSubscriber: events.NewBaseEventSubscriber(),
 	}
 }
 
-func (tracer *EventTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
+/*
+Implement events.Decorator interface, allow the GlobalEventTracer to create
+a trace-span immediately when an event has started.
+*/
+func (tracer *GlobalEventTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
 	spanCtx, _ := trace.GetManager().Start(
 		event.Context(),
 		event.Name(),
 		event.StartTime(),
 		trace.NewDataBag().Merge(event.GetAllData()),
 	)
-	builder.SetContext(spanCtx)
 
-	log.Println("Start span:", event.Name())
+	// Update the event context, so that when a child event is created,
+	// it's context contains the span data, thus preserves the spans hierachy.
+	builder.SetContext(spanCtx)
 }
 
-func (tracer *EventTracer) Notify(event *events.Event) {
+/*
+Implement events.Subscriber interface, allow the GlobalEventTracer
+to end a trace-span exactly when an an events (and it's childs) has ended
+and collected by the events.EventManager.
+*/
+func (tracer *GlobalEventTracer) Notify(event *events.Event) {
+	// EventManager notify on event start, skip
 	if !event.HasEnded() {
 		return
 	}
@@ -49,8 +58,6 @@ func (tracer *EventTracer) Notify(event *events.Event) {
 	} else {
 		statusCode = codes.Ok
 	}
-
-	log.Println("End span:", span.(sdktrace.ReadOnlySpan).Name())
 
 	trace.GetManager().End(
 		span,

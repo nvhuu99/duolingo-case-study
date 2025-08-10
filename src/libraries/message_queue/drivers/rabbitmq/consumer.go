@@ -70,7 +70,6 @@ func (c *QueueConsumer) Consuming(
 			// Upon receiving a new message, first call the "closure" function,
 			// then send the "confirmation" to the server (acknowledge, reject, etc.)
 			// based on the "consume action" returned by the closure.
-			// CONTEXT PROPAGATION
 			func() {
 				var action ConsumeAction
 				var ackErr error

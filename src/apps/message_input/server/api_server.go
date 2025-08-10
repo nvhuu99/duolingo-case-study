@@ -19,11 +19,11 @@ type MessageInputApiServer struct {
 }
 
 func NewMessageInputApiServer(ctx context.Context) *MessageInputApiServer {
-	dependencies.Bootstrap(ctx, "", []string{
-		"common",
-		"event_manager",
+	dependencies.Bootstrap(ctx, "message_input", "", []string{
+		"essentials",
 		"connections",
 		"message_queues",
+		"pub_sub",
 	})
 
 	config := container.MustResolve[config_reader.ConfigReader]()

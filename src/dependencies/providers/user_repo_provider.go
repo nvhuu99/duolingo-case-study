@@ -1,4 +1,4 @@
-package dependencies
+package providers
 
 import (
 	"context"
@@ -8,22 +8,20 @@ import (
 	user_repo "duolingo/repositories/user_repository/external"
 )
 
-type UserRepo struct {
-	connections *facade.ConnectionProvider
+type UserRepoProvider struct {
 }
 
-func NewUserRepo() *UserRepo {
-	return &UserRepo{}
+func (provider *UserRepoProvider) Shutdown(shutdownCtx context.Context) {
 }
 
-func (provider *UserRepo) Shutdown(shutdownCtx context.Context) {
+func (provider *UserRepoProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
+	provider.registerMongoDBUserRepo()
 }
 
-func (provider *UserRepo) Bootstrap(bootstrapCtx context.Context, scope string) {
-	provider.connections = container.MustResolve[*facade.ConnectionProvider]()
-
+func (provider *UserRepoProvider) registerMongoDBUserRepo() {
 	container.BindSingleton[user_repo.UserRepoFactory](func(ctx context.Context) any {
-		return mongodb.NewUserRepoFactory(provider.connections.GetMongoClient())
+		connections := container.MustResolve[*facade.ConnectionProvider]()
+		return mongodb.NewUserRepoFactory(connections.GetMongoClient())
 	})
 
 	container.BindSingleton[user_repo.UserRepository](func(ctx context.Context) any {

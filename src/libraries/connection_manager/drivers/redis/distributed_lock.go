@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	events "duolingo/libraries/events/facade"
+
 	"github.com/google/uuid"
 	redis_driver "github.com/redis/go-redis/v9"
 )
@@ -46,7 +48,7 @@ func (lock *DistributedLock) GetLockHeldDuration() time.Duration {
 	return 0
 }
 
-func (lock *DistributedLock) AcquireLock() error {
+func (lock *DistributedLock) AcquireLock(ctx context.Context) error {
 	if lock.isLocked.Load() {
 		return ErrLocksAlreadyAcquired
 	}
@@ -63,23 +65,28 @@ func (lock *DistributedLock) AcquireLock() error {
 	}()
 
 	// try to acquire the locks within timeout
+	var acquireErr error
+
+	evt := events.Start(ctx, "conn_manager.redis.acquire_lock", nil)
+	defer events.End(evt, true, acquireErr, nil)
+
 	client := lock.client
 	timeout := time.After(client.lockAcquireTimeout)
 	minWait := client.lockAcquireRetryWaitMin.Milliseconds()
 	maxWait := client.lockAcquireRetryWaitMax.Milliseconds()
-	var acquireErr error
 	for {
 		select {
 		case <-timeout:
-			return ErrLockAcquireTimeout
+			acquireErr = ErrLockAcquireTimeout
+			return acquireErr
 		default:
 			// acquire lock
-			lock.client.ExecuteClosure(context.Background(), client.lockAcquireTimeout, func(
-				ctx context.Context,
+			lock.client.ExecuteClosure(ctx, client.lockAcquireTimeout, func(
+				timeoutCtx context.Context,
 				rdb *redis_driver.Client,
 			) error {
 				acquireErr = acquireLock(
-					ctx, rdb, newLockValue, lock.resourceKeys, client.lockTTL,
+					timeoutCtx, rdb, newLockValue, lock.resourceKeys, client.lockTTL,
 				)
 				return acquireErr
 			})
@@ -95,7 +102,7 @@ func (lock *DistributedLock) AcquireLock() error {
 	}
 }
 
-func (lock *DistributedLock) ReleaseLock() error {
+func (lock *DistributedLock) ReleaseLock(ctx context.Context) error {
 	if !lock.isLocked.Load() {
 		return ErrLockReleaseBeforeAcquire
 	}
@@ -103,11 +110,11 @@ func (lock *DistributedLock) ReleaseLock() error {
 		return ErrLockValueEmpty
 	}
 	var realeaseErr error
-	lock.client.ExecuteClosure(context.Background(), lock.client.lockAcquireTimeout, func(
-		ctx context.Context,
+	lock.client.ExecuteClosure(ctx, lock.client.lockAcquireTimeout, func(
+		timeoutCtx context.Context,
 		rdb *redis_driver.Client,
 	) error {
-		realeaseErr = releaseLock(ctx, rdb, lock.lockValue, lock.resourceKeys)
+		realeaseErr = releaseLock(timeoutCtx, rdb, lock.lockValue, lock.resourceKeys)
 		return realeaseErr
 	})
 	if realeaseErr != nil {

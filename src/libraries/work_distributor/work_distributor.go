@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	events "duolingo/libraries/events/facade"
+
 	"github.com/google/uuid"
 )
 
@@ -33,14 +35,19 @@ func (dist *WorkDistributor) CreateWorkload(
 	ctx context.Context,
 	totalWorkUnits int64,
 ) (*Workload, error) {
+
+	evt := events.Start(ctx, "work_dist.create_workload", nil)
+
 	workload, validateErr := NewWorkload(
 		uuid.NewString(),
 		totalWorkUnits,
 		dist.unitsPerAssignment,
 	)
 	if validateErr != nil {
+		events.Failed(evt, validateErr, nil)
 		return nil, validateErr
 	}
+
 	// Create assignments, and push assignments to the queue
 	var total = workload.GetExpectTotalAssignments()
 	for i := range total {
@@ -53,18 +60,24 @@ func (dist *WorkDistributor) CreateWorkload(
 			end,
 		)
 		if validationErr != nil {
+			events.Failed(evt, validationErr, nil)
 			return nil, validationErr
 		}
-		pushErr := dist.proxy.PushAssignmentToQueue(ctx, assignment)
+		pushErr := dist.proxy.PushAssignmentToQueue(evt.Context(), assignment)
 		if pushErr != nil {
+			events.Failed(evt, pushErr, nil)
 			return nil, pushErr
 		}
 	}
 	// Save workload only after queuing all assignments
 	saveErr := dist.proxy.SaveWorkload(ctx, workload)
 	if saveErr != nil {
+		events.Failed(evt, saveErr, nil)
 		return nil, saveErr
 	}
+
+	events.Succeeded(evt, nil)
+
 	return workload, nil
 }
 
@@ -72,14 +85,28 @@ func (dist *WorkDistributor) GetWorkload(
 	ctx context.Context,
 	workloadId string,
 ) (*Workload, error) {
-	return dist.proxy.GetWorkload(ctx, workloadId)
+	var workload *Workload
+	var err error
+
+	evt := events.Start(ctx, "work_dist.get_workload", nil)
+	defer events.End(evt, true, err, nil)
+
+	workload, err = dist.proxy.GetWorkload(evt.Context(), workloadId)
+
+	return workload, err
 }
 
 func (dist *WorkDistributor) HasWorkloadFulfilled(
 	ctx context.Context,
 	workloadId string,
 ) (bool, error) {
-	workload, err := dist.proxy.GetWorkload(ctx, workloadId)
+	var workload *Workload
+	var err error
+
+	evt := events.Start(ctx, "work_dist.has_workload_fulfilled", nil)
+	defer events.End(evt, true, err, nil)
+
+	workload, err = dist.proxy.GetWorkload(ctx, workloadId)
 	if err != nil {
 		return false, err
 	}
@@ -105,12 +132,25 @@ func (dist *WorkDistributor) WaitForAssignment(
 	*Assignment,
 	error,
 ) {
+	var assignment *Assignment
+	var err error
+
+	evt := events.Start(waitCtx, "work_dist.wait_for_assignment", nil)
+	defer func() {
+		if err != nil && err != ErrWorkloadHasAlreadyFulfilled {
+			events.End(evt, true, err, nil)
+		} else {
+			events.Succeeded(evt, nil)
+		}
+	}()
+
 	for {
 		select {
 		case <-waitCtx.Done():
-			return nil, errors.New("stop waiting for assignment due to context canceled")
+			err = errors.New("stop waiting for assignment due to context canceled")
+			return nil, err
 		default:
-			assignment, err := dist.Assign(waitCtx, workloadId)
+			assignment, err = dist.Assign(evt.Context(), workloadId)
 			// the queue is empty, but the workload not yet fulfilled
 			if assignment == nil && err == nil {
 				time.Sleep(retryWait)
@@ -130,21 +170,44 @@ func (dist *WorkDistributor) HandleAssignment(
 	assignment *Assignment,
 	handler func(assignmentCtx context.Context) error,
 ) error {
-	if handleErr := handler(ctx); handleErr != nil {
-		return dist.Rollback(ctx, assignment)
+	var err error
+
+	evt := events.Start(ctx, "work_dist.handle_assignment", nil)
+	defer events.End(evt, true, err, nil)
+
+	if err = handler(evt.Context()); err != nil {
+		dist.Rollback(evt.Context(), assignment)
+	} else {
+		err = dist.Commit(evt.Context(), assignment)
 	}
-	return dist.Commit(ctx, assignment)
+
+	return err
 }
 
 func (dist *WorkDistributor) Commit(ctx context.Context, assignment *Assignment) error {
-	return dist.proxy.GetAndUpdateWorkload(ctx, assignment.WorkloadId, func(w *Workload) error {
+	var err error
+
+	evt := events.Start(ctx, "work_dist.commit", nil)
+	defer events.End(evt, true, err, nil)
+
+	err = dist.proxy.GetAndUpdateWorkload(evt.Context(), assignment.WorkloadId, func(
+		w *Workload,
+	) error {
 		return w.IncreaseTotalCommittedAssignments()
 	})
+
+	return err
 }
 
 func (dist *WorkDistributor) Rollback(ctx context.Context, assignment *Assignment) error {
-	pushErr := dist.proxy.PushAssignmentToQueue(ctx, assignment)
-	return pushErr
+	var err error
+
+	evt := events.Start(ctx, "work_dist.rollback", nil)
+	defer events.End(evt, true, err, nil)
+
+	err = dist.proxy.PushAssignmentToQueue(ctx, assignment)
+
+	return err
 }
 
 func (dist *WorkDistributor) CommitProgress(

@@ -1,8 +1,6 @@
 package trace_service
 
-import "github.com/rabbitmq/amqp091-go"
-
-type AMQPHeadersCarrier amqp091.Table
+type AMQPHeadersCarrier map[string]any
 
 func (c AMQPHeadersCarrier) Get(key string) string {
 	if val, ok := c[key]; ok {

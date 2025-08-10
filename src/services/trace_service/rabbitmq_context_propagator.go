@@ -16,6 +16,11 @@ func NewRabbitMQContextPropagator() *RabbitMQContextPropagator {
 	return &RabbitMQContextPropagator{}
 }
 
+/*
+Implement events.Decorator interface, allow this function to be called
+just before the message_queue.Consumer calls the process message function.
+Here, the context propgation is performed.
+*/
 func (propagator *RabbitMQContextPropagator) Decorate(
 	event *events.Event,
 	builder *events.EventBuilder,

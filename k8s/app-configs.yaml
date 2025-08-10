@@ -48,3 +48,7 @@ data:
         "universe_domain": "googleapis.com"
       }
     }
+  event_manager.json: |
+    {
+      "collect_interval_seconds": 5
+    }

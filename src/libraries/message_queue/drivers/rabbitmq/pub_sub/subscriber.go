@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
+	events "duolingo/libraries/events/facade"
 	driver "duolingo/libraries/message_queue/drivers/rabbitmq"
 	ps "duolingo/libraries/message_queue/pub_sub"
 
@@ -88,7 +89,13 @@ func (sub *Subscriber) Listening(
 		ctx context.Context,
 		msg string,
 	) (driver.ConsumeAction, error) {
-		err := processFunc(ctx, msg)
+		var err error
+
+		evt := events.Start(ctx, fmt.Sprintf("pub_sub.subscriber.notified(%v)", topic), nil)
+		defer events.End(evt, true, err, nil)
+
+		err = processFunc(ctx, msg)
+
 		return driver.ActionAccept, err
 	})
 }

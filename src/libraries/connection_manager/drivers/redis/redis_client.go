@@ -24,10 +24,10 @@ func (client *RedisClient) ExecuteClosureWithLocks(
 	closure func(timeoutCtx context.Context, connection *redis_driver.Client) error,
 ) error {
 	lock := NewDistributedLock(client, keyToLocks)
-	if acquireErr := lock.AcquireLock(); acquireErr != nil {
+	if acquireErr := lock.AcquireLock(ctx); acquireErr != nil {
 		return acquireErr
 	}
-	defer lock.ReleaseLock()
+	defer lock.ReleaseLock(ctx)
 
 	return client.ExecuteClosure(ctx, timeout, closure)
 }
