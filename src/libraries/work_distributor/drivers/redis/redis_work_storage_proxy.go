@@ -29,7 +29,10 @@ func NewRedisWorkStorageProxy(client *connection.RedisClient) *RedisWorkStorageP
 	}
 }
 
-func (proxy *RedisWorkStorageProxy) SaveWorkload(w *distributor.Workload) error {
+func (proxy *RedisWorkStorageProxy) SaveWorkload(
+	ctx context.Context, 
+	w *distributor.Workload,
+) error {
 	if validateErr := w.Validate(); validateErr != nil {
 		return validateErr
 	}
@@ -40,7 +43,7 @@ func (proxy *RedisWorkStorageProxy) SaveWorkload(w *distributor.Workload) error 
 	lockKeys := []string{
 		workloadKeyPrefix + w.Id,
 	}
-	saveErr := proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	saveErr := proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {
@@ -52,13 +55,16 @@ func (proxy *RedisWorkStorageProxy) SaveWorkload(w *distributor.Workload) error 
 	return saveErr
 }
 
-func (proxy *RedisWorkStorageProxy) GetWorkload(workloadId string) (*distributor.Workload, error) {
+func (proxy *RedisWorkStorageProxy) GetWorkload(
+	ctx context.Context,
+	workloadId string,
+) (*distributor.Workload, error) {
 	var marshaled string
 	var getErr error
 	lockKeys := []string{
 		workloadKey(workloadId),
 	}
-	proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {
@@ -78,7 +84,10 @@ func (proxy *RedisWorkStorageProxy) GetWorkload(workloadId string) (*distributor
 	return workload, nil
 }
 
-func (proxy *RedisWorkStorageProxy) PushAssignmentToQueue(assignment *distributor.Assignment) error {
+func (proxy *RedisWorkStorageProxy) PushAssignmentToQueue(
+	ctx context.Context,
+	assignment *distributor.Assignment,
+) error {
 	if validationErr := assignment.Validate(); validationErr != nil {
 		return validationErr
 	}
@@ -86,7 +95,7 @@ func (proxy *RedisWorkStorageProxy) PushAssignmentToQueue(assignment *distributo
 	lockKeys := []string{
 		assignmentsOfWorkloadKey(workloadId),
 	}
-	saveErr := proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	saveErr := proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {
@@ -101,7 +110,10 @@ func (proxy *RedisWorkStorageProxy) PushAssignmentToQueue(assignment *distributo
 	return saveErr
 }
 
-func (proxy *RedisWorkStorageProxy) PopAssignmentFromQueue(workloadId string) (
+func (proxy *RedisWorkStorageProxy) PopAssignmentFromQueue(
+	ctx context.Context,
+	workloadId string,
+) (
 	*distributor.Assignment,
 	error,
 ) {
@@ -109,7 +121,7 @@ func (proxy *RedisWorkStorageProxy) PopAssignmentFromQueue(workloadId string) (
 	lockKeys := []string{
 		assignmentsOfWorkloadKey(workloadId),
 	}
-	popErr := proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	popErr := proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {
@@ -130,13 +142,14 @@ func (proxy *RedisWorkStorageProxy) PopAssignmentFromQueue(workloadId string) (
 }
 
 func (proxy *RedisWorkStorageProxy) GetAndUpdateWorkload(
+	ctx context.Context, 
 	workloadId string,
 	modifier func(*distributor.Workload) error,
 ) error {
 	lockKeys := []string{
 		workloadKey(workloadId),
 	}
-	return proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	return proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {
@@ -163,12 +176,15 @@ func (proxy *RedisWorkStorageProxy) GetAndUpdateWorkload(
 	})
 }
 
-func (proxy *RedisWorkStorageProxy) DeleteWorkloadAndAssignments(workloadId string) error {
+func (proxy *RedisWorkStorageProxy) DeleteWorkloadAndAssignments(
+	ctx context.Context,
+	workloadId string,
+) error {
 	lockKeys := []string{
 		workloadKey(workloadId),
 		assignmentsOfWorkloadKey(workloadId),
 	}
-	return proxy.ExecuteClosureWithLocks(lockKeys, proxy.GetDefaultTimeOut(), func(
+	return proxy.ExecuteClosureWithLocks(ctx, lockKeys, proxy.GetDefaultTimeOut(), func(
 		ctx context.Context,
 		rdb *redis.Client,
 	) error {

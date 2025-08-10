@@ -13,6 +13,7 @@ func main() {
 
 	dependencies.Bootstrap(ctx, "", []string{
 		"common",
+		"event_manager",
 		"connections",
 		"message_queues",
 		"user_repo",

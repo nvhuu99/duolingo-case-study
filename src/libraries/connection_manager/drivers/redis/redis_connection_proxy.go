@@ -20,6 +20,8 @@ func NewRedisConnectionProxy(ctx context.Context) *RedisConnectionProxy {
 
 /* Implement connection_manager.ConnectionProxy interface */
 
+func (proxy *RedisConnectionProxy) ConnectionName() string { return "Redis" }
+
 func (proxy *RedisConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	redisArgs, ok := args.(*RedisConnectionArgs)
 	if !ok {

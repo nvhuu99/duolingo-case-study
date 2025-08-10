@@ -33,6 +33,7 @@ func (p *BaseEventProcessor) SetNext(next EventProcessor) {
 
 func (p *BaseEventProcessor) Process(event *Event, builder *EventBuilder) {
 	p.processFunc(event, builder)
+	p.Next(event, builder)
 }
 
 func (p *BaseEventProcessor) Next(event *Event, builder *EventBuilder) {
@@ -44,15 +45,22 @@ func (p *BaseEventProcessor) Next(event *Event, builder *EventBuilder) {
 /* EventPipeLine */
 
 type EventPipeline struct {
-	stages []EventProcessor
+	processors []EventProcessor
+	tail int
 }
 
-func (p *EventPipeline) Push(stages ...EventProcessor) {
-	p.stages = append(p.stages, stages...)
+func (p *EventPipeline) Push(processor EventProcessor) {
+	p.processors = append(p.processors, processor)
+	if len(p.processors) == 1 {
+		return
+	} else {
+		p.processors[p.tail].SetNext(processor)
+		p.tail++ 
+	}
 }
 
 func (p *EventPipeline) Process(event *Event, builder *EventBuilder) {
-	if len(p.stages) > 0 {
-		p.stages[0].Process(event, builder)
+	if len(p.processors) > 0 {
+		p.processors[0].Process(event, builder)
 	}
 }

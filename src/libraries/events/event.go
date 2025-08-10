@@ -57,7 +57,7 @@ func (e *Event) MergeData(source map[string]any) {
 	}
 }
 
-func (e *Event) GetContext() context.Context { return e.ctx }
+func (e *Event) Context() context.Context { return e.ctx }
 func (e *Event) StartTime() time.Time { return e.startedAt }
 func (e *Event) EndTime() time.Time { return e.endedAt }
 

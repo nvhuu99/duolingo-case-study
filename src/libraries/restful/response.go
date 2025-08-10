@@ -2,6 +2,7 @@ package restful
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -18,9 +19,20 @@ func NewResponse(base http.ResponseWriter) *Response {
 }
 
 func (res *Response) Sent() bool { return res.sent }
-func (res *Response) Error() error { return res.err }
 func (res *Response) Status() int { return res.status }
 func (res *Response) Success() bool { return res.success }
+
+func (res *Response) Error() error { return res.err }
+func (res *Response) SetErr(errs any) {
+	if asErr, ok := errs.(error); ok {
+		res.err = asErr
+		return
+	} else {
+		if asString, err := json.Marshal(errs); err == nil {
+			res.err = errors.New(string(asString))
+		}
+	}
+}
 
 func (res *Response) SetHeader(key string, value string) {
 	res.base.Header().Set(key, value)
@@ -35,7 +47,7 @@ func (res *Response) Created(message string, data any) {
 }
 
 func (res *Response) NotFound(message string) {
-	res.Send(http.StatusNotFound, false, message, nil, nil)
+	res.Send(http.StatusNotFound, false, message, errors.New(message), nil)
 }
 
 func (res *Response) BadRequest(message string, errs any) {
@@ -43,7 +55,7 @@ func (res *Response) BadRequest(message string, errs any) {
 }
 
 func (res *Response) ServerErr(message string) {
-	res.Send(http.StatusInternalServerError, false, "", nil, nil)
+	res.Send(http.StatusInternalServerError, false, message, errors.New(message), nil)
 }
 
 func (res *Response) NoContent() {
@@ -61,9 +73,9 @@ func (res *Response) Send(
 		return
 	}
 
-	body, err := res.buildBody(status, success, message, errors, data)
-	if err != nil {
-		panic(err)
+	body, bodyErr := res.buildBody(status, success, message, errors, data)
+	if bodyErr != nil {
+		panic(bodyErr)
 	}
 
 	res.base.Header().Set("Content-Type", "application/json")
@@ -72,8 +84,8 @@ func (res *Response) Send(
 
 	res.sent = true
 	res.status = status
-	res.err = err
 	res.success = success
+	res.SetErr(errors)
 }
 
 func (res *Response) buildBody(
@@ -92,3 +104,5 @@ func (res *Response) buildBody(
 	}
 	return json.Marshal(body)
 }
+
+

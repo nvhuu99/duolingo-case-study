@@ -3,8 +3,10 @@ package trace_service
 import (
 	"duolingo/libraries/events"
 	trace "duolingo/libraries/telemetry/otel_wrapper/trace"
+	"log"
 
 	"go.opentelemetry.io/otel/codes"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type EventTracer struct {
@@ -19,12 +21,14 @@ func NewEventTracer() *EventTracer {
 
 func (tracer *EventTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
 	spanCtx, _ := trace.GetManager().Start(
-		event.GetContext(), 
+		event.Context(), 
 		event.Name(),
 		event.StartTime(),
+		trace.NewDataBag().Merge(event.GetAllData()),
 	)
-
 	builder.SetContext(spanCtx)
+
+	log.Println("Start span:", event.Name())
 }
 
 func (tracer *EventTracer) Notify(event *events.Event) {
@@ -32,7 +36,7 @@ func (tracer *EventTracer) Notify(event *events.Event) {
 		return
 	}
 
-	span := trace.GetManager().Span(event.GetContext())
+	span := trace.GetManager().Span(event.Context())
 
 	var statusCode codes.Code
 	var message string
@@ -45,6 +49,8 @@ func (tracer *EventTracer) Notify(event *events.Event) {
 	} else {
 		statusCode = codes.Ok
 	}
+
+	log.Println("End span:", span.(sdktrace.ReadOnlySpan).Name())
 
 	trace.GetManager().End(
 		span,

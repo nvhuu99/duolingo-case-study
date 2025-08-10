@@ -53,4 +53,11 @@ func (data DataBag) Get(key string) string {
 	return fmt.Sprintf("%v", data[key])
 }
 
+func (data DataBag) GetAny(key string) any {
+	if !data.Exists(key) {
+		return ""
+	}
+	return data[key]
+}
+
 

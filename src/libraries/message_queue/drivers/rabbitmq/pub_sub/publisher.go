@@ -29,20 +29,20 @@ func (p *Publisher) SetMainTopic(topic string) {
 	p.mainTopic = topic
 }
 
-func (p *Publisher) DeclareMainTopic() error {
+func (p *Publisher) DeclareMainTopic(ctx context.Context) error {
 	if p.mainTopic == "" {
 		return ps.ErrPublisherMainTopicNotSet
 	}
-	return p.DeclareTopic(p.mainTopic)
+	return p.DeclareTopic(ctx, p.mainTopic)
 }
 
-func (p *Publisher) RemoveMainTopic() error {
+func (p *Publisher) RemoveMainTopic(ctx context.Context) error {
 	if p.mainTopic == "" {
 		return ps.ErrPublisherMainTopicNotSet
 	}
 	topic := p.mainTopic
 	p.mainTopic = ""
-	return p.RemoveTopic(topic)
+	return p.RemoveTopic(ctx, topic)
 }
 
 func (p *Publisher) NotifyMainTopic(ctx context.Context, message string) error {
@@ -52,8 +52,9 @@ func (p *Publisher) NotifyMainTopic(ctx context.Context, message string) error {
 	return p.Notify(ctx, p.mainTopic, message)
 }
 
-func (p *Publisher) DeclareTopic(topic string) error {
+func (p *Publisher) DeclareTopic(ctx context.Context, topic string) error {
 	return p.DeclareExchange(
+		ctx,
 		driver.
 			DefaultExchangeOpts(topic).
 			IsType(driver.TopicExchange).
@@ -61,19 +62,17 @@ func (p *Publisher) DeclareTopic(topic string) error {
 	)
 }
 
-func (p *Publisher) RemoveTopic(topic string) error {
-	return p.DeleteExchange(topic)
+func (p *Publisher) RemoveTopic(ctx context.Context, topic string) error {
+	return p.DeleteExchange(ctx, topic)
 }
 
 func (p *Publisher) Notify(ctx context.Context, topic string, message string) error {
 	var err error
 
-	evtCtx, event := events.Start(ctx, fmt.Sprintf("pub_sub.publisher.notify(%v)", topic), nil)
-	defer func() {
-		events.End(event, err == nil, err, nil)
-	}()
+	evt := events.Start(ctx, fmt.Sprintf("pub_sub.publisher.notify(%v)", topic), nil)
+	defer events.End(evt, true, err, nil)
 
-	err = p.Publish(evtCtx, topic, topic, message, map[string]string{
+	err = p.Publish(evt.Context(), topic, topic, message, map[string]any{
 		"message_id": uuid.NewString(),
 	})
 

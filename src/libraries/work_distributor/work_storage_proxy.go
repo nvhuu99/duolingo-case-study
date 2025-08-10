@@ -1,6 +1,7 @@
 package work_distributor
 
 import (
+	"context"
 	"errors"
 )
 
@@ -9,10 +10,10 @@ var (
 )
 
 type WorkStorageProxy interface {
-	SaveWorkload(w *Workload) error
-	GetWorkload(workloadId string) (*Workload, error)
-	GetAndUpdateWorkload(workloadId string, modifier func(*Workload) error) error
-	DeleteWorkloadAndAssignments(workloadId string) error
-	PushAssignmentToQueue(assignment *Assignment) error
-	PopAssignmentFromQueue(workloadId string) (*Assignment, error)
+	SaveWorkload(ctx context.Context, w *Workload) error
+	GetWorkload(ctx context.Context,workloadId string) (*Workload, error)
+	GetAndUpdateWorkload(ctx context.Context,workloadId string, modifier func(*Workload) error) error
+	DeleteWorkloadAndAssignments(ctx context.Context,workloadId string) error
+	PushAssignmentToQueue(ctx context.Context,assignment *Assignment) error
+	PopAssignmentFromQueue(ctx context.Context,workloadId string) (*Assignment, error)
 }

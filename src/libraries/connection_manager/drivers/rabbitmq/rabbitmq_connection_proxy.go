@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 
 	"duolingo/libraries/connection_manager"
@@ -25,6 +26,8 @@ func NewRabbitMQConnectionProxy(ctx context.Context) *RabbitMQConnectionProxy {
 }
 
 /* Implement connection_manager.ConnectionProxy interface */
+
+func (proxy *RabbitMQConnectionProxy) ConnectionName() string { return "RabbitMQ" }
 
 func (proxy *RabbitMQConnectionProxy) SetArgsPanicIfInvalid(args any) {
 	rabbitMQArgs, ok := args.(*RabbitMQConnectionArgs)
@@ -61,9 +64,15 @@ func (proxy *RabbitMQConnectionProxy) Ping(connection any) error {
 }
 
 func (proxy *RabbitMQConnectionProxy) IsNetworkErr(err error) bool {
-	return connection_manager.IsNetworkErr(err) ||
+	result := connection_manager.IsNetworkErr(err) ||
 		errors.As(err, &amqp.ErrClosed) ||
 		errors.As(err, &amqp.ErrChannelMax)
+
+	if result {
+		log.Println(err)
+	}
+	
+	return result
 }
 
 func (proxy *RabbitMQConnectionProxy) CloseConnection(connection any) {

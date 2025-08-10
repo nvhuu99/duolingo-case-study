@@ -14,6 +14,7 @@ type ConnectionProxy interface {
 	Ping(connection any) error
 	IsNetworkErr(err error) bool
 	CloseConnection(connection any)
+	ConnectionName() string
 }
 
 // A fallback network error check for ConnectionProxy implementations

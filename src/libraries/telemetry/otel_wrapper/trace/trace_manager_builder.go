@@ -4,9 +4,11 @@ import (
 	"context"
 	"sync/atomic"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
 
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -33,7 +35,8 @@ func InitTraceManager(
 
 	traceManager = &TraceManager{
 		spans: make(map[string]trace.Span),
-		spanDecribers: make(map[SpanNameTemplate][]SpanDescribeFunc),
+		spanDecorators: make(map[SpanNameTemplate][]SpanProcessorFunc),
+		spanFinalizers: make(map[SpanNameTemplate][]SpanProcessorFunc),
 	}
 
 	/* Setup Otel SDK for Tracing */
@@ -43,6 +46,11 @@ func InitTraceManager(
 		sdktrace.WithResource(resource),
 	)
 	tracer := traceProvider.Tracer("otlp.grpc.tracer")
+
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
 	traceManager.traceProvider = traceProvider
 	traceManager.tracer = tracer

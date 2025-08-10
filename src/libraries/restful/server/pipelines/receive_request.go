@@ -14,7 +14,7 @@ func (r *ReceiveRequest) Handle(req *restful.Request, res *restful.Response) {
 	builder := restful.NewRequestBuilder(req)
 	requestCtx := builder.GetRequestContext()
 
-	evtCtx, evt := events.Start(
+	evt := events.Start(
 		requestCtx,
 		fmt.Sprintf("restful.%v(%v)", req.Method(), req.URL().Path),
 		map[string]any{
@@ -29,7 +29,7 @@ func (r *ReceiveRequest) Handle(req *restful.Request, res *restful.Response) {
 		})
 	}()
 
-	builder.SetRequestContext(evtCtx)
+	builder.SetRequestContext(evt.Context())
 
 	r.Next(req, res)
 }

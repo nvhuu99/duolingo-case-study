@@ -7,6 +7,8 @@ import (
 	"duolingo/services/trace_service"
 	"time"
 
+	"github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otlptrace "go.opentelemetry.io/otel/trace"
 )
@@ -23,8 +25,13 @@ func (provider *Events) Shutdown(shutdownCtx context.Context) {
 
 func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 	eventTracer := trace_service.NewEventTracer()
+	rabbitMQPropagator := trace_service.NewRabbitMQContextPropagator()
+	
 	events.InitEventManager(bootstrapCtx, 5*time.Second)
-	events.AddDecorator(eventTracer)
+	events.AddDecorators(
+		rabbitMQPropagator,
+		eventTracer,
+	)
 	events.Subscribe(".*", eventTracer)
 
 	trace.InitTraceManager(
@@ -33,7 +40,7 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 		trace.WithGRPCExporter("127.0.0.1:4317", false),
 	)
 	
-	trace.GetManager().Describe("restful.<method>(<path>)", func (
+	trace.GetManager().Decorate("restful.<method>(<path>)", func (
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -48,7 +55,11 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 		)
 	})
 
-	trace.GetManager().Describe("mq.publisher.publish(<topic>)", func (
+	provider.describeMessageQueueTraces()
+}
+
+func (provider *Events) describeMessageQueueTraces() {
+	trace.GetManager().Decorate("mq.publisher.publish(<topic>)", func (
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -58,11 +69,44 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 			attribute.String("messaging.destination.kind", "topic"),
 			attribute.String("messaging.destination.name", data.Get("topic")),
 			attribute.String("messaging.rabbitmq.routing_key", data.Get("routing_key")),
-			attribute.String("messaging.producer.name", data.Get("publisher_name")),
+		)
+		// Context propagation
+		spanPropagationCtx := otlptrace.ContextWithSpan(
+			context.Background(), 
+			otlptrace.SpanFromContext(data.GetAny("parent_ctx").(context.Context)),
+		)
+		if headers, ok := data.GetAny("message_headers").(amqp091.Table); ok {
+			carrier := trace_service.AMQPHeadersCarrier(headers)
+			otel.GetTextMapPropagator().Inject(spanPropagationCtx, carrier)
+		}
+	})
+
+	trace.GetManager().Decorate("mq.consumer.receive(<queue>)", func (
+		span otlptrace.Span,
+		data trace.DataBag,
+	) {
+		span.SetAttributes(
+			attribute.String("messaging.system", "rabbitmq"),
+			attribute.String("messaging.operation.name", "receive"),
+			attribute.String("messaging.source.kind", "queue"),
+			attribute.String("messaging.source.name", data.Get("queue")),
+		)
+	})
+
+	trace.GetManager().Decorate("mq.consumer.ack(<queue>, <action>)", func (
+		span otlptrace.Span,
+		data trace.DataBag,
+	) {
+		span.SetAttributes(
+			attribute.String("messaging.system", "rabbitmq"),
+			attribute.String("messaging.operation.name", "ack"),
+			attribute.String("messaging.source.kind", "queue"),
+			attribute.String("messaging.source.name", data.Get("queue")),
+			attribute.String("mq.consumer.comsume_action", data.Get("action")),
 		)
 	})
 	
-	trace.GetManager().Describe("pub_sub.publisher.notify(<topic>)", func (
+	trace.GetManager().Decorate("pub_sub.publisher.notify(<topic>)", func (
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -72,4 +116,27 @@ func (provider *Events) Bootstrap(bootstrapCtx context.Context, scope string) {
 			attribute.String("pub_sub.topic", data.Get("topic")),
 		)
 	})
+
+	trace.GetManager().Decorate("task_queue.producer.push(<task_queue>)", func (
+		span otlptrace.Span,
+		data trace.DataBag,
+	) {
+		span.SetAttributes(
+			attribute.String("kind", "producer"),
+			attribute.String("task_queue.driver", "rabbitmq"),
+			attribute.String("task_queue.task_queue", data.Get("task_queue")),
+		)
+	})
+
+	trace.GetManager().Decorate("task_queue.comsumer.comsume(<task_queue>)", func (
+		span otlptrace.Span,
+		data trace.DataBag,
+	) {
+		span.SetAttributes(
+			attribute.String("kind", "consumer"),
+			attribute.String("task_queue.driver", "rabbitmq"),
+			attribute.String("task_queue.task_queue", data.Get("task_queue")),
+		)
+	})
 }
+

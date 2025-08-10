@@ -1,7 +1,8 @@
 package rabbitmq
 
 import (
-	"context"
+	ctxt "context"
+	"log"
 
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
 
@@ -18,9 +19,10 @@ func NewTopology(client *connection.RabbitMQClient) *Topology {
 	}
 }
 
-func (client *Topology) DeclareExchange(opts *ExchangeOptions) error {
-	return client.ExecuteClosure(client.GetDeclareTimeout(), func(
-		ctx context.Context,
+func (client *Topology) DeclareExchange(ctx ctxt.Context, opts *ExchangeOptions) error {
+	defer log.Printf("Topology: exchange %v declared\n", opts.name)
+	return client.ExecuteClosure(ctx, client.GetDeclareTimeout(), func(
+		ctx ctxt.Context,
 		ch *amqp.Channel,
 	) error {
 		return ch.ExchangeDeclare(
@@ -36,11 +38,12 @@ func (client *Topology) DeclareExchange(opts *ExchangeOptions) error {
 }
 
 func (client *Topology) DeclareQueue(
+	ctx ctxt.Context,
 	queueOpts *QueueOptions,
 	queueBindings *QueueBindings,
 ) error {
-	return client.ExecuteClosure(client.GetDeclareTimeout(), func(
-		ctx context.Context,
+	return client.ExecuteClosure(ctx, client.GetDeclareTimeout(), func(
+		timeoutCtx ctxt.Context,
 		ch *amqp.Channel,
 	) error {
 		_, err := ch.QueueDeclare(
@@ -71,22 +74,36 @@ func (client *Topology) DeclareQueue(
 				)
 				return bindErr
 			}
+			log.Printf(
+				"Topology: queue %v binded to %x with key %v\n", 
+				queueOpts.name, 
+				binding.exchange, 
+				binding.routingKey,
+			)
 		}
+
+		log.Printf("Topology: queue %v declared\n", queueOpts.name)
 
 		return nil
 	})
 }
 
-func (client *Topology) DeleteExchange(name string) error {
-	timeout := client.GetWriteTimeout()
-	return client.ExecuteClosure(timeout, func(ctx context.Context, ch *amqp.Channel) error {
+func (client *Topology) DeleteExchange(ctx ctxt.Context, name string) error {
+	defer log.Printf("Topology: exchange %v name deleted\n", name)
+	return client.ExecuteClosure(ctx, client.GetWriteTimeout(), func(
+		timeoutCtx ctxt.Context,
+		ch *amqp.Channel,
+	) error {
 		return ch.ExchangeDelete(name, false, false)
 	})
 }
 
-func (client *Topology) DeleteQueue(name string) error {
-	timeout := client.GetWriteTimeout()
-	return client.ExecuteClosure(timeout, func(ctx context.Context, ch *amqp.Channel) error {
+func (client *Topology) DeleteQueue(ctx ctxt.Context, name string) error {
+	defer log.Printf("Topology: queue %v name deleted\n", name)
+	return client.ExecuteClosure(ctx, client.GetWriteTimeout(), func(
+		timeoutCtx ctxt.Context, 
+		ch *amqp.Channel,
+	) error {
 		_, err := ch.QueueDelete(name, false, false, false)
 		return err
 	})

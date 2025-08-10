@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"log"
 	"regexp"
 	"time"
 )
@@ -70,7 +71,7 @@ func (m *EventManager) StartEvent(
 	ctx context.Context,
 	name string,
 	data map[string]any,
-) (context.Context, *Event) {
+) *Event {
 	newEvent := NewEvent(name, data)
 	preparedCtx, newNodeTemplate := m.eventTreeBuilder.NewNodeTemplate(ctx, newEvent)
 	newEvent.ctx = preparedCtx
@@ -82,7 +83,7 @@ func (m *EventManager) StartEvent(
 		eventTreeNodeTemplate: newNodeTemplate,
 	}
 
-	return newEvent.ctx, newEvent
+	return newEvent
 }
 
 func (m *EventManager) EndEvent(
@@ -99,7 +100,7 @@ func (m *EventManager) EndEvent(
 	m.opsChan <- &endEventRequest{
 		event:   event,
 		endedAt: endedAt,
-		status:  EventSuccess,
+		status:  status,
 		err: err,
 	}
 }
@@ -141,6 +142,7 @@ func (m *EventManager) collectEndedEventsAndNotifySubscribers() {
 			return
 		case <-ticker.C:
 			for _, event := range m.eventTree.ExtractAllEndedEvents() {
+				log.Println("Event collected:", event.Name())
 				m.notifySubscribers(event)
 			}
 		}

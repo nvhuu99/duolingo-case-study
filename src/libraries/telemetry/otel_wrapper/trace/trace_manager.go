@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type SpanDescribeFunc func (span trace.Span, data DataBag)
+type SpanProcessorFunc func (span trace.Span, data DataBag)
 
 type TraceManager struct {
 	tracer trace.Tracer
@@ -18,15 +18,20 @@ type TraceManager struct {
 
 	spanMutex sync.Mutex
 	spans map[string]trace.Span // map by span id
-	spanDecribers map[SpanNameTemplate][]SpanDescribeFunc // map by span name template
+	spanDecorators map[SpanNameTemplate][]SpanProcessorFunc // map by span name template
+	spanFinalizers map[SpanNameTemplate][]SpanProcessorFunc // map by span name template
 }
 
 func (m *TraceManager) Shutdown(ctx context.Context) error {
 	return m.traceProvider.Shutdown(ctx)
 }
 
-func (m *TraceManager) Describe(spanName SpanNameTemplate, describe SpanDescribeFunc) {
-	m.spanDecribers[spanName] = append(m.spanDecribers[spanName], describe)
+func (m *TraceManager) Decorate(spanName SpanNameTemplate, decorator SpanProcessorFunc) {
+	m.spanDecorators[spanName] = append(m.spanDecorators[spanName], decorator)
+}
+
+func (m *TraceManager) Finalize(spanName SpanNameTemplate, finalizer SpanProcessorFunc) {
+	m.spanFinalizers[spanName] = append(m.spanFinalizers[spanName], finalizer)
 }
 
 func (m *TraceManager) Span(ctx context.Context) trace.Span {
@@ -38,8 +43,18 @@ func (m *TraceManager) Start(
 	ctx context.Context, 
 	spanName string, 
 	timestamp time.Time,
+	data DataBag,
 ) (context.Context, trace.Span) {
 	spanCtx, span := m.tracer.Start(ctx, spanName, trace.WithTimestamp(timestamp))
+
+	for spanNameTemplate, decorators := range m.spanDecorators {
+		spanName := span.(sdktrace.ReadOnlySpan).Name()
+		if spanNameTemplate.Matches(spanName) {
+			for _, decorate := range decorators {
+				decorate(span, data.Merge(spanNameTemplate.ExtractVariables(spanName)))
+			}
+		}
+	}
 
 	m.Track(span)
 	
@@ -57,11 +72,11 @@ func (m *TraceManager) End(
 	span.SetStatus(statusCode, message)
 	span.RecordError(err)
 
-	for spanNameTemplate, describers := range m.spanDecribers {
+	for spanNameTemplate, finalizers := range m.spanFinalizers {
 		spanName := span.(sdktrace.ReadOnlySpan).Name()
 		if spanNameTemplate.Matches(spanName) {
-			for _, describe := range describers {
-				describe(span, data.Merge(spanNameTemplate.ExtractVariables(spanName)))
+			for _, finalize := range finalizers {
+				finalize(span, data.Merge(spanNameTemplate.ExtractVariables(spanName)))
 			}
 		}
 	}

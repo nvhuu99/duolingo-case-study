@@ -7,6 +7,7 @@ import (
 
 	wrkl "duolingo/apps/noti_builder/server/workloads"
 	container "duolingo/libraries/dependencies_container"
+	events "duolingo/libraries/events/facade"
 	ps "duolingo/libraries/message_queue/pub_sub"
 	tq "duolingo/libraries/message_queue/task_queue"
 	"duolingo/models"
@@ -16,7 +17,6 @@ type NotiBuilder struct {
 	msgInpSubscriber ps.Subscriber
 	pushNotiProducer tq.TaskProducer
 	tokenDistributor *wrkl.TokenBatchDistributor
-	errChan          chan error
 }
 
 func NewNotiBuilder() *NotiBuilder {
@@ -24,18 +24,17 @@ func NewNotiBuilder() *NotiBuilder {
 		msgInpSubscriber: container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
 		pushNotiProducer: container.MustResolveAlias[tq.TaskProducer]("push_notifications_producer"),
 		tokenDistributor: wrkl.NewTokenBatchDistributor(),
-		errChan:          make(chan error, 100),
 	}
 }
 
 func (b *NotiBuilder) Start(buildCtx context.Context) {
+	log.Println("running noti builder")
+
 	ctx, cancel := context.WithCancel(buildCtx)
 	defer cancel()
 
 	wg := new(sync.WaitGroup)
-	wg.Add(3)
-
-	go b.handleErrChannel(wg, ctx)
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
@@ -56,35 +55,35 @@ func (b *NotiBuilder) Start(buildCtx context.Context) {
 	wg.Wait()
 }
 
-func (b *NotiBuilder) handleErrChannel(wg *sync.WaitGroup, ctx context.Context) {
-	defer wg.Done()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-b.errChan:
-			if err != nil {
-				log.Println("noti builder err", err)
-			}
-		}
-	}
-}
+func (b *NotiBuilder) createBatchJob(ctx context.Context, serialized string) error {
+	var err error
 
-func (b *NotiBuilder) createBatchJob(ctx context.Context, serialized string) {
-	inp := models.MessageInputDecode([]byte(serialized))
-	if err := b.tokenDistributor.CreateBatchJob(inp); err != nil {
-		b.errChan <- err
-	}
-	log.Println("job queued:", serialized)
+	evt := events.Start(ctx, "noti_builder.create_batch_job", nil)
+	defer events.End(evt, true, err, nil)
+	defer log.Println("create batch job, err:", err)
+
+	err = b.tokenDistributor.CreateBatchJob(
+		evt.Context(), 
+		models.MessageInputDecode([]byte(serialized)),
+	)
+
+	return err
 }
 
 func (b *NotiBuilder) producePushNotiTask(
+	ctx context.Context,
 	input *models.MessageInput,
 	devices []*models.UserDevice,
-) {
+) error {
+	var err error
+
+	evt := events.Start(ctx, "noti_builder.produce_push_noti_task", nil)
+	defer events.End(evt, true, err, nil)
+	defer log.Println("produce push noti task, err:", err)
+
 	serialized := string(models.NewPushNotiMessage(input, devices).Encode())
-	if err := b.pushNotiProducer.Push(serialized); err != nil {
-		b.errChan <- err
-	}
-	log.Println("task pushed:", serialized)
+	err = b.pushNotiProducer.Push(evt.Context(), serialized)
+
+
+	return err
 }

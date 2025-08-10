@@ -2,9 +2,11 @@ package workloads
 
 import (
 	"context"
+	"log"
 	"time"
 
 	container "duolingo/libraries/dependencies_container"
+	events "duolingo/libraries/events/facade"
 	ps "duolingo/libraries/message_queue/pub_sub"
 	dist "duolingo/libraries/work_distributor"
 	"duolingo/models"
@@ -29,14 +31,26 @@ func NewTokenBatchDistributor() *TokenBatchDistributor {
 	}
 }
 
-func (d *TokenBatchDistributor) CreateBatchJob(input *models.MessageInput) error {
+func (d *TokenBatchDistributor) CreateBatchJob(ctx context.Context, input *models.MessageInput) error {
 	var err error
 	var count int64
 	var workload *dist.Workload
-	if count, err = d.userService.CountDevicesForCampaign(input.Campaign); count != 0 && err == nil {
-		if workload, err = d.CreateWorkload(count); err == nil {
+
+	evt := events.Start(ctx, "token_batch_distributor.create_batch_job", nil)
+	defer events.End(evt, true, err, nil)
+	defer log.Println("token_distributor:create batch job, err:", err)
+
+	if count, err = d.userService.CountDevicesForCampaign(evt.Context(), input.Campaign); err == nil {
+		if count == 0 {
+			log.Println("token_distributor: workload empty")
+			return nil
+		}
+		if workload, err = d.CreateWorkload(ctx, count); err == nil {
 			job := NewTokenBatchJob(workload.Id, input)
-			err = d.buildJobPublisher.NotifyMainTopic(string(job.Encode()))
+			err = d.buildJobPublisher.NotifyMainTopic(ctx, string(job.Encode()))
+			evt.SetData("devices_total", workload.TotalWorkUnits)
+			evt.SetData("batch_size", workload.TotalUnitsPerAssignment)
+			evt.SetData("expected_batches_total", workload.GetExpectTotalAssignments())
 		}
 	}
 	return err
@@ -44,19 +58,31 @@ func (d *TokenBatchDistributor) CreateBatchJob(input *models.MessageInput) error
 
 func (d *TokenBatchDistributor) ConsumingTokenBatches(
 	ctx context.Context,
-	batchConsumer func(input *models.MessageInput, devices []*models.UserDevice),
+	batchConsumer func(
+		ctx context.Context, 
+		input *models.MessageInput, 
+		devices []*models.UserDevice,
+	) error,
 ) error {
-	return d.buildJobSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, str string) {
-		d.startJobBatching(ctx, JobDecode([]byte(str)), batchConsumer)
+	return d.buildJobSubscriber.ListeningMainTopic(ctx, func(ctx context.Context, str string) error {
+		return d.startJobBatching(ctx, JobDecode([]byte(str)), batchConsumer)
 	})
 }
 
 func (d *TokenBatchDistributor) startJobBatching(
 	ctx context.Context,
 	job *TokenBatchJob,
-	closure func(input *models.MessageInput, devices []*models.UserDevice),
+	batchReceiver func(
+		ctx context.Context, 
+		input *models.MessageInput, 
+		devices []*models.UserDevice,
+	) error,
 ) error {
+	evt := events.Start(ctx, "token_batch_distributor.job_batching", nil)
+	defer log.Println("start job batching")
+
 	if jobErr := job.Validate(); jobErr != nil {
+		events.Failed(evt, jobErr, nil)
 		return jobErr
 	}
 
@@ -67,6 +93,7 @@ func (d *TokenBatchDistributor) startJobBatching(
 	var interval = 10 * time.Millisecond
 	var jobId = job.JobId
 	var assignment *dist.Assignment
+	var batchCount int
 	for {
 		select {
 		case <-consumeCtx.Done():
@@ -74,16 +101,23 @@ func (d *TokenBatchDistributor) startJobBatching(
 		default:
 		}
 		if lastErr != nil {
+			events.Failed(evt, lastErr, nil)
 			return lastErr
 		}
 		if assignment, lastErr = d.WaitForAssignment(consumeCtx, interval, jobId); lastErr != nil {
 			if lastErr == dist.ErrWorkloadHasAlreadyFulfilled {
+				events.Succeeded(evt, nil)
 				return nil
 			}
 			continue
 		}
-		lastErr = d.HandleAssignment(assignment, func() error {
+
+		batchCount++
+		evt.SetData("batch_count", batchCount)
+
+		lastErr = d.HandleAssignment(evt.Context(), assignment, func(assignmentCtx context.Context) error {
 			devices, queryErr := d.userService.GetDevicesForCampaign(
+				assignmentCtx,
 				job.Message.Campaign,
 				assignment.WorkStartAt()-1,                        // offset
 				assignment.WorkEndAt()-assignment.WorkStartAt()+1, // limit
@@ -91,8 +125,7 @@ func (d *TokenBatchDistributor) startJobBatching(
 			if queryErr != nil {
 				return queryErr
 			}
-			closure(job.Message, devices)
-			return nil
+			return batchReceiver(assignmentCtx, job.Message, devices)
 		})
 	}
 }

@@ -36,9 +36,9 @@ func main() {
 		cmd := factory.MakeDeleteUsersCommand()
 		cmd.SetFilterCampaign(*campaign)
 		cmd.Build()
-		err := repo.DeleteUsers(cmd)
+		err := repo.DeleteUsers(context.Background(), cmd)
 		if err != nil {
-			log.Println("failed to delete old data")
+			log.Println("failed to delete old data", err)
 			return
 		} else {
 			log.Println("old data deleted")
@@ -58,7 +58,7 @@ func main() {
 		}
 	}
 
-	_, err := repo.InsertManyUsers(usrs)
+	_, err := repo.InsertManyUsers(context.Background(), usrs)
 
 	if err != nil {
 		log.Println("insert test users failed - error:", err)

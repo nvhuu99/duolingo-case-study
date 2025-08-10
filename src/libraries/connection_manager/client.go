@@ -60,10 +60,11 @@ func (client *Client) RenewConnection() error {
 }
 
 func (client *Client) ExecuteClosure(
+	ctx context.Context,
 	timeout time.Duration,
-	closure func(ctx context.Context, connection any) error,
+	closure func(timeoutCtx context.Context, connection any) error,
 ) error {
-	timeoutCtx, timeoutCancel := context.WithTimeout(client.ctx, timeout)
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, timeout)
 	defer timeoutCancel()
 
 	done := make(chan bool, 1)

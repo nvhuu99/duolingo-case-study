@@ -15,6 +15,7 @@ type RabbitMQClient struct {
 }
 
 func (client *RabbitMQClient) ExecuteClosure(
+	ctx context.Context,
 	timeout time.Duration,
 	closure func(ctx context.Context, ch *amqp.Channel) error,
 ) error {
@@ -22,7 +23,7 @@ func (client *RabbitMQClient) ExecuteClosure(
 		channel, _ := conn.(*amqp.Channel)
 		return closure(ctx, channel)
 	}
-	return client.Client.ExecuteClosure(timeout, wrapper)
+	return client.Client.ExecuteClosure(ctx, timeout, wrapper)
 }
 
 func (client *RabbitMQClient) GetConnection() *amqp.Channel {

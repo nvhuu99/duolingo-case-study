@@ -34,7 +34,7 @@ func NewUserRepo(
 	}
 }
 
-func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, error) {
+func (repo *UserRepo) InsertManyUsers(ctx context.Context, users []*models.User) ([]*models.User, error) {
 	bsonData := make([]any, len(users))
 	for i := range users {
 		if users[i].Id == "" {
@@ -44,7 +44,7 @@ func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, err
 	}
 	var err error
 	timeout := repo.GetWriteTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(ctx, timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
 		_, insertErr := collection.InsertMany(ctx, bsonData)
 		return insertErr
@@ -52,13 +52,13 @@ func (repo *UserRepo) InsertManyUsers(users []*models.User) ([]*models.User, err
 	return users, err
 }
 
-func (repo *UserRepo) DeleteUsersByIds(ids []string) error {
+func (repo *UserRepo) DeleteUsersByIds(ctx context.Context, ids []string) error {
 	deletion := driver_cmd.NewDeleteUsersCommand()
 	deletion.SetFilterIds(ids)
-	return repo.DeleteUsers(deletion)
+	return repo.DeleteUsers(ctx, deletion)
 }
 
-func (repo *UserRepo) DeleteUsers(command cmd.DeleteUsersCommand) error {
+func (repo *UserRepo) DeleteUsers(ctx context.Context, command cmd.DeleteUsersCommand) error {
 	mongoCmd, ok := command.(*driver_cmd.DeleteUsersCommand)
 	if !ok {
 		panic(ErrInvalidCommandType)
@@ -68,7 +68,7 @@ func (repo *UserRepo) DeleteUsers(command cmd.DeleteUsersCommand) error {
 	}
 	var err error
 	timeout := repo.GetWriteTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(ctx, timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
 		_, deleteErr := collection.DeleteMany(ctx, mongoCmd.GetFilters())
 		return deleteErr
@@ -76,14 +76,14 @@ func (repo *UserRepo) DeleteUsers(command cmd.DeleteUsersCommand) error {
 	return err
 }
 
-func (repo *UserRepo) GetListUsersByIds(ids []string) ([]*models.User, error) {
+func (repo *UserRepo) GetListUsersByIds(ctx context.Context, ids []string) ([]*models.User, error) {
 	command := driver_cmd.NewListUsersCommand()
 	command.SetFilterIds(ids)
 	command.SetSortById(cmd.OrderASC)
-	return repo.GetListUsers(command)
+	return repo.GetListUsers(ctx,command)
 }
 
-func (repo *UserRepo) GetListUsers(command cmd.ListUsersCommand) ([]*models.User, error) {
+func (repo *UserRepo) GetListUsers(ctx context.Context, command cmd.ListUsersCommand) ([]*models.User, error) {
 	mongoCmd, ok := command.(*driver_cmd.ListUsersCommand)
 	if !ok {
 		panic(ErrInvalidCommandType)
@@ -94,7 +94,7 @@ func (repo *UserRepo) GetListUsers(command cmd.ListUsersCommand) ([]*models.User
 	var err error
 	var users []*models.User
 	timeout := repo.GetReadTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(ctx, timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
 		cursor, cursorErr := collection.Find(
 			ctx,
@@ -110,7 +110,7 @@ func (repo *UserRepo) GetListUsers(command cmd.ListUsersCommand) ([]*models.User
 	return users, err
 }
 
-func (repo *UserRepo) GetListUserDevices(command cmd.ListUserDevicesCommand) (
+func (repo *UserRepo) GetListUserDevices(ctx context.Context, command cmd.ListUserDevicesCommand) (
 	[]*models.UserDevice,
 	error,
 ) {
@@ -124,7 +124,7 @@ func (repo *UserRepo) GetListUserDevices(command cmd.ListUserDevicesCommand) (
 	var err error
 	var userDevices []*models.UserDevice
 	timeout := repo.GetReadTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(ctx, timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
 		cursor, cursorErr := collection.Aggregate(ctx, mongoCmd.GetPipeline())
 		if cursorErr != nil {
@@ -136,7 +136,7 @@ func (repo *UserRepo) GetListUserDevices(command cmd.ListUserDevicesCommand) (
 	return userDevices, err
 }
 
-func (repo *UserRepo) AggregateUsers(command cmd.AggregateUsersCommand) (
+func (repo *UserRepo) AggregateUsers(ctx context.Context, command cmd.AggregateUsersCommand) (
 	results.UsersAggregationResult,
 	error,
 ) {
@@ -150,7 +150,7 @@ func (repo *UserRepo) AggregateUsers(command cmd.AggregateUsersCommand) (
 	var err error
 	var result = new(driver_results.UsersAggregationResult)
 	timeout := repo.GetReadTimeout()
-	err = repo.ExecuteClosure(timeout, func(ctx context.Context, conn *mongo.Client) error {
+	err = repo.ExecuteClosure(ctx, timeout, func(ctx context.Context, conn *mongo.Client) error {
 		collection := conn.Database(repo.databaseName).Collection(repo.collectionName)
 		cursor, cursorErr := collection.Aggregate(ctx, mongoCmd.GetPipeline())
 		if cursorErr != nil {

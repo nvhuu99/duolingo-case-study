@@ -17,32 +17,32 @@ func (p *Publisher) Publish(
 	topic string,
 	key string,
 	message string,
-	headers map[string]string,
+	headers map[string]any,
 ) error {
 	var err error 
 
-	_, evt := events.Start(
+	if headers == nil {
+		headers = make(map[string]any)
+	}
+	headerTable := amqp.Table(headers)
+
+	evt := events.Start(
 		ctx, fmt.Sprintf("mq.publisher.publish(%v)", topic),
 		map[string]any{
 			"routing_key": key,
-			"publisher_name": "message_input_publisher",
+			"message_headers": headerTable,
+			"parent_ctx": ctx,
 		},
 	)
-	defer func() {
-		events.End(evt, err == nil, err, nil)
-	}()
+	defer events.End(evt, true, err, nil)
 
 	timeout := p.GetWriteTimeout()
-	err = p.ExecuteClosure(timeout, func(ctx context.Context, ch *amqp.Channel) error {
-		headerTable := amqp.Table{}
-		if len(headers) != 0 {
-			for k, v := range headers {
-				headerTable[k] = v
-			}
-		}
-
+	err = p.ExecuteClosure(evt.Context(), timeout, func(
+		timeoutCtx context.Context, 
+		ch *amqp.Channel,
+	) error {
 		return ch.PublishWithContext(
-			ctx,
+			timeoutCtx,
 			topic,
 			key,
 			true,  // message must be routed to at least one queue

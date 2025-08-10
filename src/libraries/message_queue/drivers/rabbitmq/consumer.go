@@ -3,7 +3,10 @@ package rabbitmq
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
+
+	events "duolingo/libraries/events/facade"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -15,7 +18,7 @@ type QueueConsumer struct {
 func (c *QueueConsumer) Consuming(
 	ctx context.Context,
 	queue string,
-	closure func(context.Context, string) ConsumeAction,
+	processFunc func(context.Context, string) (ConsumeAction, error),
 ) error {
 	var deliveries <-chan amqp.Delivery
 	var channel *amqp.Channel
@@ -52,8 +55,13 @@ func (c *QueueConsumer) Consuming(
 			// Since the message has already been processed, there's no need to
 			// call the "closure" again; instead, simply retry the consume action.
 			id, _ := delivery.Headers["message_id"].(string)
-			if previousFailedAction, found := confirmationFailures[id]; found {
-				retryErr := c.handleConsumeAction(delivery, previousFailedAction)
+			if prevFailedAction, found := confirmationFailures[id]; found {
+				retryErr := c.handleConsumeAction(
+					context.Background(), 
+					queue, 
+					delivery, 
+					prevFailedAction,
+				)
 				if retryErr == nil {
 					delete(confirmationFailures, id)
 				}
@@ -62,12 +70,31 @@ func (c *QueueConsumer) Consuming(
 			// Upon receiving a new message, first call the "closure" function,
 			// then send the "confirmation" to the server (acknowledge, reject, etc.)
 			// based on the "consume action" returned by the closure.
-			consumeAction := closure(ctx, string(delivery.Body))
-			actionErr := c.handleConsumeAction(delivery, consumeAction)
-			// If the confirmation fails, the failure will be recorded to be addressed later.
-			if actionErr != nil {
-				confirmationFailures[id] = consumeAction
-			}
+			// CONTEXT PROPAGATION
+			func() {
+				var action ConsumeAction
+				var ackErr error
+				var processErr error
+
+				evt := events.Start(
+					ctx,
+					fmt.Sprintf("mq.consumer.receive(%v)", queue),
+					map[string]any{
+						"message_headers": delivery.Headers,
+					},
+				)
+				defer func() {
+					events.End(evt, true, c.firstError(processErr, ackErr) , nil)
+				}()
+
+				action, processErr = processFunc(evt.Context(), string(delivery.Body))
+				ackErr = c.handleConsumeAction(evt.Context(), queue, delivery, action)
+				// If the confirmation fails, the failure will be recorded 
+				// to be addressed later.
+				if ackErr != nil {
+					confirmationFailures[id] = action
+				}
+			}()
 		}
 	}
 }
@@ -111,15 +138,31 @@ func (c *QueueConsumer) waitForDeliveriesChanReady(
 }
 
 func (c *QueueConsumer) handleConsumeAction(
+	ctx context.Context,
+	queue string,
 	delivery amqp.Delivery,
 	action ConsumeAction,
 ) error {
+	var err error
+	
+	evt := events.Start(ctx, fmt.Sprintf("mq.consumer.ack(%v, %v)", queue, action), nil)
+	defer events.End(evt, true, err, nil)
+
 	switch action {
 	case ActionReject:
-		return delivery.Reject(false)
+		err = delivery.Reject(false)
 	case ActionRequeue:
-		return delivery.Reject(true)
+		err = delivery.Reject(true)
 	default:
-		return delivery.Ack(false)
+		err = delivery.Ack(false)
 	}
+
+	return err
+}
+
+func (c *QueueConsumer) firstError(err ...error) error {
+	if len(err) == 0 {
+		return nil
+	}
+	return err[0]
 }

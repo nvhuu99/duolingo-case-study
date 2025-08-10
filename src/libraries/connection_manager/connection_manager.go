@@ -3,6 +3,7 @@ package connection_manager
 import (
 	"context"
 	"errors"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,21 +33,26 @@ func (manager *ConnectionManager) NotifyNetworkFailure() {
 	if manager.resettingTriggered.Load() {
 		return
 	}
+	manager.resettingTriggered.Store(true)
+
+	log.Printf("ConnectionManager(%v): network failure detected, all connection will be discarded for resetting", manager.connectionName())
+
 	go func() {
-		manager.resettingTriggered.Store(true)
 		defer manager.resettingTriggered.Store(false)
 
 		manager.discardAllClientConnections() // avoid further accesses
 		if err := manager.idleUntilNetworkRecoveredUnlessCtxCanceled(); err != nil {
 			return
 		}
-		manager.resetAllConnections()
+		manager.resetAllConnectionsForNetworkRecovery()
 	}()
 }
 
 func (manager *ConnectionManager) RegisterClient(client *Client) {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
+
+	log.Printf("ConnectionManager(%v): client registered with clientID: %v\n", manager.connectionName(), client.GetClientId())
 
 	id := client.GetClientId()
 	manager.clients[id] = client
@@ -56,6 +62,8 @@ func (manager *ConnectionManager) RegisterClient(client *Client) {
 
 func (manager *ConnectionManager) RemoveClient(client *Client) {
 	id := client.GetClientId()
+
+	log.Printf("ConnectionManager(%v): client is removed, clientID: %v\n", manager.connectionName(), id)
 
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
@@ -91,16 +99,19 @@ func (manager *ConnectionManager) RenewClientConnection(client *Client) error {
 
 	newConn, err := manager.makeConnection()
 	if err != nil {
+		log.Printf("ConnectionManager(%v): failed to renew client connection - clientId: %v - error: %v\n", manager.connectionName(), client.GetClientId(), err)
 		return err
+	} else {
+		log.Printf("ConnectionManager(%v): client connection renewed - clientID: %v\n", manager.connectionName(), client.GetClientId())
+		manager.clientConnections[client.GetClientId()] = newConn
+		return nil
 	}
-	manager.clientConnections[client.GetClientId()] = newConn
-
-	return nil
 }
 
 func (manager *ConnectionManager) discardAllClientConnections() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
+	defer log.Printf("ConnectionManager(%v): all client connections discarded\n", manager.connectionName())
 
 	for id := range manager.clients {
 		if manager.clientConnections[id] != nil {
@@ -111,6 +122,8 @@ func (manager *ConnectionManager) discardAllClientConnections() {
 }
 
 func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() error {
+	log.Printf("ConnectionManager(%v): waiting for network recorvery\n", manager.connectionName())
+
 	for {
 		select {
 		case <-manager.ctx.Done():
@@ -118,6 +131,7 @@ func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() e
 		default:
 			if conn, connErr := manager.makeConnection(); connErr == nil {
 				if pingErr := manager.connectionProxy.Ping(conn); pingErr == nil {
+					log.Printf("ConnectionManager(%v): network has recovered\n", manager.connectionName())
 					return nil
 				}
 			}
@@ -126,12 +140,15 @@ func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() e
 	}
 }
 
-func (manager *ConnectionManager) resetAllConnections() {
+func (manager *ConnectionManager) resetAllConnectionsForNetworkRecovery() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
+	defer log.Printf("ConnectionManager(%v): all client connections resetted\n", manager.connectionName())
 
 	for id := range manager.clients {
-		conn, _ := manager.makeConnection()
+		// Error is ignored, since this function is called only when the network has just recovered.
+		// If the connection failed here, the manager will be notified later.
+		conn, _ := manager.makeConnection() 
 		manager.clientConnections[id] = conn
 	}
 }
@@ -149,3 +166,6 @@ func (manager *ConnectionManager) makeConnection() (any, error) {
 	return manager.connectionProxy.MakeConnection()
 }
 
+func (manager *ConnectionManager) connectionName() string {
+	return manager.connectionProxy.ConnectionName()
+}

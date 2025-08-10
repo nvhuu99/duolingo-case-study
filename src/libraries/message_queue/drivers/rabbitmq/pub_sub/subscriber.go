@@ -33,40 +33,40 @@ func (sub *Subscriber) SetMainTopic(topic string) {
 	sub.mainTopic = topic
 }
 
-func (sub *Subscriber) SubscribeMainTopic() error {
+func (sub *Subscriber) SubscribeMainTopic(ctx context.Context) error {
 	if sub.mainTopic == "" {
 		return ps.ErrSubscriberMainTopicNotSet
 	}
-	return sub.Subscribe(sub.mainTopic)
+	return sub.Subscribe(ctx, sub.mainTopic)
 }
 
-func (sub *Subscriber) UnSubscribeMainTopic() error {
+func (sub *Subscriber) UnSubscribeMainTopic(ctx context.Context) error {
 	if sub.mainTopic == "" {
 		return ps.ErrSubscriberMainTopicNotSet
 	}
 	topic := sub.mainTopic
 	sub.mainTopic = ""
-	return sub.UnSubscribe(topic)
+	return sub.UnSubscribe(ctx, topic)
 }
 
 func (sub *Subscriber) ListeningMainTopic(
 	ctx context.Context,
-	closure func(context.Context, string),
+	processFunc func(context.Context, string) error,
 ) error {
 	if sub.mainTopic == "" {
 		return ps.ErrSubscriberMainTopicNotSet
 	}
-	return sub.Listening(ctx, sub.mainTopic, closure)
+	return sub.Listening(ctx, sub.mainTopic, processFunc)
 }
 
-func (sub *Subscriber) Subscribe(topic string) error {
+func (sub *Subscriber) Subscribe(ctx context.Context, topic string) error {
 	if _, exist := sub.queues[topic]; !exist {
 		sub.queues[topic] = fmt.Sprintf("%v_%v", topic, sub.id)
 	}
-	return sub.bindQueue(topic)
+	return sub.bindQueue(ctx, topic)
 }
 
-func (sub *Subscriber) UnSubscribe(topic string) error {
+func (sub *Subscriber) UnSubscribe(ctx context.Context, topic string) error {
 	delete(sub.queues, topic)
 	return nil
 }
@@ -74,32 +74,33 @@ func (sub *Subscriber) UnSubscribe(topic string) error {
 func (sub *Subscriber) Listening(
 	ctx context.Context,
 	topic string,
-	closure func(context.Context, string),
+	processFunc func(context.Context, string) error,
 ) error {
 	if _, exists := sub.queues[topic]; !exists {
 		return ps.ErrSubscriberTopicNotSubscribed
 	}
 
-	if bindErr := sub.bindQueue(topic); bindErr != nil {
+	if bindErr := sub.bindQueue(ctx, topic); bindErr != nil {
 		return bindErr
 	}
 
 	return sub.Consuming(ctx, sub.queues[topic], func(
 		ctx context.Context,
 		msg string,
-	) driver.ConsumeAction {
-		closure(ctx, msg)
-		return driver.ActionAccept
+	) (driver.ConsumeAction, error) {
+		err := processFunc(ctx, msg)
+		return driver.ActionAccept, err 
 	})
 }
 
-func (sub *Subscriber) bindQueue(topic string) error {
+func (sub *Subscriber) bindQueue(ctx context.Context, topic string) error {
 	if _, exist := sub.queues[topic]; !exist {
 		return ps.ErrSubscriberTopicNotSubscribed
 	}
 
 	var declareErr error
 	declareErr = sub.DeclareExchange(
+		ctx,
 		driver.
 			DefaultExchangeOpts(topic).
 			IsType(driver.TopicExchange).
@@ -107,6 +108,7 @@ func (sub *Subscriber) bindQueue(topic string) error {
 	)
 	if declareErr == nil {
 		declareErr = sub.DeclareQueue(
+			ctx,
 			driver.DefaultQueueOpts(sub.queues[topic]).
 				IsNonPersistent().
 				IsExclusive(),

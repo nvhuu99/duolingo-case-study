@@ -12,13 +12,13 @@ var (
 
 type TaskQueue interface {
 	SetQueue(queue string)
-	Declare() error
-	Remove() error
+	Declare(ctx context.Context) error
+	Remove(ctx context.Context) error
 }
 
 type TaskProducer interface {
 	SetQueue(queue string)
-	Push(serializedTask string) error
+	Push(ctx context.Context, serializedTask string) error
 }
 
 type TaskConsumer interface {

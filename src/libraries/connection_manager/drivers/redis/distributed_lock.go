@@ -74,7 +74,7 @@ func (lock *DistributedLock) AcquireLock() error {
 			return ErrLockAcquireTimeout
 		default:
 			// acquire lock
-			lock.client.ExecuteClosure(client.lockAcquireTimeout, func(
+			lock.client.ExecuteClosure(context.Background(), client.lockAcquireTimeout, func(
 				ctx context.Context,
 				rdb *redis_driver.Client,
 			) error {
@@ -103,7 +103,7 @@ func (lock *DistributedLock) ReleaseLock() error {
 		return ErrLockValueEmpty
 	}
 	var realeaseErr error
-	lock.client.ExecuteClosure(lock.client.lockAcquireTimeout, func(
+	lock.client.ExecuteClosure(context.Background(), lock.client.lockAcquireTimeout, func(
 		ctx context.Context,
 		rdb *redis_driver.Client,
 	) error {

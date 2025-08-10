@@ -37,6 +37,7 @@ func (provider *MessageQueues) Bootstrap(bootstrapCtx context.Context, scope str
 	)
 
 	provider.declareTaskQueue(
+		bootstrapCtx,
 		"push_notifications",
 		"push_notifications_producer",
 		"push_notifications_consumer",
@@ -51,7 +52,7 @@ func (provider *MessageQueues) declareTopic(
 	container.BindSingletonAlias(publisherName, func(ctx context.Context) any {
 		publisher := pub_sub.NewPublisher(provider.connections.GetRabbitMQClient())
 		publisher.SetMainTopic(topicName)
-		if declareErr := publisher.DeclareMainTopic(); declareErr != nil {
+		if declareErr := publisher.DeclareMainTopic(ctx); declareErr != nil {
 			panic(fmt.Errorf("failed to declare topic %v with error: %v", topicName, declareErr))
 		}
 		return publisher
@@ -60,21 +61,23 @@ func (provider *MessageQueues) declareTopic(
 	container.BindSingletonAlias(subscriberName, func(ctx context.Context) any {
 		subscriber := pub_sub.NewSubscriber(provider.connections.GetRabbitMQClient())
 		subscriber.SetMainTopic(topicName)
-		if subscribeErr := subscriber.SubscribeMainTopic(); subscribeErr != nil {
+		if subscribeErr := subscriber.SubscribeMainTopic(ctx); subscribeErr != nil {
 			panic(fmt.Errorf("failed to subscribe topic %v with error: %v", topicName, subscribeErr))
 		}
+
 		return subscriber
 	})
 }
 
 func (provider *MessageQueues) declareTaskQueue(
+	ctx context.Context,
 	queueName string,
 	producerName string,
 	consumerName string,
 ) {
 	taskQueue := task_queue.NewTaskQueue(provider.connections.GetRabbitMQClient())
 	taskQueue.SetQueue(queueName)
-	if err := taskQueue.Declare(); err != nil {
+	if err := taskQueue.Declare(ctx); err != nil {
 		panic(fmt.Errorf("failed to declare task queue %v with error: %v", queueName, err))
 	}
 

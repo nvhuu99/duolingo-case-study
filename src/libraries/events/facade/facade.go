@@ -27,15 +27,18 @@ func Subscribe(topicRegex string, sub events.Subscriber) {
 	GetManager().AddSubsriber(topicRegex, sub)
 }
 
-func AddDecorator(decorator events.EventDecorator) {
-	GetManager().AddDecorator(decorator)
+func AddDecorators(decorators ...events.EventDecorator) {
+	for _, d := range decorators {
+		GetManager().AddDecorator(d)
+	}
 }
+
 
 func AddFinalizer(finalizer events.EventFinalizer) {
 	GetManager().AddFinalizer(finalizer)
 }
 
-func Start(ctx context.Context, name string, data map[string]any) (context.Context, *events.Event) {
+func Start(ctx context.Context, name string, data map[string]any) *events.Event {
 	return GetManager().StartEvent(ctx, name, data)
 }
 

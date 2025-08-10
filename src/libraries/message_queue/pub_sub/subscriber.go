@@ -11,12 +11,12 @@ var (
 )
 
 type Subscriber interface {
-	Subscribe(topic string) error
-	UnSubscribe(topic string) error
-	Listening(ctx context.Context, topic string, closure func(context.Context, string)) error
+	Subscribe(ctx context.Context, topic string) error
+	UnSubscribe(ctx context.Context, topic string) error
+	Listening(ctx context.Context, topic string, closure func(context.Context, string) error) error
 
 	SetMainTopic(topic string)
-	SubscribeMainTopic() error
-	UnSubscribeMainTopic() error
-	ListeningMainTopic(ctx context.Context, closure func(context.Context, string)) error
+	SubscribeMainTopic(ctx context.Context) error
+	UnSubscribeMainTopic(ctx context.Context) error
+	ListeningMainTopic(ctx context.Context, closure func(context.Context, string) error) error
 }
