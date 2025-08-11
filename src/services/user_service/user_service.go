@@ -62,7 +62,7 @@ func (service *UserService) GetDevicesForCampaign(
 	query.SetPagination(offset, limit)
 	query.SetSortById(commands.OrderASC)
 
-	devices, err = service.GetListUserDevices(ctx, query)
+	devices, err = service.GetListUserDevices(evt.Context(), query)
 
 	return devices, err
 }

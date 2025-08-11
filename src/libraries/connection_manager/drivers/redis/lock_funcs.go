@@ -24,10 +24,11 @@ func acquireLock(
 	ttl time.Duration,
 ) error {
 	lockKeys := getLockKeysForResourceKeys(resourceKeys)
+	scriptDescription := "distributed_lock.acquire"
 	script := redis_driver.NewScript(`
 		local keys = KEYS
-		local lock_value = ARGV[1]
-		local ttl = tonumber(ARGV[2])
+		local lock_value = ARGV[2]
+		local ttl = tonumber(ARGV[3])
 
 		for i, key in ipairs(keys) do
 			if redis.call("EXISTS", key) == 1 then
@@ -41,7 +42,11 @@ func acquireLock(
 
 		return 1 -- Lock succeeded
 	`)
-	result, lockErr := script.Run(ctx, rdb, lockKeys, lockVal, ttl.Milliseconds()).Result()
+	result, lockErr := script.Run(ctx, rdb, lockKeys,
+		scriptDescription,
+		lockVal,
+		ttl.Milliseconds(),
+	).Result()
 	if result == int64(0) {
 		if lockErr == nil {
 			lockErr = errors.New("the resources have already been locking")
@@ -58,9 +63,10 @@ func releaseLock(
 	resourceKeys []string,
 ) error {
 	lockKeys := getLockKeysForResourceKeys(resourceKeys)
+	scriptDescription := "distributed_lock.release"
 	script := redis_driver.NewScript(`
 		local keys = KEYS
-        local lock_value = ARGV[1]
+        local lock_value = ARGV[2]
 
         for i, key in ipairs(keys) do
             if redis.call("GET", key) == lock_value then
@@ -68,7 +74,10 @@ func releaseLock(
             end
         end
 	`)
-	result, lockErr := script.Run(ctx, rdb, lockKeys, lockVal).Result()
+	result, lockErr := script.Run(ctx, rdb, lockKeys,
+		scriptDescription,
+		lockVal,
+	).Result()
 	if result == int64(0) {
 		if lockErr == nil {
 			lockErr = errors.New("unknown error")

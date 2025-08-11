@@ -19,6 +19,10 @@ func (EventEmitterHook) DialHook(next redis.DialHook) redis.DialHook {
 
 func (EventEmitterHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
+		if isDistributedLockEval(cmd) {
+			return next(ctx, cmd)
+		}
+
 		var err error
 
 		evt := events.Start(ctx, "redis.execute_command", map[string]any{
@@ -45,4 +49,13 @@ func (EventEmitterHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redi
 
 		return err
 	}
+}
+
+func isDistributedLockEval(cmd redis.Cmder) bool {
+	if description, ok := cmd.Args()[0].(string); ok {
+		if description == "distributed_lock.acquire" || description == "distributed_lock.release" {
+			return true
+		}
+	}
+	return false
 }
