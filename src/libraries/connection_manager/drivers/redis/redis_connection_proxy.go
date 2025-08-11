@@ -47,7 +47,11 @@ func (proxy *RedisConnectionProxy) MakeConnection() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return redis_driver.NewClient(opt), nil
+
+	redisClient := redis_driver.NewClient(opt)
+	redisClient.AddHook(&EventEmitterHook{})
+
+	return redisClient, nil
 }
 
 func (proxy *RedisConnectionProxy) Ping(connection any) error {
