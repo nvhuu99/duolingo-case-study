@@ -48,9 +48,10 @@ func (e *Event) Status() string { return string(e.status) }
 func (e *Event) Name() string   { return e.name }
 func (e *Event) Error() error   { return e.err }
 
-func (e *Event) GetData(key string) any      { return e.data[key] }
-func (e *Event) SetData(key string, val any) { e.data[key] = val }
-func (e *Event) GetAllData() map[string]any  { return e.data }
+func (e *Event) GetData(key string) any       { return e.data[key] }
+func (e *Event) GetDataStr(key string) string { return e.data[key].(string) }
+func (e *Event) SetData(key string, val any)  { e.data[key] = val }
+func (e *Event) GetAllData() map[string]any   { return e.data }
 func (e *Event) MergeData(source map[string]any) {
 	for k, v := range source {
 		e.SetData(k, v)

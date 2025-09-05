@@ -2,7 +2,6 @@ package trace
 
 import (
 	"context"
-	"sync/atomic"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -16,24 +15,53 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var (
-	traceManager      *TraceManager
-	traceManagerReady atomic.Bool
-)
+type TraceManagerBuilder struct {
+	ctx           context.Context
+	resource      *resource.Resource
+	traceExporter *otlptrace.Exporter
+}
 
-func InitTraceManager(
-	ctx context.Context,
-	resource *resource.Resource,
-	traceExporter *otlptrace.Exporter,
-) {
+func NewTraceManagerBuilder(ctx context.Context) *TraceManagerBuilder {
+	return &TraceManagerBuilder{
+		ctx: ctx,
+	}
+}
+
+func (builder *TraceManagerBuilder) WithDefaultResource(
+	serviceName string,
+	attrs ...attribute.KeyValue,
+) *TraceManagerBuilder {
+	resourceAttrs := append(attrs, semconv.ServiceName(serviceName))
+	resource, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(semconv.SchemaURL, resourceAttrs...),
+	)
+	panicIfErr(err)
+	builder.resource = resource
+	return builder
+}
+
+func (builder *TraceManagerBuilder) WithGRPCExporter(
+	endpoint string,
+	secure bool,
+	opts ...otlptracegrpc.Option,
+) *TraceManagerBuilder {
+	if !secure {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+	mergedOptions := append(opts, otlptracegrpc.WithEndpoint(endpoint))
+	traceExporter, err := otlptracegrpc.New(context.Background(), mergedOptions...)
+	panicIfErr(err)
+
+	builder.traceExporter = traceExporter
+
+	return builder
+}
+
+func (builder *TraceManagerBuilder) GetManager() *TraceManager {
 	/* New TraceManager */
 
-	if traceManagerReady.Load() {
-		return
-	}
-	defer traceManagerReady.Store(true)
-
-	traceManager = &TraceManager{
+	traceManager := &TraceManager{
 		spans:          make(map[string]trace.Span),
 		spanDecorators: make(map[SpanNameTemplate][]SpanProcessorFunc),
 		spanFinalizers: make(map[SpanNameTemplate][]SpanProcessorFunc),
@@ -42,8 +70,8 @@ func InitTraceManager(
 	/* Setup Otel SDK for Tracing */
 
 	traceProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter),
-		sdktrace.WithResource(resource),
+		sdktrace.WithBatcher(builder.traceExporter),
+		sdktrace.WithResource(builder.resource),
 	)
 	tracer := traceProvider.Tracer("otlp.grpc.tracer")
 
@@ -54,34 +82,8 @@ func InitTraceManager(
 
 	traceManager.traceProvider = traceProvider
 	traceManager.tracer = tracer
-}
 
-func GetManager() *TraceManager {
 	return traceManager
-}
-
-func WithDefaultResource(serviceName string, attrs ...attribute.KeyValue) *resource.Resource {
-	resourceAttrs := append(attrs, semconv.ServiceName(serviceName))
-	resource, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(semconv.SchemaURL, resourceAttrs...),
-	)
-	panicIfErr(err)
-	return resource
-}
-
-func WithGRPCExporter(endpoint string, secure bool, opts ...otlptracegrpc.Option) *otlptrace.Exporter {
-	// Merge exporter options
-	if !secure {
-		opts = append(opts, otlptracegrpc.WithInsecure())
-	}
-	mergedOptions := append(opts, otlptracegrpc.WithEndpoint(endpoint))
-
-	// Create exporter
-	traceExporter, err := otlptracegrpc.New(context.Background(), mergedOptions...)
-	panicIfErr(err)
-
-	return traceExporter
 }
 
 func panicIfErr(err error) {

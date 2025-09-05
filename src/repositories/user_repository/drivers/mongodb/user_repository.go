@@ -38,7 +38,10 @@ func NewUserRepo(
 func (repo *UserRepo) InsertManyUsers(ctx context.Context, users []*models.User) ([]*models.User, error) {
 	var err error
 
-	evt := events.Start(ctx, "user_repo.insert_many_users", nil)
+	evt := events.Start(ctx, "user_repo.insert_many_users", map[string]any{
+		"db_operation":   "insert",
+		"operation_name": "insert_many_users",
+	})
 	defer events.End(evt, true, err, nil)
 
 	bsonData := make([]any, len(users))
@@ -65,7 +68,10 @@ func (repo *UserRepo) InsertManyUsers(ctx context.Context, users []*models.User)
 func (repo *UserRepo) DeleteUsersByIds(ctx context.Context, ids []string) error {
 	var err error
 
-	evt := events.Start(ctx, "user_repo.delete_by_user_id", nil)
+	evt := events.Start(ctx, "user_repo.delete_by_user_id", map[string]any{
+		"db_operation":   "delete",
+		"operation_name": "delete_by_user_id",
+	})
 	defer events.End(evt, true, err, nil)
 
 	deletion := driver_cmd.NewDeleteUsersCommand()
@@ -78,7 +84,10 @@ func (repo *UserRepo) DeleteUsersByIds(ctx context.Context, ids []string) error 
 func (repo *UserRepo) DeleteUsers(ctx context.Context, command cmd.DeleteUsersCommand) error {
 	var err error
 
-	evt := events.Start(ctx, "user_repo.delete_by_users", nil)
+	evt := events.Start(ctx, "user_repo.delete_users", map[string]any{
+		"db_operation":   "delete",
+		"operation_name": "delete_users",
+	})
 	defer events.End(evt, true, err, nil)
 
 	mongoCmd, ok := command.(*driver_cmd.DeleteUsersCommand)
@@ -106,7 +115,10 @@ func (repo *UserRepo) GetListUsersByIds(ctx context.Context, ids []string) ([]*m
 	var err error
 	var users []*models.User
 
-	evt := events.Start(ctx, "user_repo.get_list_users_by_ids", nil)
+	evt := events.Start(ctx, "user_repo.get_list_users_by_ids", map[string]any{
+		"db_operation":   "find",
+		"operation_name": "get_list_users_by_ids",
+	})
 	defer events.End(evt, true, err, nil)
 
 	command := driver_cmd.NewListUsersCommand()
@@ -124,7 +136,10 @@ func (repo *UserRepo) GetListUsers(
 	var err error
 	var users []*models.User
 
-	evt := events.Start(ctx, "user_repo.get_list_users", nil)
+	evt := events.Start(ctx, "user_repo.get_list_users", map[string]any{
+		"db_operation":   "find",
+		"operation_name": "get_list_users",
+	})
 	defer events.End(evt, true, err, nil)
 
 	mongoCmd, ok := command.(*driver_cmd.ListUsersCommand)
@@ -163,7 +178,10 @@ func (repo *UserRepo) GetListUserDevices(ctx context.Context, command cmd.ListUs
 	var err error
 	var userDevices []*models.UserDevice
 
-	evt := events.Start(ctx, "user_repo.get_list_user_devices", nil)
+	evt := events.Start(ctx, "user_repo.get_list_user_devices", map[string]any{
+		"db_operation":   "find",
+		"operation_name": "get_list_user_devices",
+	})
 	defer events.End(evt, true, err, nil)
 
 	mongoCmd, ok := command.(*driver_cmd.ListUserDevicesCommand)
@@ -198,7 +216,10 @@ func (repo *UserRepo) AggregateUsers(ctx context.Context, command cmd.AggregateU
 	var err error
 	var result = new(driver_results.UsersAggregationResult)
 
-	evt := events.Start(ctx, "user_repo.aggregate_users", nil)
+	evt := events.Start(ctx, "user_repo.aggregate_users", map[string]any{
+		"db_operation":   "aggregate",
+		"operation_name": "aggregate_users",
+	})
 	defer events.End(evt, true, err, nil)
 
 	mongoCmd, ok := command.(*driver_cmd.AggregateUsersCommand)

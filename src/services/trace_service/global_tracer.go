@@ -1,28 +1,31 @@
 package trace_service
 
 import (
+	container "duolingo/libraries/dependencies_container"
 	"duolingo/libraries/events"
 	trace "duolingo/libraries/telemetry/otel_wrapper/trace"
 
 	"go.opentelemetry.io/otel/codes"
 )
 
-type GlobalEventTracer struct {
+type GlobalTracer struct {
 	*events.BaseEventSubscriber
+	*trace.TraceManager
 }
 
-func NewGlobalEventTracer() *GlobalEventTracer {
-	return &GlobalEventTracer{
+func NewGlobalTracer() *GlobalTracer {
+	return &GlobalTracer{
 		BaseEventSubscriber: events.NewBaseEventSubscriber(),
+		TraceManager:        container.MustResolve[*trace.TraceManager](),
 	}
 }
 
 /*
-Implement events.Decorator interface, allow the GlobalEventTracer to create
+Implement events.Decorator interface, allow the GlobalTracer to create
 a trace-span immediately when an event has started.
 */
-func (tracer *GlobalEventTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
-	spanCtx, _ := trace.GetManager().Start(
+func (tracer *GlobalTracer) Decorate(event *events.Event, builder *events.EventBuilder) {
+	spanCtx, _ := tracer.Start(
 		event.Context(),
 		event.Name(),
 		event.StartTime(),
@@ -35,17 +38,17 @@ func (tracer *GlobalEventTracer) Decorate(event *events.Event, builder *events.E
 }
 
 /*
-Implement events.Subscriber interface, allow the GlobalEventTracer
+Implement events.Subscriber interface, allow the GlobalTracer
 to end a trace-span exactly when an an events (and it's childs) has ended
 and collected by the events.EventManager.
 */
-func (tracer *GlobalEventTracer) Notify(event *events.Event) {
+func (tracer *GlobalTracer) Notify(event *events.Event) {
 	// EventManager notify on event start, skip
 	if !event.HasEnded() {
 		return
 	}
 
-	span := trace.GetManager().Span(event.Context())
+	span := tracer.Span(event.Context())
 
 	var statusCode codes.Code
 	var message string
@@ -59,7 +62,7 @@ func (tracer *GlobalEventTracer) Notify(event *events.Event) {
 		statusCode = codes.Ok
 	}
 
-	trace.GetManager().End(
+	tracer.End(
 		span,
 		event.EndTime(),
 		statusCode,

@@ -80,6 +80,7 @@ func (c *QueueConsumer) Consuming(
 					fmt.Sprintf("mq.consumer.receive(%v)", queue),
 					map[string]any{
 						"message_headers": delivery.Headers,
+						"queue":           queue,
 					},
 				)
 				defer func() {

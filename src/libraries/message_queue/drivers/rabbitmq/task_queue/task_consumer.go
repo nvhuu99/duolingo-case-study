@@ -41,7 +41,9 @@ func (c *TaskConsumer) Consuming(
 		var err error
 
 		func() {
-			evt := events.Start(receiveCtx, fmt.Sprintf("task_queue.consumer.consume(%v)", c.queue), nil)
+			evt := events.Start(receiveCtx, fmt.Sprintf("task_queue.consumer.consume(%v)", c.queue), map[string]any{
+				"task_queue": c.queue,
+			})
 			defer events.End(evt, true, err, nil)
 
 			err = handleFunc(evt.Context(), receiveMsg)

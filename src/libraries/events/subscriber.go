@@ -9,13 +9,17 @@ type Subscriber interface {
 
 type BaseEventSubscriber struct {
 	subscriberId string
+	notifyFunc   func(*Event)
 }
 
 func NewBaseEventSubscriber() *BaseEventSubscriber {
-	return &BaseEventSubscriber{uuid.NewString()}
+	return &BaseEventSubscriber{
+		subscriberId: uuid.NewString(),
+	}
 }
 
 func (base *BaseEventSubscriber) Notify(event *Event) {
+	base.notifyFunc(event)
 }
 
 func (base *BaseEventSubscriber) GetId() string {

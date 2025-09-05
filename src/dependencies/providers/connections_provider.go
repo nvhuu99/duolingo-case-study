@@ -8,12 +8,25 @@ import (
 	"duolingo/libraries/connection_manager/drivers/redis"
 	"duolingo/libraries/connection_manager/facade"
 	container "duolingo/libraries/dependencies_container"
+	event "duolingo/libraries/events"
+	events "duolingo/libraries/events/facade"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 )
 
 type ConnectionsProvider struct {
 }
 
 func (provider *ConnectionsProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
+	provider.registerConnections(bootstrapCtx)
+	provider.logsInstrumentation()
+}
+
+func (c *ConnectionsProvider) Shutdown(shutdownCtx context.Context) {
+	facade.Provider().Shutdown()
+}
+
+func (provider *ConnectionsProvider) registerConnections(bootstrapCtx context.Context) {
+
 	container.BindSingleton[*facade.ConnectionProvider](func(ctx context.Context) any {
 		config := container.MustResolve[config_reader.ConfigReader]()
 
@@ -46,6 +59,18 @@ func (provider *ConnectionsProvider) Bootstrap(bootstrapCtx context.Context, sco
 	})
 }
 
-func (c *ConnectionsProvider) Shutdown(shutdownCtx context.Context) {
-	facade.Provider().Shutdown()
+func (provider *ConnectionsProvider) logsInstrumentation() {
+
+	logger := container.MustResolve[*log.Logger]()
+
+	events.SubscribeFunc("connection_manager", func(e *event.Event) {
+		logger.Write(logger.
+			Debug(e.GetDataStr("message")).
+			Namespace("connection_manager").
+			Errors(e.Error()).
+			Data(map[string]any{
+				"connection_name": e.GetData("connection_name"),
+			}),
+		)
+	})
 }

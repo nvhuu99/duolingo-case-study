@@ -38,7 +38,6 @@ func (d *TokenBatchDistributor) CreateBatchJob(ctx context.Context, input *model
 
 	evt := events.Start(ctx, "token_batch_distributor.create_batch_job", nil)
 	defer events.End(evt, true, err, nil)
-	defer log.Println("token_distributor:create batch job, err:", err)
 
 	if count, err = d.userService.CountDevicesForCampaign(evt.Context(), input.Campaign); err == nil {
 		if count == 0 {
@@ -79,7 +78,6 @@ func (d *TokenBatchDistributor) startJobBatching(
 	) error,
 ) error {
 	evt := events.Start(ctx, "token_batch_distributor.job_batching", nil)
-	defer log.Println("start job batching")
 
 	if jobErr := job.Validate(); jobErr != nil {
 		events.Failed(evt, jobErr, nil)
@@ -107,6 +105,7 @@ func (d *TokenBatchDistributor) startJobBatching(
 		if assignment, lastErr = d.WaitForAssignment(consumeCtx, interval, jobId); lastErr != nil {
 			if lastErr == dist.ErrWorkloadHasAlreadyFulfilled {
 				events.Succeeded(evt, nil)
+				log.Println("batching completed")
 				return nil
 			}
 			continue

@@ -36,7 +36,9 @@ func (dist *WorkDistributor) CreateWorkload(
 	totalWorkUnits int64,
 ) (*Workload, error) {
 
-	evt := events.Start(ctx, "work_dist.create_workload", nil)
+	evt := events.Start(ctx, "work_dist.create_workload", map[string]any{
+		"operation_name": "create_workload",
+	})
 
 	workload, validateErr := NewWorkload(
 		uuid.NewString(),
@@ -88,7 +90,9 @@ func (dist *WorkDistributor) GetWorkload(
 	var workload *Workload
 	var err error
 
-	evt := events.Start(ctx, "work_dist.get_workload", nil)
+	evt := events.Start(ctx, "work_dist.get_workload", map[string]any{
+		"operation_name": "get_workload",
+	})
 	defer events.End(evt, true, err, nil)
 
 	workload, err = dist.proxy.GetWorkload(evt.Context(), workloadId)
@@ -103,7 +107,9 @@ func (dist *WorkDistributor) HasWorkloadFulfilled(
 	var workload *Workload
 	var err error
 
-	evt := events.Start(ctx, "work_dist.has_workload_fulfilled", nil)
+	evt := events.Start(ctx, "work_dist.has_workload_fulfilled", map[string]any{
+		"operation_name": "has_workload_fulfilled",
+	})
 	defer events.End(evt, true, err, nil)
 
 	workload, err = dist.proxy.GetWorkload(ctx, workloadId)
@@ -135,7 +141,9 @@ func (dist *WorkDistributor) WaitForAssignment(
 	var assignment *Assignment
 	var err error
 
-	evt := events.Start(waitCtx, "work_dist.wait_for_assignment", nil)
+	evt := events.Start(waitCtx, "work_dist.wait_for_assignment", map[string]any{
+		"operation_name": "wait_for_assignment",
+	})
 	defer func() {
 		if err != nil && err != ErrWorkloadHasAlreadyFulfilled {
 			events.End(evt, true, err, nil)
@@ -172,7 +180,9 @@ func (dist *WorkDistributor) HandleAssignment(
 ) error {
 	var err error
 
-	evt := events.Start(ctx, "work_dist.handle_assignment", nil)
+	evt := events.Start(ctx, "work_dist.handle_assignment", map[string]any{
+		"operation_name": "handle_assignment",
+	})
 	defer events.End(evt, true, err, nil)
 
 	if err = handler(evt.Context()); err != nil {
@@ -187,7 +197,9 @@ func (dist *WorkDistributor) HandleAssignment(
 func (dist *WorkDistributor) Commit(ctx context.Context, assignment *Assignment) error {
 	var err error
 
-	evt := events.Start(ctx, "work_dist.commit", nil)
+	evt := events.Start(ctx, "work_dist.commit", map[string]any{
+		"operation_name": "commit",
+	})
 	defer events.End(evt, true, err, nil)
 
 	err = dist.proxy.GetAndUpdateWorkload(evt.Context(), assignment.WorkloadId, func(
@@ -202,7 +214,9 @@ func (dist *WorkDistributor) Commit(ctx context.Context, assignment *Assignment)
 func (dist *WorkDistributor) Rollback(ctx context.Context, assignment *Assignment) error {
 	var err error
 
-	evt := events.Start(ctx, "work_dist.rollback", nil)
+	evt := events.Start(ctx, "work_dist.rollback", map[string]any{
+		"operation_name": "rollback",
+	})
 	defer events.End(evt, true, err, nil)
 
 	err = dist.proxy.PushAssignmentToQueue(ctx, assignment)

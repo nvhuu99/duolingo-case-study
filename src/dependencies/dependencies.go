@@ -22,6 +22,7 @@ func Bootstrap(ctx context.Context, app string, scope string, grps []string) {
 
 		dependencies_provider.AddProvider(&providers.ConfigReaderProvider{}, "essentials")
 		dependencies_provider.AddProvider(&providers.TraceManagerProvider{}, "essentials")
+		dependencies_provider.AddProvider(&providers.LoggerProvider{}, "essentials")
 		dependencies_provider.AddProvider(&providers.EventManagerProvider{}, "essentials")
 
 		dependencies_provider.AddProvider(&providers.ConnectionsProvider{}, "connections")

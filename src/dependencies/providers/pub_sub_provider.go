@@ -6,7 +6,10 @@ import (
 
 	facade "duolingo/libraries/connection_manager/facade"
 	container "duolingo/libraries/dependencies_container"
+	event "duolingo/libraries/events"
+	events "duolingo/libraries/events/facade"
 	"duolingo/libraries/message_queue/drivers/rabbitmq/pub_sub"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 	"duolingo/libraries/telemetry/otel_wrapper/trace"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +20,8 @@ type PubSubProvider struct {
 }
 
 func (provider *PubSubProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
+	tracer := container.MustResolve[*trace.TraceManager]()
+	logger := container.MustResolve[*log.Logger]()
 
 	/* Declare publishers and subscribers */
 
@@ -33,7 +38,7 @@ func (provider *PubSubProvider) Bootstrap(bootstrapCtx context.Context, scope st
 
 	/* Tracing Instrumentation */
 
-	trace.GetManager().Decorate("pub_sub.publisher.notify(<topic>)", func(
+	tracer.Decorate("pub_sub.publisher.notify(<topic>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -44,7 +49,7 @@ func (provider *PubSubProvider) Bootstrap(bootstrapCtx context.Context, scope st
 		)
 	})
 
-	trace.GetManager().Decorate("pub_sub.subscriber.notified(<topic>)", func(
+	tracer.Decorate("pub_sub.subscriber.notified(<topic>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -52,6 +57,34 @@ func (provider *PubSubProvider) Bootstrap(bootstrapCtx context.Context, scope st
 			attribute.String("kind", "consumer"),
 			attribute.String("pub_sub.driver", "rabbitmq"),
 			attribute.String("pub_sub.topic", data.Get("topic")),
+		)
+	})
+
+	/* Logs Instrumentation */
+
+	events.SubscribeFunc("pub_sub.publisher.notify", func(e *event.Event) {
+		logger.Write(logger.
+			UnlessError(
+				e.Error(), "failed to notify message",
+				log.LevelInfo, "message notified",
+			).
+			Data(map[string]any{
+				"pub_sub.driver": "rabbitmq",
+				"pub_sub.topic":  e.GetData("topic"),
+			}),
+		)
+	})
+
+	events.SubscribeFunc("pub_sub.subscriber.notified", func(e *event.Event) {
+		logger.Write(logger.
+			UnlessError(
+				e.Error(), "failed to notify message",
+				log.LevelInfo, "message notified",
+			).
+			Data(map[string]any{
+				"pub_sub.driver": "rabbitmq",
+				"pub_sub.topic":  e.GetData("topic"),
+			}),
 		)
 	})
 }

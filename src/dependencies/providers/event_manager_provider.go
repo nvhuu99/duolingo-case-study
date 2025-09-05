@@ -21,9 +21,13 @@ func (provider *EventManagerProvider) Bootstrap(bootstrapCtx context.Context, sc
 		time.Duration(collectInterval)*time.Second,
 	)
 
-	events.AddDecorators(trace_service.NewRabbitMQContextPropagator())
-	events.AddDecorators(trace_service.NewGlobalEventTracer())
-	events.Subscribe(".*", trace_service.NewGlobalEventTracer())
+	if scope == "test" {
+		return
+	}
+
+	events.AddDecorator(trace_service.NewRabbitMQContextPropagator())
+	events.AddDecorator(trace_service.NewGlobalTracer())
+	events.Subscribe(".*", trace_service.NewGlobalTracer())
 }
 
 func (provider *EventManagerProvider) Shutdown(shutdownCtx context.Context) {

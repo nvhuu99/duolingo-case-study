@@ -12,7 +12,7 @@ package test
 
 // 	manager := events.GetManager()
 
-// 	manager.AddSubsriber(&events.SubscriberImp{Name: "sub1"})
+// 	manager.AddSubscriber(&events.SubscriberImp{Name: "sub1"})
 
 // 	ctxA, A := events.New(context.Background(), "A")
 

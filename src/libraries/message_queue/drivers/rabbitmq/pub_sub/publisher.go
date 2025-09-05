@@ -69,7 +69,9 @@ func (p *Publisher) RemoveTopic(ctx context.Context, topic string) error {
 func (p *Publisher) Notify(ctx context.Context, topic string, message string) error {
 	var err error
 
-	evt := events.Start(ctx, fmt.Sprintf("pub_sub.publisher.notify(%v)", topic), nil)
+	evt := events.Start(ctx, fmt.Sprintf("pub_sub.publisher.notify(%v)", topic), map[string]any{
+		"topic": topic,
+	})
 	defer events.End(evt, true, err, nil)
 
 	err = p.Publish(evt.Context(), topic, topic, message, map[string]any{

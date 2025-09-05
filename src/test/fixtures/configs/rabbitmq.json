@@ -1,6 +1,6 @@
 {
   "username": "root",
-  "password": "12345",
+  "password": "root@1234",
   "host": "127.0.0.1",
   "port": "5672"
 }

@@ -1,0 +1,19 @@
+{
+    "alloy": {
+        "otlp": {
+            "receiver": {
+                "grpc": {
+                    "endpoint": "127.0.0.1:4317"
+                }
+            }
+        }
+    },
+    "loki": {
+        "endpoint": "127.0.0.1:3100"
+    },
+    "log": {
+        "level": "info",
+        "buffer_limit_count": 100,
+        "buffer_flush_interval_seconds": 5
+    }
+}

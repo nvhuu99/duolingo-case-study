@@ -2,8 +2,8 @@ package events
 
 import (
 	"context"
-	"log"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -60,10 +60,24 @@ func (m *EventManager) AddFinalizer(finalizer EventFinalizer) {
 	m.eventFinalizers.Push(NewBaseEventProcessor(finalizer.Finalize))
 }
 
-func (m *EventManager) AddSubsriber(pattern string, subscriber Subscriber) {
+func (m *EventManager) AddDecoratorFunc(prefix string, decoratorFunc func(*Event, *EventBuilder)) {
+	m.eventDecorators.Push(NewBaseEventProcessor(func(e *Event, b *EventBuilder) {
+		if strings.HasPrefix(e.Name(), prefix) {
+			decoratorFunc(e, b)
+		}
+	}))
+}
+
+func (m *EventManager) AddSubscriber(pattern string, subscriber Subscriber) {
 	id := subscriber.GetId()
 	m.subscriberTopics[id] = append(m.subscriberTopics[id], regexp.MustCompile(pattern))
 	m.subscribers = append(m.subscribers, subscriber)
+}
+
+func (m *EventManager) AddSubscribeFunc(pattern string, subscribeFunc func(*Event)) {
+	subscriber := NewBaseEventSubscriber()
+	subscriber.notifyFunc = subscribeFunc
+	m.AddSubscriber(pattern, subscriber)
 }
 
 func (m *EventManager) StartEvent(
@@ -141,7 +155,6 @@ func (m *EventManager) collectEndedEventsAndNotifySubscribers() {
 			return
 		case <-ticker.C:
 			for _, event := range m.eventTree.ExtractAllEndedEvents() {
-				log.Println("Event collected:", event.Name())
 				m.notifySubscribers(event)
 			}
 		}

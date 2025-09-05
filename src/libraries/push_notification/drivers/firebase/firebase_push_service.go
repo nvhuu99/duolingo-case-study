@@ -3,7 +3,9 @@ package firebase
 import (
 	"context"
 	"errors"
+	"strings"
 
+	events "duolingo/libraries/events/facade"
 	"duolingo/libraries/push_notification/message"
 	"duolingo/libraries/push_notification/results"
 
@@ -37,7 +39,24 @@ func (service *FirebasePushService) SendMulticast(
 	*results.MulticastResult,
 	error,
 ) {
-	multicast, err := service.builder.BuildMulticast(noti, target)
+	var sendResponse *fcm.BatchResponse
+	var multicast any
+	var result *results.MulticastResult
+	var err error
+
+	evt := events.Start(ctx, "push_noti.push_service.send_multicast", map[string]any{
+		"devices_total": len(target.DeviceTokens),
+		"platforms":     strings.Join(message.StrPlatforms(target.Platforms...), ", "),
+	})
+	defer func() {
+		if err == nil {
+			evt.SetData("success_total", result.SuccessCount)
+			evt.SetData("failure_total", result.FailureCount)
+		}
+		events.End(evt, true, err, nil)
+	}()
+
+	multicast, err = service.builder.BuildMulticast(noti, target)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +64,14 @@ func (service *FirebasePushService) SendMulticast(
 	if !ok || firebaseMulticast == nil {
 		panic(ErrMessageDriverDriverMismatch)
 	}
-	res, err := service.client.SendEachForMulticast(ctx, firebaseMulticast)
+
+	sendResponse, err = service.client.SendEachForMulticast(ctx, firebaseMulticast)
 	if err != nil {
 		return nil, err
 	}
-	return service.parseMulticastResponse(res, target), nil
+	result, err = service.parseMulticastResponse(sendResponse, target), nil
+
+	return result, err
 }
 
 func (service *FirebasePushService) parseMulticastResponse(

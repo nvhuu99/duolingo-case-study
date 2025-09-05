@@ -28,7 +28,9 @@ func (service *UserService) CountDevicesForCampaign(ctx context.Context, campaig
 	var aggregateResult results.UsersAggregationResult
 	var err error
 
-	evt := events.Start(ctx, "user_service.count_devices_for_campaign", nil)
+	evt := events.Start(ctx, "user_service.count_devices_for_campaign", map[string]any{
+		"operation_name": "count_devices_for_campaign",
+	})
 	defer events.End(evt, true, err, nil)
 
 	cmd := service.MakeAggregateUsersCommand()
@@ -53,7 +55,9 @@ func (service *UserService) GetDevicesForCampaign(
 	var devices []*models.UserDevice
 	var err error
 
-	evt := events.Start(ctx, "user_service.get_devices_for_campaign", nil)
+	evt := events.Start(ctx, "user_service.get_devices_for_campaign", map[string]any{
+		"operation_name": "get_devices_for_campaign",
+	})
 	defer events.End(evt, true, err, nil)
 
 	query := service.MakeListUserDevicesCommand()

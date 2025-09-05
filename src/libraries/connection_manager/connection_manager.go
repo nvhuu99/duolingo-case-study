@@ -3,10 +3,12 @@ package connection_manager
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	events "duolingo/libraries/events/facade"
 )
 
 var (
@@ -35,7 +37,10 @@ func (manager *ConnectionManager) NotifyNetworkFailure() {
 	}
 	manager.resettingTriggered.Store(true)
 
-	log.Printf("ConnectionManager(%v): network failure detected, all connection will be discarded for resetting", manager.connectionName())
+	events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         "network failure detected, resetting connections",
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	go func() {
 		defer manager.resettingTriggered.Store(false)
@@ -52,7 +57,10 @@ func (manager *ConnectionManager) RegisterClient(client *Client) {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
 
-	log.Printf("ConnectionManager(%v): client registered with clientID: %v\n", manager.connectionName(), client.GetClientId())
+	events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         fmt.Sprintf("client registered - ID: %v", client.GetClientId()),
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	id := client.GetClientId()
 	manager.clients[id] = client
@@ -63,7 +71,10 @@ func (manager *ConnectionManager) RegisterClient(client *Client) {
 func (manager *ConnectionManager) RemoveClient(client *Client) {
 	id := client.GetClientId()
 
-	log.Printf("ConnectionManager(%v): client is removed, clientID: %v\n", manager.connectionName(), id)
+	events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         fmt.Sprintf("client is removed - ID: %v", client.GetClientId()),
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
@@ -97,12 +108,20 @@ func (manager *ConnectionManager) RenewClientConnection(client *Client) error {
 	}
 	manager.clientConnections[client.GetClientId()] = nil
 
+	evt := events.Start(manager.ctx, "connection_manager", map[string]any{
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
+
 	newConn, err := manager.makeConnection()
 	if err != nil {
-		log.Printf("ConnectionManager(%v): failed to renew client connection - clientId: %v - error: %v\n", manager.connectionName(), client.GetClientId(), err)
+		events.Failed(evt, err, map[string]any{
+			"message": fmt.Sprintf("failed to renew client connection - ID: %v", client.GetClientId()),
+		})
 		return err
 	} else {
-		log.Printf("ConnectionManager(%v): client connection renewed - clientID: %v\n", manager.connectionName(), client.GetClientId())
+		events.Succeeded(evt, map[string]any{
+			"message": fmt.Sprintf("client connection renewed - ID: %v", client.GetClientId()),
+		})
 		manager.clientConnections[client.GetClientId()] = newConn
 		return nil
 	}
@@ -111,7 +130,11 @@ func (manager *ConnectionManager) RenewClientConnection(client *Client) error {
 func (manager *ConnectionManager) discardAllClientConnections() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
-	defer log.Printf("ConnectionManager(%v): all client connections discarded\n", manager.connectionName())
+
+	defer events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         "all client connections discarded",
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	for id := range manager.clients {
 		if manager.clientConnections[id] != nil {
@@ -122,7 +145,14 @@ func (manager *ConnectionManager) discardAllClientConnections() {
 }
 
 func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() error {
-	log.Printf("ConnectionManager(%v): waiting for network recorvery\n", manager.connectionName())
+	events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         "waiting for network recorvery",
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
+	defer events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         "network has recovered",
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	for {
 		select {
@@ -131,7 +161,6 @@ func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() e
 		default:
 			if conn, connErr := manager.makeConnection(); connErr == nil {
 				if pingErr := manager.connectionProxy.Ping(conn); pingErr == nil {
-					log.Printf("ConnectionManager(%v): network has recovered\n", manager.connectionName())
 					return nil
 				}
 			}
@@ -143,7 +172,11 @@ func (manager *ConnectionManager) idleUntilNetworkRecoveredUnlessCtxCanceled() e
 func (manager *ConnectionManager) resetAllConnectionsForNetworkRecovery() {
 	manager.clientsMutex.Lock()
 	defer manager.clientsMutex.Unlock()
-	defer log.Printf("ConnectionManager(%v): all client connections resetted\n", manager.connectionName())
+
+	defer events.Emit(manager.ctx, "connection_manager", nil, map[string]any{
+		"message":         "all client connections resetted",
+		"connection_name": manager.connectionProxy.ConnectionName(),
+	})
 
 	for id := range manager.clients {
 		// Error is ignored, since this function is called only when the network has just recovered.
@@ -164,8 +197,4 @@ func (manager *ConnectionManager) makeConnectionAndNotifyIfFails() any {
 
 func (manager *ConnectionManager) makeConnection() (any, error) {
 	return manager.connectionProxy.MakeConnection()
-}
-
-func (manager *ConnectionManager) connectionName() string {
-	return manager.connectionProxy.ConnectionName()
 }

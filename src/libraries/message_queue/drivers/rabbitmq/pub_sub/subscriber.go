@@ -91,7 +91,9 @@ func (sub *Subscriber) Listening(
 	) (driver.ConsumeAction, error) {
 		var err error
 
-		evt := events.Start(ctx, fmt.Sprintf("pub_sub.subscriber.notified(%v)", topic), nil)
+		evt := events.Start(ctx, fmt.Sprintf("pub_sub.subscriber.notified(%v)", topic), map[string]any{
+			"topic": topic,
+		})
 		defer events.End(evt, true, err, nil)
 
 		err = processFunc(ctx, msg)

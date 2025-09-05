@@ -6,7 +6,10 @@ import (
 
 	facade "duolingo/libraries/connection_manager/facade"
 	container "duolingo/libraries/dependencies_container"
+	event "duolingo/libraries/events"
+	events "duolingo/libraries/events/facade"
 	"duolingo/libraries/message_queue/drivers/rabbitmq/task_queue"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 	"duolingo/libraries/telemetry/otel_wrapper/trace"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +20,9 @@ type TaskQueueProvider struct {
 }
 
 func (provider *TaskQueueProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
+
+	tracer := container.MustResolve[*trace.TraceManager]()
+	logger := container.MustResolve[*log.Logger]()
 
 	/* Declare task queues */
 
@@ -29,7 +35,7 @@ func (provider *TaskQueueProvider) Bootstrap(bootstrapCtx context.Context, scope
 
 	/* Tracing Instrumentation */
 
-	trace.GetManager().Decorate("task_queue.producer.push(<task_queue>)", func(
+	tracer.Decorate("task_queue.producer.push(<task_queue>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -40,7 +46,7 @@ func (provider *TaskQueueProvider) Bootstrap(bootstrapCtx context.Context, scope
 		)
 	})
 
-	trace.GetManager().Decorate("task_queue.comsumer.comsume(<task_queue>)", func(
+	tracer.Decorate("task_queue.comsumer.comsume(<task_queue>)", func(
 		span otlptrace.Span,
 		data trace.DataBag,
 	) {
@@ -48,6 +54,34 @@ func (provider *TaskQueueProvider) Bootstrap(bootstrapCtx context.Context, scope
 			attribute.String("kind", "consumer"),
 			attribute.String("task_queue.driver", "rabbitmq"),
 			attribute.String("task_queue.task_queue", data.Get("task_queue")),
+		)
+	})
+
+	/* Logs Instrumentation */
+
+	events.SubscribeFunc("task_queue.producer.push", func(e *event.Event) {
+		logger.Write(logger.
+			UnlessError(
+				e.Error(), "failed to published message",
+				log.LevelInfo, "message published",
+			).
+			Data(map[string]any{
+				"task_queue.driver":     "rabbitmq",
+				"task_queue.task_queue": e.GetData("task_queue"),
+			}),
+		)
+	})
+
+	events.SubscribeFunc("task_queue.comsumer.comsume", func(e *event.Event) {
+		logger.Write(logger.
+			UnlessError(
+				e.Error(), "failed to published message",
+				log.LevelInfo, "message published",
+			).
+			Data(map[string]any{
+				"task_queue.driver":     "rabbitmq",
+				"task_queue.task_queue": e.GetData("task_queue"),
+			}),
 		)
 	})
 }

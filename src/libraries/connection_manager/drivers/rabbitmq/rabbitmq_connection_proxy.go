@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 
 	"duolingo/libraries/connection_manager"
@@ -67,10 +66,6 @@ func (proxy *RabbitMQConnectionProxy) IsNetworkErr(err error) bool {
 	result := connection_manager.IsNetworkErr(err) ||
 		errors.As(err, &amqp.ErrClosed) ||
 		errors.As(err, &amqp.ErrChannelMax)
-
-	if result {
-		log.Println(err)
-	}
 
 	return result
 }

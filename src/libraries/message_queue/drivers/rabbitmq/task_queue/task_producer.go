@@ -30,7 +30,9 @@ func (p *TaskProducer) SetQueue(queue string) {
 func (p *TaskProducer) Push(ctx ctxt.Context, serializedTask string) error {
 	var err error
 
-	evt := events.Start(ctx, fmt.Sprintf("task_queue.producer.push(%v)", p.queue), nil)
+	evt := events.Start(ctx, fmt.Sprintf("task_queue.producer.push(%v)", p.queue), map[string]any{
+		"task_queue": p.queue,
+	})
 	defer events.End(evt, true, err, nil)
 
 	if p.queue == "" {

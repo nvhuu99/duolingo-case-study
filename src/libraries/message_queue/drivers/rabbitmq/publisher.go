@@ -29,6 +29,7 @@ func (p *Publisher) Publish(
 	evt := events.Start(
 		ctx, fmt.Sprintf("mq.publisher.publish(%v)", topic),
 		map[string]any{
+			"topic":           topic,
 			"routing_key":     key,
 			"message_headers": headerTable,
 		},

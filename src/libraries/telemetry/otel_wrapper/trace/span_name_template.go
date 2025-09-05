@@ -5,7 +5,7 @@ import (
 )
 
 var placeholderRegex = regexp.MustCompile(`<([^<>]+)>`)
-var specials = `.+*?()|[]{}^$=\!:\-`
+var specials = `()[]{}-`
 var sanitizeRegex = regexp.MustCompile(`([` + regexp.QuoteMeta(specials) + `])`)
 
 type SpanNameTemplate string

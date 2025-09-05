@@ -27,3 +27,11 @@ func Platforms(p ...string) []Platform {
 	}
 	return result
 }
+
+func StrPlatforms(p ...Platform) []string {
+	result := make([]string, len(p))
+	for i := range p {
+		result = append(result, string(p[i]))
+	}
+	return result
+}
