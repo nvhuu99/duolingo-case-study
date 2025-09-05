@@ -5,7 +5,6 @@ import (
 	connection "duolingo/libraries/connection_manager/drivers/rabbitmq"
 	driver "duolingo/libraries/message_queue/drivers/rabbitmq"
 	tq "duolingo/libraries/message_queue/task_queue"
-	"log"
 )
 
 type TaskQueue struct {
@@ -24,7 +23,6 @@ func (q *TaskQueue) SetQueue(queue string) {
 }
 
 func (q *TaskQueue) Declare(ctx context.Context) error {
-	defer log.Printf("TaskQueue: task queue %v declared\n", q.queue)
 	if q.queue == "" {
 		return tq.ErrInvalidQueueName
 	}
@@ -47,7 +45,6 @@ func (q *TaskQueue) Declare(ctx context.Context) error {
 }
 
 func (q *TaskQueue) Remove(ctx context.Context) error {
-	defer log.Printf("TaskQueue: task queue %v deleted\n", q.queue)
 	if q.queue == "" {
 		return nil
 	}

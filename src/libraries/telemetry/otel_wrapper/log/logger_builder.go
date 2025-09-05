@@ -6,10 +6,9 @@ import (
 )
 
 type LoggerBuilder struct {
-	ctx       context.Context
-	level     LogLevel
-	formatter LogFormatter
-	writers   []LogWriter
+	ctx     context.Context
+	level   LogLevel
+	writers []LogWriter
 }
 
 func NewLoggerBuilder(ctx context.Context) *LoggerBuilder {
@@ -23,17 +22,13 @@ func (builder *LoggerBuilder) SetLogLevel(level LogLevel) *LoggerBuilder {
 	return builder
 }
 
-func (builder *LoggerBuilder) UseJsonFormat() *LoggerBuilder {
-	builder.formatter = &JsonFormatter{}
-	return builder
-}
-
-func (builder *LoggerBuilder) WithConsoleOutput() *LoggerBuilder {
-	builder.writers = append(builder.writers, NewConsoleWriter().WithFormatter(builder.formatter))
+func (builder *LoggerBuilder) WithConsoleOutput(formatter LogFormatter) *LoggerBuilder {
+	builder.writers = append(builder.writers, NewConsoleWriter().WithFormatter(formatter))
 	return builder
 }
 
 func (builder *LoggerBuilder) WithGrafanaLokiOutput(
+	formatter LogFormatter,
 	serviceName string,
 	lokiEndpoint string,
 	limit int,
@@ -46,7 +41,7 @@ func (builder *LoggerBuilder) WithGrafanaLokiOutput(
 		limit,
 		interval,
 	)
-	loki.WithFormatter(builder.formatter)
+	loki.WithFormatter(formatter)
 	builder.writers = append(builder.writers, loki)
 	return builder
 }

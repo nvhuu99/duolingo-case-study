@@ -23,6 +23,13 @@ var logLevels = map[string]LogLevel{
 	"debug": LevelDebug,
 }
 
+func LogLevelAsString(level LogLevel) string {
+	if level, ok := logLevelAsString[level]; !ok {
+		return level
+	}
+	return "info"
+}
+
 func ParseLogLevelString(level string) LogLevel {
 	if level, ok := logLevels[level]; !ok {
 		return level

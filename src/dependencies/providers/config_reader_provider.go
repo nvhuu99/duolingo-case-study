@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -13,11 +14,13 @@ type ConfigReaderProvider struct {
 }
 
 func (c *ConfigReaderProvider) Bootstrap(bootstrapCtx context.Context, scope string) {
+
 	configDir := os.Getenv("DUOLINGO_CONFIG_DIR_PATH")
 	if configDir == "" {
 		panic("environment variable DUOLINGO_CONFIG_DIR_PATH is not set")
 	}
-	log.Printf("use %v as configuration files directory\n", configDir)
+
+	log.Println(fmt.Sprintf("use %v as configuration files directory\n", configDir))
 
 	container.BindSingleton[config_reader.ConfigReader](func(ctx context.Context) any {
 		return config_reader.

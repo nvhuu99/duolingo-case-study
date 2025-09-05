@@ -33,7 +33,7 @@ func (writer *ConsoleWriter) WithFormatter(formatter LogFormatter) *ConsoleWrite
 func (writer *ConsoleWriter) Write(log *Log) {
 	formatted, err := writer.formatter.Format(log)
 	if err != nil {
-		fmt.Println("log format failed", log.Message)
+		fmt.Println("level: error - ns: telementry.otel_wrapper.log.console_writer - message: log format failed")
 	} else {
 		fmt.Println(formatted)
 	}
@@ -83,6 +83,11 @@ func (writer *LokiWriter) Write(log *Log) {
 }
 
 func (writer *LokiWriter) flush(ctx context.Context, level LogLevel, logs []*Log) {
+
+	if len(logs) == 0 {
+		return
+	}
+
 	labels := map[string]string{
 		"level":        logLevelAsString[level],
 		"service_name": writer.serviceName,
@@ -102,10 +107,15 @@ func (writer *LokiWriter) flush(ctx context.Context, level LogLevel, logs []*Log
 			Values: entries,
 		}},
 	})
-	req, _ := http.NewRequest("POST", writer.lokiEndpoint, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", writer.lokiEndpoint, bytes.NewBuffer(requestBody))
+	if err != nil {
+		panic("unable to construct Loki push api request, err: " + err.Error())
+	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	client.Do(req)
+	if _, err = client.Do(req); err != nil {
+		fmt.Println("level: error - ns: telementry.otel_wrapper.log.loki_writer - message: failed to flush log - err: " + err.Error())
+	}
 }
 
 type LokiLogEntry struct {

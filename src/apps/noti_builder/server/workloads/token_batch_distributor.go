@@ -2,12 +2,12 @@ package workloads
 
 import (
 	"context"
-	"log"
 	"time"
 
 	container "duolingo/libraries/dependencies_container"
 	events "duolingo/libraries/events/facade"
 	ps "duolingo/libraries/message_queue/pub_sub"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 	dist "duolingo/libraries/work_distributor"
 	"duolingo/models"
 	usr_svc "duolingo/services/user_service"
@@ -20,6 +20,8 @@ type TokenBatchDistributor struct {
 	buildJobSubscriber ps.Subscriber
 
 	userService *usr_svc.UserService
+
+	logger *log.Logger
 }
 
 func NewTokenBatchDistributor() *TokenBatchDistributor {
@@ -28,6 +30,7 @@ func NewTokenBatchDistributor() *TokenBatchDistributor {
 		buildJobPublisher:  container.MustResolveAlias[ps.Publisher]("noti_builder_jobs_publisher"),
 		buildJobSubscriber: container.MustResolveAlias[ps.Subscriber]("noti_builder_jobs_subscriber"),
 		userService:        container.MustResolve[*usr_svc.UserService](),
+		logger:             container.MustResolve[*log.Logger](),
 	}
 }
 
@@ -41,7 +44,7 @@ func (d *TokenBatchDistributor) CreateBatchJob(ctx context.Context, input *model
 
 	if count, err = d.userService.CountDevicesForCampaign(evt.Context(), input.Campaign); err == nil {
 		if count == 0 {
-			log.Println("token_distributor: workload empty")
+			d.logger.Write(d.logger.Info("workload empty").Namespace("noti_builder.token_batch_distributor"))
 			return nil
 		}
 		if workload, err = d.CreateWorkload(evt.Context(), count); err == nil {
@@ -105,7 +108,7 @@ func (d *TokenBatchDistributor) startJobBatching(
 		if assignment, lastErr = d.WaitForAssignment(consumeCtx, interval, jobId); lastErr != nil {
 			if lastErr == dist.ErrWorkloadHasAlreadyFulfilled {
 				events.Succeeded(evt, nil)
-				log.Println("batching completed")
+				d.logger.Write(d.logger.Info("batch job fulfilled").Namespace("noti_builder.token_batch_distributor"))
 				return nil
 			}
 			continue

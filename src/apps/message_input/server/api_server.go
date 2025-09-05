@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"duolingo/apps/message_input/server/handlers"
@@ -10,12 +9,14 @@ import (
 	"duolingo/libraries/config_reader"
 	container "duolingo/libraries/dependencies_container"
 	restful "duolingo/libraries/restful/server"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 )
 
 type MessageInputApiServer struct {
 	ctx    context.Context
 	server *restful.Server
 	config config_reader.ConfigReader
+	logger *log.Logger
 }
 
 func NewMessageInputApiServer(ctx context.Context) *MessageInputApiServer {
@@ -32,6 +33,7 @@ func NewMessageInputApiServer(ctx context.Context) *MessageInputApiServer {
 		ctx:    ctx,
 		server: server,
 		config: config,
+		logger: container.MustResolve[*log.Logger](),
 	}
 }
 
@@ -44,7 +46,8 @@ func (api *MessageInputApiServer) Serve() {
 		handlers.NewMessageInputRequestHandler().Handle,
 	)
 
-	log.Println("serving api")
+	api.logger.Write(api.logger.
+		Info("serving api").Namespace("message_input.api_server"))
 
 	api.server.Serve(api.ctx)
 }

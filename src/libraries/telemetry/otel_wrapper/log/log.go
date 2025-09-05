@@ -11,7 +11,7 @@ type Log struct {
 	Message      string    `json:"message"`
 	LogNamespace string    `json:"namespace"`
 	LogData      any       `json:"data"`
-	LogErrors    any       `json:"errors"`
+	LogError     any       `json:"error"`
 	LogContext   any       `json:"context"`
 }
 
@@ -39,12 +39,9 @@ func (log *Log) Data(data any) *Log {
 	return log
 }
 
-func (log *Log) Errors(errs any) *Log {
-	if errs != nil {
-		if asErr, ok := errs.(error); ok {
-			log.LogErrors = asErr.Error()
-		}
-		log.LogErrors = errs
+func (log *Log) Err(errs any) *Log {
+	if asErr, ok := errs.(error); ok {
+		log.LogError = asErr.Error()
 	}
 	return log
 }
@@ -56,8 +53,8 @@ func (log *Log) Detail(detail map[string]any) *Log {
 	if logData, has := detail["data"]; has {
 		log.Data(logData)
 	}
-	if errs, has := detail["errors"]; has {
-		log.Errors(errs)
+	if err, has := detail["err"]; has {
+		log.Err(err)
 	}
 	return log
 }

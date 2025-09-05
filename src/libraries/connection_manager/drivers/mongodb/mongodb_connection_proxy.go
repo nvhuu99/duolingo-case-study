@@ -43,7 +43,6 @@ func (proxy *MongoConnectionProxy) SetArgsPanicIfInvalid(args any) {
 		if credentials != ":" {
 			uri = fmt.Sprintf("mongodb://%v@%v/", credentials, address)
 		}
-		fmt.Println(uri)
 		mongoArgs.SetURI(uri)
 	}
 	proxy.connectionArgs = mongoArgs

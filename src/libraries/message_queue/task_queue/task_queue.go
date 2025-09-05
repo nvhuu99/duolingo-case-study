@@ -23,5 +23,5 @@ type TaskProducer interface {
 
 type TaskConsumer interface {
 	SetQueue(queue string)
-	Consuming(ctx context.Context, handleFunc func(context.Context, string)) error
+	Consuming(ctx context.Context, handleFunc func(context.Context, string) error) error
 }

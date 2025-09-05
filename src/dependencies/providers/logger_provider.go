@@ -22,10 +22,14 @@ func (provider *LoggerProvider) Bootstrap(bootstrapCtx context.Context, scope st
 
 	container.BindSingleton[*log.Logger](func(ctx context.Context) any {
 		return log.NewLoggerBuilder(ctx).
-			SetLogLevel(log.ParseLogLevelString(level)).
-			UseJsonFormat().
-			WithConsoleOutput().
+			SetLogLevel(
+				log.ParseLogLevelString(level),
+			).
+			WithConsoleOutput(
+				new(log.KeyValuePairFormatter),
+			).
 			WithGrafanaLokiOutput(
+				new(log.JsonFormatter),
 				appName,
 				endpoint,
 				limit,

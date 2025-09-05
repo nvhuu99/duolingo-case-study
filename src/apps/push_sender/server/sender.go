@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
@@ -12,10 +11,14 @@ import (
 	tq "duolingo/libraries/message_queue/task_queue"
 	push_noti "duolingo/libraries/push_notification"
 	"duolingo/libraries/push_notification/message"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 	"duolingo/models"
 )
 
 type Sender struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// Consumer receiving incoming push notification task
 	pushNotiConsumer tq.TaskConsumer
 
@@ -35,6 +38,8 @@ type Sender struct {
 	// Sender operations are executed asynchronously, any errors occur might be
 	// sent to this channel as a fallback handling.
 	errChan chan error
+
+	logger *log.Logger
 }
 
 func NewSender() *Sender {
@@ -54,30 +59,33 @@ func NewSender() *Sender {
 		buffer:           grp,
 		platforms:        platforms,
 		errChan:          make(chan error, 100),
+		logger:           container.MustResolve[*log.Logger](),
 	}
 }
 
 func (sender *Sender) Start(serverCtx context.Context) {
-	ctx, cancel := context.WithCancel(serverCtx)
-	defer cancel()
+	sender.ctx, sender.cancel = context.WithCancel(serverCtx)
+	defer sender.cancel()
 
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 
-	go sender.handleErrChannel(wg, ctx)
+	go sender.handleErrChannel(wg, sender.ctx)
 
 	go func() {
-		defer cancel()
+		defer sender.cancel()
 		defer wg.Done()
 		// When the buffer reaches size limit, flush the tokens and submit a send
 		// request to the PushService.
 		sender.buffer.SetConsumeFunc(false, sender.sendPushNoti)
 		// Stored incoming push notifications in a token buffer
-		err := sender.pushNotiConsumer.Consuming(ctx, sender.bufferTokens)
+		err := sender.pushNotiConsumer.Consuming(sender.ctx, sender.bufferTokens)
 		if err != nil {
 			panic(err)
 		}
 	}()
+
+	sender.logger.Write(sender.logger.Info("push notification sender is running").Namespace("push_sender"))
 
 	wg.Wait()
 }
@@ -90,21 +98,22 @@ func (sender *Sender) handleErrChannel(wg *sync.WaitGroup, ctx context.Context) 
 			return
 		case err := <-sender.errChan:
 			if err != nil {
-				log.Println("push sender err", err)
+				sender.logger.Write(sender.logger.Error("push sender operation error", err).Namespace("push_sender"))
 			}
 		}
 	}
 }
 
-func (sender *Sender) bufferTokens(ctx context.Context, serialized string) {
+func (sender *Sender) bufferTokens(ctx context.Context, serialized string) error {
 	msg := models.PushNotiMessageDecode([]byte(serialized))
 	if err := msg.Validate(); err != nil {
 		sender.errChan <- err
-		return
+		return err
 	}
-	sender.buffer.DeclareGroup(ctx, *msg.MessageInput)
+	sender.buffer.DeclareGroup(sender.ctx, *msg.MessageInput)
 	sender.buffer.Write(*msg.MessageInput, msg.GetTargetTokens(sender.platforms)...)
-	log.Println("token buffered:", serialized)
+	sender.logger.Write(sender.logger.Info("push notification tokens buffered").Namespace("push_sender"))
+	return nil
 }
 
 func (sender *Sender) sendPushNoti(
@@ -124,5 +133,5 @@ func (sender *Sender) sendPushNoti(
 		sender.errChan <- err
 		return
 	}
-	log.Println("push notification sent:", string(input.Encode()))
+	sender.logger.Write(sender.logger.Info("push notification request sent").Namespace("push_sender"))
 }

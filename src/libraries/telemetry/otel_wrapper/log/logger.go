@@ -19,9 +19,9 @@ func (logger *Logger) Debug(message string) *Log {
 	return log
 }
 
-func (logger *Logger) Error(message string, errs any) *Log {
+func (logger *Logger) Error(message string, err any) *Log {
 	log := NewLog(LevelInfo, message)
-	log.Errors(errs)
+	log.Err(err)
 	return log
 }
 
@@ -35,7 +35,7 @@ func (logger *Logger) UnlessError(
 	if err != nil {
 		log.Level = LevelError
 		log.Message = messageIfErr
-		log.Errors(err)
+		log.Err(err)
 	} else {
 		log.Level = level
 		log.Message = message
@@ -46,7 +46,7 @@ func (logger *Logger) UnlessError(
 func (logger *Logger) Write(log *Log) {
 	if logger.level >= log.Level {
 
-		if log.LogErrors != nil {
+		if log.LogError != nil {
 			log.Level = LevelError
 		}
 		log.Timestamp = time.Now()

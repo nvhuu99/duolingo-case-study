@@ -37,14 +37,17 @@ local.file "endpoints" {
         forward_to = [loki.process.default.receiver]
     }
     loki.process "default" {
-        // Ensure log timestamp use the original value instead of the time they 
-        // were receied by Alloy.
-        stage.regex {
-            expression=`^.*?loggedtime=(?P<loggedtime>\S+)`
+        stage.json {
+            expressions = {
+                originalLoggedTime = "timestamp",
+                namespace  = "namespace",
+            }
         }
-        stage.timestamp {
-            source = "loggedtime"
-            format = "2006-01-02T15:04:05.000Z07:00"
+
+        stage.labels {
+            values = {
+                namespace = "namespace",
+            }
         }
 
         forward_to = [otelcol.receiver.loki.default.receiver]

@@ -67,7 +67,7 @@ func (provider *ConnectionsProvider) logsInstrumentation() {
 		logger.Write(logger.
 			Debug(e.GetDataStr("message")).
 			Namespace("connection_manager").
-			Errors(e.Error()).
+			Err(e.Error()).
 			Data(map[string]any{
 				"connection_name": e.GetData("connection_name"),
 			}),

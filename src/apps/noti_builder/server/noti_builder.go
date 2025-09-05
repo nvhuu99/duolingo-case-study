@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	wrkl "duolingo/apps/noti_builder/server/workloads"
@@ -10,6 +9,7 @@ import (
 	events "duolingo/libraries/events/facade"
 	ps "duolingo/libraries/message_queue/pub_sub"
 	tq "duolingo/libraries/message_queue/task_queue"
+	"duolingo/libraries/telemetry/otel_wrapper/log"
 	"duolingo/models"
 )
 
@@ -17,6 +17,7 @@ type NotiBuilder struct {
 	msgInpSubscriber ps.Subscriber
 	pushNotiProducer tq.TaskProducer
 	tokenDistributor *wrkl.TokenBatchDistributor
+	logger           *log.Logger
 }
 
 func NewNotiBuilder() *NotiBuilder {
@@ -24,12 +25,11 @@ func NewNotiBuilder() *NotiBuilder {
 		msgInpSubscriber: container.MustResolveAlias[ps.Subscriber]("message_input_subscriber"),
 		pushNotiProducer: container.MustResolveAlias[tq.TaskProducer]("push_notifications_producer"),
 		tokenDistributor: wrkl.NewTokenBatchDistributor(),
+		logger:           container.MustResolve[*log.Logger](),
 	}
 }
 
 func (b *NotiBuilder) Start(buildCtx context.Context) {
-	log.Println("running noti builder")
-
 	ctx, cancel := context.WithCancel(buildCtx)
 	defer cancel()
 
@@ -52,6 +52,9 @@ func (b *NotiBuilder) Start(buildCtx context.Context) {
 		}
 	}()
 
+	b.logger.Write(b.logger.
+		Info("notification builder is running").Namespace("noti_builder"))
+
 	wg.Wait()
 }
 
@@ -60,7 +63,9 @@ func (b *NotiBuilder) createBatchJob(ctx context.Context, serialized string) err
 
 	evt := events.Start(ctx, "noti_builder.create_batch_job", nil)
 	defer events.End(evt, true, err, nil)
-	defer log.Println("create batch job, err:", err)
+
+	defer b.logger.Write(b.logger.
+		Info("new batch job created").Namespace("noti_builder").Err(err))
 
 	err = b.tokenDistributor.CreateBatchJob(
 		evt.Context(),
@@ -79,7 +84,8 @@ func (b *NotiBuilder) producePushNotiTask(
 
 	evt := events.Start(ctx, "noti_builder.produce_push_noti_task", nil)
 	defer events.End(evt, true, err, nil)
-	defer log.Println("produce push noti task, err:", err)
+	defer b.logger.Write(b.logger.
+		Info("push notification batch queued").Namespace("noti_builder").Err(err))
 
 	serialized := string(models.NewPushNotiMessage(input, devices).Encode())
 	err = b.pushNotiProducer.Push(evt.Context(), serialized)
